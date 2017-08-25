@@ -1,0 +1,159 @@
+#!usr/bin/env python
+import sys
+from Bio import SeqIO
+from collections import Counter
+import os
+from time import time
+
+# do the core gene find
+# python this_script.py -i foo.pep.fsa -g foo.ortholog [-r taxon]
+def manual_print():
+    print 'Integrate pipeline can be used to identify orthologs, construct phylotree and get profile of pan-genomes'
+    print 'If the operonic information supplied, this pipeline can also cluster the operons'
+    print 'Usage:'
+    print '  python this.py -i foo.pep.fsa [-r taxonomy] [-p foo.operon]'
+    print 'Parameters:'
+    print ' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'
+    print ' -r: taxonomy name used as reference [optional]'
+    print ' -p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3.'
+
+    print 'Optional parameters for protein searching:'
+    print ' -s: spaced seed in format: 1111,1110,1001.. etc. parameter for fast search part'
+    print ' -a: number of processors to use'
+
+    print 'Optional parameters for ortholog, paralog and co-ortholog identification:'
+    print ' -c: min coverage of sequence [0~1]'
+    print ' -y: identity [0~100]'
+    print ' -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
+    print ''
+
+    print 'Optional parameters for pan-genome:'
+    print ' -l: threshold for specific genes. parameter for pan-genome'
+    print ' -u: threshold for core genes. parameter for pan-genome'
+
+
+
+argv = sys.argv
+# recommand parameter:
+args = {'-i': '', '-r': '', '-p': '', '-s':'111111', '-c':'.5', '-y':'50', '-n':'no', '-l':'.05', '-u':'.95', '-a':'4'}
+
+N = len(argv)
+for i in xrange(1, N):
+    k = argv[i]
+    if k in args:
+        v = argv[i + 1]
+        args[k] = v
+    elif k[:2] in args and len(k) > 2:
+        args[k[:2]] = k[2:]
+    else:
+        continue
+
+if args['-i'] == '':
+    manual_print()
+    raise SystemExit()
+
+try:
+    fas, otg, operon, seed, cov, idy, norm, low, up, np = map(args.get, ['-i', '-r', '-p', '-s', '-c', '-y', '-n', '-l', '-u', '-a'])
+except:
+    manual_print()
+    raise SystemExit()
+
+
+here = os.path.dirname(os.path.abspath(__file__))
+sfx = fas.split(os.sep)[-1]
+
+
+pyc=sys.executable
+# mkdir to store the results
+os.system('mkdir -p %s_results'%fas)
+
+#######################################################################################
+# index the header to save memory
+#######################################################################################
+
+
+
+#######################################################################################
+# all-vs-all protein search
+#######################################################################################
+start = time()
+
+#cmd = 'python %s/../bin/fast_search.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000'
+os.system(cmd%(pyc, here, fas, fas, fas, sfx, seed, np))
+
+cmd = 'nohup %s %s/../bin/fast_search.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log'%(pyc, here, fas, fas, fas, sfx, seed, np, fas)
+os.system(cmd)
+
+print 'all to all homologous searching time:', time() - start
+
+#######################################################################################
+# identify ortholog, co-ortholog and paralog
+#######################################################################################
+start = time()
+
+#cmd = 'python %s/../bin/find_orth.py -i %s_results/%s.sc -c %s -y %s -n %s -t y > %s_results/%s.opc'
+cmd = '%s %s/../bin/find_orth.py -i %s_results/%s.sc -c %s -y %s -n %s -t y > %s_results/%s.opc'
+os.system(cmd%(pyc, here, fas, sfx, cov, idy, norm, fas, sfx))
+
+print 'orthomcl algorithm time:', time() - start
+
+
+#######################################################################################
+# use mcl to cluster the genes
+#######################################################################################
+start = time()
+
+cmd = 'cut -f2-4 %s_results/%s.opc > %s_results/%s.xyz'%(fas, sfx, fas, sfx)
+os.system(cmd)
+
+cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s > %s_results/log'%(fas, sfx, fas, sfx, np, fas)
+os.system(cmd)
+
+print 'use mcl to group protein family time:', time() - start
+
+
+#######################################################################################
+# statistics of pan-genome
+#######################################################################################
+start = time()
+
+#cmd = 'python %s/pangenome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'
+cmd = '%s %s/pangenome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'%(pyc, here, fas, fas, sfx, fas, sfx)
+os.system(cmd)
+
+print 'pan-genome analysis time:', time() - start
+
+#######################################################################################
+# use RBH to find and align core genes, then concatenate them to single alignment
+#######################################################################################
+start = time()
+
+#cmd = 'python %s/rbh2phy.py -f %s -i %s_results/%s.sc > %s_results/%s.aln'
+cmd = '%s %s/rbh2phy.py -f %s -i %s_results/%s.sc > %s_results/%s.aln'
+os.system(cmd%(pyc, here, fas, fas, sfx, fas, sfx))
+# use trimal to remove weak alignment region.
+cmd = 'trimal -in %s_results/%s.aln -out %s_results/%s.aln.trim -automated1'
+os.system(cmd%(fas, sfx, fas, sfx))
+# use fasttree to construct phylotree
+cmd = 'fasttree -quiet -wag -gamma -pseudo -spr 4 -mlacc 2 -slownni -no2nd -boot 1000 %s_results/%s.aln.trim > %s_results/%s.nwk'
+os.system(cmd%(fas, sfx, fas, sfx))
+
+print 'species tree construction time:', time() - start
+
+#######################################################################################
+# cluster the operons if an operon file given
+#######################################################################################
+
+if os.path.isfile(operon):
+    start = time()
+    sfxo = operon.split(os.sep)[-1]
+    cmd = '%s %s/opclust.py -g %s_results/%s.mcl -p %s > %s_results/%s.xyz'%(pyc, here, fas, sfx, operon, fas, sfxo)
+    #print operon
+    #print cmd
+    os.system(cmd)
+
+    # use mcl to cluster operon
+    cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s'%(fas, sfxo, fas, sfxo, np)
+
+    print 'operon clustering time:', time() - start
+
