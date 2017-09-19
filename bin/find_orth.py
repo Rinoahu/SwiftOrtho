@@ -29,7 +29,7 @@ def manual_print():
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i':'', '-c':.5, '-y':50, '-n':'no', '-t':'n', '-a':'4'}
+args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4'}
 
 N = len(argv)
 for i in xrange(1, N):

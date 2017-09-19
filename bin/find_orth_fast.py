@@ -29,7 +29,7 @@ def manual_print():
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i':'', '-c':.5, '-y':50, '-n':'no', '-t':'n', '-a':'4'}
+args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -64,7 +64,7 @@ mean = lambda x: float(sum(x)) / len(x)
 
 # the ortholog class
 class OTH:
-    def __init__(self, fn=None, cov=.95, idy=0, evl=1e-5, norm='bal'):
+    def __init__(self, fn=None, cov=.5, idy=0, evl=1e-5, norm='bal'):
         self.fn = fn
         self.cov = cov
         self.idy = idy
@@ -261,6 +261,11 @@ class OTH:
 
     # get co by given a ortholog
     def get_cos(self):
+
+        #print qid, qips, sid, sips
+        qco_visit = [0] * len(self.qco_scos)
+        qot_visit = [0] * len(self.qot_scos)
+
         for qid, sid, sco in self.get_ots():
             qips = [qid]
             start, end = self.get_range(qid, self.qip_qids)
@@ -270,10 +275,7 @@ class OTH:
             start, end = self.get_range(sid, self.qip_qids)
             sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end)])
 
-            #print qid, qips, sid, sips
-            qco_visit = [0] * len(self.qco_scos)
-            qot_visit = [0] * len(self.qot_scos)
-
+            #print 'length of co-ortholog', len(qips), len(sips), len(self.qot_sids)
             for qip in qips:
                 for sip in sips: 
                     #if qip == qid and sip == sid:
@@ -298,8 +300,9 @@ class OTH:
         for i in xrange(N):
             qid = self.loc[i]
             start, end = self.get_range(qid, self.qot_qids)
+            #print 'travel', i, N
             for j in xrange(start, end):
-                if self.qot_scos[j] >= 0:
+                if self.qot_scos[j] > 0:
                     ots[i] = 1
                     break
 
