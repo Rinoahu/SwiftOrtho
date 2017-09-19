@@ -398,15 +398,24 @@ class OTH:
                     yield a, b, c/avg
 
 
+        # print all ortholog and paralog
+        def printf(self):
+            for i in self.get_norm_ots():
+                print 'OT\t' + '\t'.join(i)
+            for i in self.get_norm_cos():
+                print 'CO\t' + '\t'.join(i)
+            for i in self.get_norm_ips():
+                print 'IP\t' + '\t'.join(i)
 
 
 clf = OTH(qry)
 clf.fit()
+clf.printf()
 #for i in clf.get_ips():
 #    print i
 
-for i in clf.get_norm_ips():
-    print i
+#for i in clf.get_norm_ips():
+#    print i
 
 
 
