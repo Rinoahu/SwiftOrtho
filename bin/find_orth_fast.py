@@ -399,13 +399,14 @@ class OTH:
 
 
         # print all ortholog and paralog
-        def printf(self):
-            for i in self.get_norm_ots():
-                print 'OT\t' + '\t'.join(i)
-            for i in self.get_norm_cos():
-                print 'CO\t' + '\t'.join(i)
-            for i in self.get_norm_ips():
-                print 'IP\t' + '\t'.join(i)
+    def printf(self):
+        for i in self.get_norm_ots():
+            print '\t'.join(['OT'] + map(str, i))
+        for i in self.get_norm_cos():
+            print '\t'.join(['CO'] + map(str, i))
+        for i in self.get_norm_ips():
+            print '\t'.join(['IP'] + map(str, i))
+
 
 
 clf = OTH(qry)
