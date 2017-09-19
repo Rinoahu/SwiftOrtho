@@ -1,0 +1,280 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim:fenc=utf-8
+#  Copyright © xh
+# CreateTime: 2016-06-03 13:55:13
+
+# this is new fast and memory efficient version of orthomcl algorithm
+import sys
+import networkx as nx
+from math import log10
+import os
+from commands import getoutput
+from mmap import mmap, ACCESS_WRITE, ACCESS_READ
+from collections import Counter
+from bisect import bisect_left
+
+# print the manual
+def manual_print():
+    print 'Usage:'
+    print '    python fast_search.py -i foo.sc [-c .5] [-y 50] [-n no]'
+    print 'Parameters:'
+    print '  -i: tab-delimited file which contain 14 columns'
+    print '  -c: min coverage of sequence [0~1]'
+    print '  -y: identity [0~100]'
+    print '  -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
+    print '  -a: cpu number for sorting. Default: 1'
+    print '  -t: keep tmpdir[y|n]. Default: n'
+
+
+argv = sys.argv
+# recommand parameter:
+args = {'-i':'', '-c':.5, '-y':50, '-n':'no', '-t':'n', '-a':'4'}
+
+N = len(argv)
+for i in xrange(1, N):
+    k = argv[i]
+    if k in args:
+        try:
+            v = argv[i+1]
+        except:
+            break
+        args[k] = v
+    elif k[:2] in args and len(k) > 2:
+        args[k[:2]] = k[2:]
+    else:
+        continue
+
+if args['-i']=='':
+
+    manual_print()
+    raise SystemExit()
+
+try:
+    qry, coverage, identity, norm, tmpdir, np = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a'])
+
+except:
+    manual_print()
+    raise SystemExit()
+
+
+# the ortholog class
+class OTH:
+    def __init__(self, fn=None, cov=.95, idy=0, evl=1e-5, norm='bal'):
+        self.fn = fn
+        self.cov = cov
+        self.idy = idy
+        self.evl = evl
+        self.norm = norm
+
+
+    # parse blast8
+    def parse(self, f):
+        flag = None
+        hits = {}
+        for i in f:
+            j = i[:-1].split('\t')
+            qid, sid = j[:2]
+            idy, aln, mis, gop, qst, qed, sst, sed, evl, sco = map(float, j[2:12])
+            if qid != flag:
+                if hits:
+                    yield hits.values()
+                flag = qid
+                hits = {sid: [qid, sid, idy, aln, mis, gop, qst, qed, sst, sed, evl, sco]}
+            else:
+                if sid not in hits:
+                    hits[sid] = [qid, sid, idy, aln, mis, gop, qst, qed, sst, sed, evl, sco] 
+
+        if hits:
+            yield hits.values()
+
+
+    # filter the blast8 hits by identity, query-coverage and e-value
+    def filter(self):
+        f = open(self.fn, 'r')
+        for hits in self.parse(f):
+            qid, sid, idy, aln, mis, gop, qst, qed, sst, sed, evl, sco = hits[0]
+            mxb = sco
+            qln = max(qst, qed)
+            out = []
+            for hit in hits:
+                qid, sid, idy, aln, mis, gop, qst, qed, sst, sed, evl, sco = hit
+                qcv = (abs(qed-qst)+1.)/qln
+                if idy < self.idy or qcv < self.cov:
+                    continue
+
+                if self.norm == 'bsr':
+                    sco /= mxb
+                elif self.norm == 'bsl':
+                    sco /= aln
+                else:
+                    pass
+                out.append([qid, sid, sco])
+            if out:
+                yield out
+
+    # get Q_inparalog and Q_(co-)ortholog
+    def get_qico(self, hits):
+        flag = 0
+        ips, ots, cos = [], {}, []
+        for hit in hits:
+            qid, sid, sco = hit
+            qtx = qid.split('|')[0]
+            stx = sid.split('|')[0]
+            if qtx == stx:
+                if flag == 0:
+                    ips.append(hit)
+                else:
+                    cos.append(hit)
+            else:
+                flag = 1
+                if stx not in ots:
+                    ots[stx] = hit
+                else:
+                    cos.append(hit)
+
+        ots = ots.values()
+        return ips, ots, cos
+
+
+    # get the range of a given qid
+    def get_range(self, loc, qids):
+        i = self.l2i.get(loc)
+        if i:
+            start, end = qids[i:i+2]
+        else:
+            start = end = -1
+        return start, end
+
+    # given qid and sid, return index
+    def get_pair(self, qid, qids, sid, sids):
+        #x, y = map(self.loc2idx, [qid, sid])
+        if qid in self.l2i and sid in self.l2i:
+            x, y  = map(self.l2i.get, [qid, sid])
+        else:
+            return -1
+        x, y = x <= y and [x, y] or [y, x]
+        start, end = qids[x:x+2]
+        if start == end or not sids:
+            return -1
+        else:
+            Y = bisect_left(sids, y, start, end-1)
+            return y == sids[Y] and Y or -1
+
+
+
+    # add hits into qids, sids and scos
+    def add_hits(self, qids, sids, scos, hits):
+        #[[self.loc2idx(elem[0]), self.loc2idx(elem[1]), elem[2]] for elem in hits]
+        new = []
+        for qid,sid,sco in hits:
+            if qid not in self.l2i or sid not in self.l2i:
+                continue
+            x, y = map(self.l2i.get, [qid, sid])
+            if x < y:
+                new.append([y, -sco])
+
+            elif x > y:
+                z = self.get_pair(qid, qids, sid, sids)
+                if z != -1:
+                    scos[z] = (sco - scos[z])/2.
+            else:
+                continue
+
+        new.sort()
+        sids.append([elem[0] for elem in new])
+        scos.append([elem[1] for elem in new])
+        qids.append(len(sids))
+
+
+    # identify (co-)orthologs and paralogs
+    def fit(self, fn=None):
+        if fn != None:
+            self.fn = fn
+        # filter by coverage and idy
+        flag = None
+        self.qip_qids = [0]
+        self.qip_sids = []
+        self.qip_scos = []
+        self.qot_qids = [0]
+        self.qot_sids = []
+        self.qot_scos = []
+        self.qco_qids = [0]
+        self.qco_sids = []
+        self.qco_scos = []
+        qips = []
+        qots = []
+        qcos = []
+        self.loc = []
+        #idx = 0
+        f = open(self.fn, 'r')
+        for hits in self.filter():
+            qid = hits[0][0]
+            self.loc.append(qid)
+
+        self.N = len(self.loc)
+        self.l2i = {}
+        for i in xrange(self.N):
+            self.l2i[self.loc[i]] = i
+
+
+        for hits in self.filter():
+            qid = hits[0][0]
+            qip_hits, qot_hits, cos_hits = self.get_qico(hits)
+            self.add_hits(self.qip_qids, self.qip_sids, self.qip_scos, qip_hits)
+            self.add_hits(self.qot_qids, self.qot_sids, self.qot_scos, qot_hits)
+            self.add_hits(self.qco_qids, self.qco_sids, self.qco_scos, cos_hits)
+
+        f.close()
+
+        self.N = len(self.loc)
+ 
+
+    # get orthologs
+    def get_ots(self):
+        for qid in self.loc:
+            start, end = self.get_range(qid, self.qot_qids)
+            for i in xrange(start, end):
+                sco = self.qot_scos[i]
+                if sco >= 0:
+                    sid = self.loc[self.qot_sids[i]]
+                    yield qid, sid, sco
+
+    # get paralogs
+    def get_ips(self):
+        for qid in self.loc:
+            start, end = self.get_range(qid, self.qip_qids)
+            for i in xrange(start, end):
+                sco = self.qip_scos[i]
+                if sco >= 0:
+                    sid = self.loc[self.qip_sids[i]]
+                    yield qid, sid, sco
+               
+
+    # get co by given a ortholog
+    def get_co(self, qid, sid):
+        # get ips
+        qst, qed = self.get_range(qid, self.qip_qids)
+        qips = [qid]
+        qips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(qst, qed)])
+
+        sst, sed = self.get_range(sid, self.qip_qids)
+        sips = [sid]
+        sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(sst, sed)])
+        for qip in qips:
+            for sip in sips:
+                i = self.get_pair(qip, self.qot_qids, sip, self.qot_sids)
+                j = self.get_pair(qip, self.qco_qids, sip, self.qco_sids)
+                if i == -1 and j != -1:
+                    sco = self.qco_scos[j]
+                    yield qip, sip, sco
+                else:
+                    continue
+
+
+
+clf = OTH(qry)
+clf.fit()
+for i in clf.get_ips():
+    print i
+
