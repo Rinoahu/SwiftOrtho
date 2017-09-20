@@ -152,9 +152,14 @@ class OTH:
             if qtx != stx:
                 out_max = max(out_max, sco)
 
+        visit = set()
         ips, ots, cos = [], [], []
         for hit in hits:
             qid, sid, sco = hit
+            if sid in visit:
+                continue
+            else:
+                visit.add(sid)
             qtx = qid.split('|')[0]
             stx = sid.split('|')[0]
             if qtx == stx and sco >= out_max:
