@@ -257,7 +257,32 @@ class OTH:
                 if sco >= 0:
                     sid = self.loc[self.qip_sids[i]]
                     yield qid, sid, sco
-               
+
+    # reverse the query
+    def rev_qids_sids(self, qids, sids):
+        n, m = map(len, [qids, sids])
+        qids_r = [0] * (n-1)
+        sids_r = [0] * m
+        for i in sids:
+            qids_r[i] += 1
+        # cum sum
+        for i in xrange(1, n-1):
+            qids_r[i] += qids_r[i-1]
+
+        fq = qids_r[:]
+        # sort sids by sids
+        for i in xrange(n-1):
+            start, end = qids[i:i+2]
+            for j in xrange(start, end):
+                k = sids[j]
+                fq[k] -= 1
+                sids_r[fq[k]] = i
+
+        del fq
+        qids_R = [0]
+        qids_R.extend(qids_r)
+
+        return qids_R, sids_r
 
     # get co by given a ortholog
     def get_cos(self):
@@ -266,29 +291,42 @@ class OTH:
         qco_visit = [0] * len(self.qco_scos)
         qot_visit = [0] * len(self.qot_scos)
 
+        qip_qids_r, qip_sids_r = self.rev_qids_sids(self.qip_qids, self.qip_sids)
+
+        #print 'co-sids', len(self.qco_sids), self.qco_sids[-1]
         for qid, sid, sco in self.get_ots():
             qips = [qid]
             start, end = self.get_range(qid, self.qip_qids)
             qips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end)])
 
+            start, end = self.get_range(qid, qip_qids_r)
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end)])
+
+
             sips = [sid]
             start, end = self.get_range(sid, self.qip_qids)
             sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end)])
 
+            start, end = self.get_range(sid, qip_qids_r)
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end)])
+
+
+
             #print 'length of co-ortholog', len(qips), len(sips), len(self.qot_sids)
             for qip in qips:
                 for sip in sips: 
-                    #if qip == qid and sip == sid:
-                    #    continue
+                    if qip == qid and sip == sid:
+                        continue
                     i = self.get_pair(qip, self.qco_qids, sip, self.qco_sids)
                     if i != -1 and qco_visit[i] == 0:
-                        yield qid, sid, abs(self.qco_scos[i])
+                        yield qip, sip, abs(self.qco_scos[i])
                         qco_visit[i] = 1
                     else:
                         i = self.get_pair(qip, self.qot_qids, sip, self.qot_sids)
                         if i != -1 and qot_visit[i] == 0:
                             if self.qot_scos[i] < 0:
-                                yield qid, sid, abs(self.qot_scos[i])
+                                yield qip, sip, abs(self.qot_scos[i])
+
                             qot_visit[i] = 1
                         else:
                             continue
@@ -412,7 +450,7 @@ class OTH:
 
 
 
-clf = OTH(qry)
+clf = OTH(qry, coverage, identity)
 clf.fit()
 clf.printf()
 #for i in clf.get_ips():
