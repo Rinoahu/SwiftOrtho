@@ -118,7 +118,7 @@ class OTH:
                 yield out
 
     # get Q_inparalog and Q_(co-)ortholog
-    def get_qico(self, hits):
+    def get_qico0(self, hits):
         flag = 0
         ips, ots, cos = [], {}, []
         for hit in hits:
@@ -128,8 +128,8 @@ class OTH:
             if qtx == stx:
                 if flag == 0:
                     ips.append(hit)
-                #else:
-                #    cos.append(hit)
+                else:
+                    cos.append(hit)
             else:
                 flag = 1
                 if stx not in ots:
@@ -138,6 +138,32 @@ class OTH:
                     cos.append(hit)
 
         ots = ots.values()
+        return ips, ots, cos
+
+
+    def get_qico(self, hits):
+        # get max of each species
+        sco_max = Counter()
+        out_max = 0
+        for qid, sid, sco in hits:
+            qtx = qid.split('|')[0]
+            stx = sid.split('|')[0]
+            sco_max[stx] = max(sco_max[stx], sco)
+            if qtx != stx:
+                out_max = max(out_max, sco)
+
+        ips, ots, cos = [], [], []
+        for hit in hits:
+            qid, sid, sco = hit
+            qtx = qid.split('|')[0]
+            stx = sid.split('|')[0]
+            if qtx == stx and sco >= out_max:
+                ips.append(hit)
+            elif qtx != stx and sco >= sco_max[stx]:
+                ots.append(hit)
+            else:
+                cos.append(hit)
+
         return ips, ots, cos
 
 
@@ -333,7 +359,7 @@ class OTH:
             qips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end) if self.qip_scos[elem] > 0])
 
             start, end = self.get_range(qid, qip_qids_r)
-            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos[elem] > 0])
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos_r[elem] > 0])
 
 
             sips = [sid]
@@ -341,8 +367,7 @@ class OTH:
             sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end) if self.qip_sids[elem] > 0])
 
             start, end = self.get_range(sid, qip_qids_r)
-            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos[elem] > 0])
-
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos_r[elem] > 0])
 
 
             #print 'length of co-ortholog', len(qips), len(sips), len(self.qot_sids)
