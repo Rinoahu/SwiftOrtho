@@ -259,10 +259,41 @@ class OTH:
                     yield qid, sid, sco
 
     # reverse the query
-    def rev_qids_sids(self, qids, sids):
+    def rev_qids_sids(self, qids, sids, scos):
         n, m = map(len, [qids, sids])
         qids_r = [0] * (n-1)
         sids_r = [0] * m
+        scos_r = [0] * m
+
+        for i in sids:
+            qids_r[i] += 1
+        # cum sum
+        for i in xrange(1, n-1):
+            qids_r[i] += qids_r[i-1]
+
+        fq = qids_r[:]
+        # sort sids by sids
+        for i in xrange(n-1):
+            start, end = qids[i:i+2]
+            for j in xrange(start, end):
+                k = sids[j]
+                sco = scos[j]
+                fq[k] -= 1
+                sids_r[fq[k]] = i
+                scos_r[fq[k]] = sco
+
+        del fq
+        qids_R = [0]
+        qids_R.extend(qids_r)
+
+        return qids_R, sids_r, scos_r
+
+
+    def rev_qids_sids0(self, qids, sids):
+        n, m = map(len, [qids, sids])
+        qids_r = [0] * (n-1)
+        sids_r = [0] * m
+
         for i in sids:
             qids_r[i] += 1
         # cum sum
@@ -291,24 +322,26 @@ class OTH:
         qco_visit = [0] * len(self.qco_scos)
         qot_visit = [0] * len(self.qot_scos)
 
-        qip_qids_r, qip_sids_r = self.rev_qids_sids(self.qip_qids, self.qip_sids)
+        #qip_qids_r, qip_sids_r = self.rev_qids_sids(self.qip_qids, self.qip_sids)
+        qip_qids_r, qip_sids_r, qip_scos_r = self.rev_qids_sids(self.qip_qids, self.qip_sids, self.qip_scos)
+
 
         #print 'co-sids', len(self.qco_sids), self.qco_sids[-1]
         for qid, sid, sco in self.get_ots():
             qips = [qid]
             start, end = self.get_range(qid, self.qip_qids)
-            qips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end)])
+            qips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end) if self.qip_scos[elem] > 0])
 
             start, end = self.get_range(qid, qip_qids_r)
-            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end)])
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos[elem] > 0])
 
 
             sips = [sid]
             start, end = self.get_range(sid, self.qip_qids)
-            sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end)])
+            sips.extend([self.loc[self.qip_sids[elem]] for elem in xrange(start, end) if self.qip_sids[elem] > 0])
 
             start, end = self.get_range(sid, qip_qids_r)
-            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end)])
+            qips.extend([self.loc[qip_sids_r[elem]] for elem in xrange(start, end) if qip_scos[elem] > 0])
 
 
 
