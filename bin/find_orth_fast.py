@@ -162,12 +162,22 @@ class OTH:
                 visit.add(sid)
             qtx = qid.split('|')[0]
             stx = sid.split('|')[0]
-            if qtx == stx and sco >= out_max:
-                ips.append(hit)
-            elif qtx != stx and sco >= sco_max[stx]:
-                ots.append(hit)
+            #if qtx == stx and sco >= out_max:
+            if qtx == stx:
+                if sco >= out_max:
+                    ips.append(hit)
+                else:
+                    continue
             else:
-                cos.append(hit)
+                if sco >= sco_max[stx]:
+                    ots.append(hit)
+                else:
+                    cos.append(hit)
+
+            #elif qtx != stx and sco >= sco_max[stx]:
+            #    ots.append(hit)
+            #else:
+            #    cos.append(hit)
 
         return ips, ots, cos
 
