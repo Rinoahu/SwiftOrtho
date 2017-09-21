@@ -118,29 +118,6 @@ class OTH:
                 yield out
 
     # get Q_inparalog and Q_(co-)ortholog
-    def get_qico0(self, hits):
-        flag = 0
-        ips, ots, cos = [], {}, []
-        for hit in hits:
-            qid, sid, sco = hit
-            qtx = qid.split('|')[0]
-            stx = sid.split('|')[0]
-            if qtx == stx:
-                if flag == 0:
-                    ips.append(hit)
-                else:
-                    cos.append(hit)
-            else:
-                flag = 1
-                if stx not in ots:
-                    ots[stx] = hit
-                else:
-                    cos.append(hit)
-
-        ots = ots.values()
-        return ips, ots, cos
-
-
     def get_qico(self, hits):
         # get max of each species
         sco_max = Counter()
@@ -168,6 +145,7 @@ class OTH:
                     ips.append(hit)
                 else:
                     continue
+                    #cos.append(hit)
             else:
                 if sco >= sco_max[stx]:
                     ots.append(hit)
