@@ -306,9 +306,6 @@ for i in blastparse(f, coverage, identity, norm, len_dict):
     flag_co += len(COs)
 
 
-print 'total COS', flag_co
-
-
 _oIPs.close()
 _oOs.close()
 _oCOs.close()
