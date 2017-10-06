@@ -64,11 +64,8 @@ input.fsa.sc is tabular text file. It contains 14 columns. The first 12 columns 
         GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000005825.2_ASM582v2|BPOF4_RS00005  100.00  450     0       0       1       450     1       450     2.88e-261       897     450     450
         GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000006605.1_ASM660v1|JK_RS00005     53.52   340     158     0       111     450     240     579     1.60e-105       380     450     583
         GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000006645.1_ASM664v1|Y_RS21000      39.91   466     280     19      1       450     14      462     2.66e-99        359     450     462
-        GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000005845.2_ASM584v2|b3702  48.20   363     188     4       94      450     106     467     3.44e-97    352     450     467
         GCF_000005825.2_ASM582v2|BPOF4_RS00010  GCF_000005825.2_ASM582v2|BPOF4_RS00010  100.00  380     0       0       1       380     1       380     1.20e-212       735     380     380
         GCF_000005825.2_ASM582v2|BPOF4_RS00015  GCF_000005825.2_ASM582v2|BPOF4_RS00015  100.00  71      0       0       1       71      1       71      1.35e-35        142     71      71
-
-
 
 
 **2. Find ortholog, inparalog and co-ortholog:**
