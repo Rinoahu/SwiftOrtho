@@ -54,7 +54,7 @@ input.fsa is  protein sequences in fasta format. The identifier of each protein 
     ADETSIEIVHE
 
 
-input.fsa.sc is tabular text file. It contains 14 columns. The first 12 columns are the same as blastp -m8 format, the last
+input.fsa.sc is output file. It is a tabular text file which contains 14 columns. The first 12 columns are the same as blastp -m8 format, the last
 
 2 columns are the lengths of the query and target sequence.  For example:
 
