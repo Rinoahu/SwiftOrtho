@@ -28,10 +28,12 @@ Make sure that you have the following installed
 
 **1. All-to-all homologous searching:**
 
-        $python fastclust/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
+    $python fastclust/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
 
-input.fsa is  protein sequences in fasta format. The header of each protein sequence in intput.fsa should in the following format:  
-        >xxx|yyyy  
+input.fsa is  protein sequences in fasta format. The header of each protein sequence in intput.fsa should in the following format:
+
+    >xxx<font color="green">|</font>yyyy 
+
 where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
     >GCF_000005825.2_ASM582v2|BPOF4_RS00005
