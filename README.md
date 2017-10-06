@@ -32,7 +32,7 @@ Make sure that you have the following installed
 
 input.fsa is  protein sequences in fasta format. The header of each protein sequence in intput.fsa should in the following format:
 
-    >xxx<font color="green">|</font>yyyy 
+    >xxx|yyyy 
 
 where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
