@@ -50,18 +50,53 @@ if args['-i']=='':
     raise SystemExit()
 
 try:
-    qry, coverage, identity, norm, tmpdir, np = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a'])
+    Qry, coverage, identity, norm, tmpdir, np = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a'])
 except:
     manual_print()
     raise SystemExit()
 
+#print 'norm is', norm
+# filter the m8 file by coverage and identity
+qry = Qry + '.flt'
+_o = open(qry, 'w')
+f = open(Qry, 'r')
+for i in f:
+    j = i.split('\t')
+    idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
+    # the fastclust seq search format
+    if len(j) > 13:
+        qln, sln = map(float, j[12:14])
+    else:
+        qln, sln = max(qst, qed), max(sst, sed)
+
+
+    qcv = (1.+abs(qed-qst))/qln
+    scv = (1.+abs(sed-sst))/sln
+    #if qcv < coverage or scv < coverage or idy < identity:
+    if qcv >= coverage and idy >= identity:
+        _o.write(i)
+
+f.close()
+_o.close()
 
 #qry = sys.argv[1]
 qry = os.path.abspath(qry)
-fn = qry.split(os.sep)[-1]
+na = qry.split(os.sep)[-1]
+#print 'make dir', qry
 os.system('mkdir -p %s_tmp/'%qry)
 os.system('ln -sf %s %s_tmp/'%(qry, qry))
-qry = qry + '_tmp/' + fn
+Qry=qry
+#os.system('ln -sf %s %s.tmp'%(qry, qry))
+qry = qry + '_tmp/' + na
+
+#try:
+#    identity = eval(sys.argv[2])
+#except:
+#    identity = 50
+#try:
+#    coverage = eval(sys.argv[3])
+#except:
+#    coverage = .5
 
 # blast parser, return list contains blast results with the same query id
 # remove the duplicated pairs or qid-sid
@@ -132,6 +167,65 @@ def blastparse(f, coverage = .5, identity = 0., norm='no', len_dict = {}):
         yield output.values()
 
 
+def blastparse0(f, coverage = .5, identity = 50, norm='no'):
+    output = {}
+    flag = None
+    # max bit score
+    mbsc = -1
+    for i in f:
+        j = i[: -1].split('\t')
+        qid, sid = j[:2]
+        qtx, stx = qid.split('|')[0], sid.split('|')[0]
+        key = qtx == stx and sid or stx
+
+        idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
+        # the fastclust seq search format
+        if len(j) > 13:
+            qln, sln = map(float, j[12:14])
+        else:
+            qln, sln = max(qst, qed), max(sst, sed)
+
+        qcv = (1.+abs(qed-qst))/qln
+        scv = (1.+abs(sed-sst))/sln
+        #mbsc = score > mbsc and score or mbsc
+        #mbsc = mbsc < 0 and score or mbsc
+        #print 'max bit score is', mbsc, qid, sid
+
+        if flag != qid:
+            if output:
+                yield output.values()
+
+            mbsc = score
+            #print 'max bit score is', mbsc, qid, sid
+            output = {}
+            length = aln
+            flag = qid
+            if qcv>=coverage and scv>=coverage and idy>=identity:
+                if norm == 'bsr':
+                    Score = score / mbsc
+                elif norm == 'bal':
+                    Score = score / aln
+                else:
+                    Score = score
+
+                output[key] = [qid, sid, Score]
+        else:
+            if qcv>=coverage and scv>=coverage and idy>=identity:
+
+                if norm == 'bsr':
+                    Score = score / mbsc
+                elif norm == 'bal':
+                    Score = score / aln
+                else:
+                    Score = score
+
+                if key not in output or output[key][-1]<Score:
+                    output[key] = [qid, sid, Score]
+
+    if output:
+        yield output.values()
+
+
 # distinguish IP and O
 # return the IP and O
 def get_IPO(hits):
@@ -175,6 +269,8 @@ def get_IPO(hits):
 
     return ips, ots, cos
 
+
+
 # parse and find IP, O from blast results
 len_dict = {}
 f = open(qry, 'r')
@@ -187,6 +283,7 @@ for i in f:
     len_dict[qid] = max(qst, qed, len_dict.get(qid, 0))
     len_dict[sid] = max(sst, sed, len_dict.get(sid, 0))
    
+
 f.close()
 
 f = open(qry, 'r')
@@ -216,9 +313,12 @@ _oCOs.close()
 
 # sort QIP and QO
 qipsort = qip + '.sort'
+qosort = qo + '.sort'
+
+#os.system('sort --parallel=%s -k1,2 %s > %s;mv %s %s'%(np, qip, qipsort, qipsort, qip))
 os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qip, qipsort, qipsort, qip))
 
-qosort = qo + '.sort'
+#os.system('sort --parallel=%s -k1,2 %s > %s;mv %s %s'%(np, qo, qosort, qosort, qo))
 os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qo, qosort, qosort, qo))
 
 # get IPs and Os
@@ -465,6 +565,10 @@ del ipqa
 
 # co and o
 # sort blast with taxon name
+#os.system("awk '{print $1\"\\t\"$2\"\\t\"$12}' %s > %s.xyz && sort --parallel=%s %s.xyz -o %s.srt && rm %s.xyz"%(qry, qry, np, qry, qry, qry))
+#dbs = open(qry+'.srt', 'r')
+#Dbs = mmap(dbs.fileno(), 0, access = ACCESS_READ)
+
 # normal co and o
 def normal_co_o(f):
     flag = None
@@ -485,6 +589,20 @@ def normal_co_o(f):
 # the co
 _o = open(cosn+'.tmp', 'w')
 f = open(cosn, 'r')
+#for i in f:
+#    qid, sid = i[:-1].split('\t')[:2]
+#    qL, qR, qpairs = binary_search(Dbs, qid+'\t'+sid)
+#    sL, sR, spairs = binary_search(Dbs, sid+'\t'+qid)
+#    if qL==-1 or qR==-1 or sL==-1 or sR==-1:
+#        continue
+#    qid, sid, qs = qpairs[0].split('\t')
+#    sid, qid, ss = spairs[0].split('\t')
+#    score = (float(qs) + float(ss)) / 2
+#    qtax = qid.split('|')[0]
+#    stax = sid.split('|')[0]
+#    out = map(str, [qtax, stax, 'CO', qid, sid, score])
+#    _o.write('\t'.join(out)+'\n')
+
 for i in f:
     qid, sid, score = i[:-1].split('\t')[:3]
     qtax = qid.split('|')[0]
@@ -511,6 +629,7 @@ for i in normal_co_o(f):
 f.close()
 
 
+
 # the os
 _o = open(osn+'.tmp', 'w')
 f = open(osn, 'r')
@@ -528,6 +647,7 @@ _o.close()
 os.system('sort --parallel=%s -k1,2 %s.tmp -o %s.tmp.srt.tmp && rm %s.tmp && uniq %s.tmp.srt.tmp > %s.tmp.srt'%(np, osn, osn, osn, osn, osn))
 
 
+
 f = open(osn+'.tmp.srt', 'r')
 for i in normal_co_o(f):
     avg = sum([elem[-1] for elem in i]) * 1. / len(i)
@@ -542,5 +662,5 @@ for i in normal_co_o(f):
 f.close()
 
 if tmpdir == 'n':
-    os.system('rm -rf %s_tmp/'%qry)
+    os.system('rm -rf %s_tmp/'%Qry)
 
