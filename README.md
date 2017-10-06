@@ -58,7 +58,14 @@ where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
 input.fsa.sc is tabular text file. It contains 14 columns. The first 12 columns are the same as blastp -m8 format, the last
 
-2 columns are the lengths of the query and target sequence.  
+2 columns are the lengths of the query and target sequence.  For example:
+
+    GCF_000005825.2_ASM582v2|BPOF4_RS19500  GCF_000005825.2_ASM582v2|BPOF4_RS19500  100.00  118     0       0       1       118     1       118     2.31e-67        249     118     118
+    GCF_000005825.2_ASM582v2|BPOF4_RS19500  GCF_000005825.2_ASM582v2|BPOF4_RS17795  94.06   118     7       0       1       118     1       118     3.79e-63        235     118     118
+    GCF_000005825.2_ASM582v2|BPOF4_RS19510  GCF_000005825.2_ASM582v2|BPOF4_RS19510  100.00  603     0       0       1       603     1       603     0
+       1188    603     603
+    GCF_000005825.2_ASM582v2|BPOF4_RS19515  GCF_000005825.2_ASM582v2|BPOF4_RS19515  100.00  61      0       0       1       61      1       61      5.26e-30        123     61      61
+
 
 **2. Find ortholog, inparalog and co-ortholog:**
 
