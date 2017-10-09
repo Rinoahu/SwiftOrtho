@@ -283,17 +283,6 @@ os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qco, qcosort, qcosor
 # correct the position
 # binary search by lines
 correct0 = lambda s, i: s.rfind('\n', 0, i) + 1
-# correct the position
-def correct(s, m, l=None, r=None):
-    if not l and not r:
-        return s.rfind('\n', 0, m) + 1
-    M = s.rfind('\n', l, m) + 1
-    if l < M < r:
-        return M
-    else:
-        M = s.find('\n', m, r) + 1
-        return M
-
 def binary_search0(s, p, L = 0, R = -1):
     n = len(s)
     pn = len(p)
@@ -332,6 +321,18 @@ def binary_search0(s, p, L = 0, R = -1):
 
     pairs = s[left: right].split('\n')
     return left, right, pairs
+
+
+# correct the position
+def correct(s, m, l=None, r=None):
+    if not l and not r:
+        return s.rfind('\n', 0, m) + 1
+    M = s.rfind('\n', l, m) + 1
+    if l < M < r:
+        return M
+    else:
+        M = s.find('\n', m, r) + 1
+        return M
 
 
 def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
@@ -447,13 +448,15 @@ for i in f1:
             sip.add(a)
             sip.add(b)
 
+    #print 'qip', qip, 'sip', sip
     for i in qip:
         for j in sip:
             if (i==qo and j==so) or (i==so and j==qo) or (i==j):
                 continue
             key = i < j and i + '\t' + j or j + '\t' + i
             try:
-                L, R, pairs = binary_search(S2, key)
+                L, R, pairs = binary_search(S2, key, lambda x: '\t'.join(x.split('\t', 3)[:2]))
+                #print 'pairs', pairs, S2, key
             except:
                 L = R = -1
                 pairs = []
