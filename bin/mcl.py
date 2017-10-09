@@ -1,6 +1,7 @@
 #!usr/bin/env python
 import os
 import sys
+from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 
 # print the manual
 def manual_print():
@@ -12,7 +13,7 @@ def manual_print():
     print '  -a: number of threads'
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-I': '1.5', '-a': '4'}
+args = {'-i': '', '-I': '1.5', '-a': '1'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -33,19 +34,20 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, ifl, cpu = args['-i'], float(args['-I']), int(args['-a']), 
+    qry, ifl, cpu = args['-i'], float(args['-I']), int(args['-a']),
 
 except:
     manual_print()
     raise SystemExit()
 
 
-
 # correct the position
 correct = lambda s, i: s.rfind('\n', 0, i) + 1
 
 # bsearch for a sorted file  by given a query pattern
-def binary_search(s, p, L = 0, R = -1):
+
+
+def binary_search(s, p, L=0, R=-1):
     n = len(s)
     pn = len(p)
     R = R == -1 and n - 1 or R
@@ -83,12 +85,12 @@ def binary_search(s, p, L = 0, R = -1):
 
 # give a graph and a node, find neighbors of the node.
 def neighbor(G, n):
-	l, r = binary_search(G, n)
-	pat = G[l:r]
-	if pat:
-		return pat.split('\n')
-	else:
-		return []
+    l, r = binary_search(G, n)
+    pat = G[l:r]
+    if pat:
+        return [elem.split('\t')[1] for elem in pat.split('\n')]
+    else:
+        return []
 
 
 # find connected componets in a graph
@@ -98,19 +100,19 @@ def connect(f, G):
     for i in f:
         j = i[:-1].split('\t', 3)
         x, y = j[:2]
-		# get new node and find new component
+        # get new node and find new component
         if x not in comps:
             if comp:
                 yield comp
 
             stack = set([x])
             comp = set()
-	        while stack:
-    	        q = stack.pop()
-        	    comp.add(q)
-            	t = [elem for elem neighbor(G, q) if elem not in comp]
-	            stack = stack.union(t)
-	        comps = comps.union(comp)
+            while stack:
+                q = stack.pop()
+                comp.add(q)
+                t = [elem for elem in neighbor(G, q) if elem not in comp]
+                stack = stack.union(t)
+            comps = comps.union(comp)
 
         else:
             continue
@@ -118,12 +120,6 @@ def connect(f, G):
     if comp:
         yield comp
 
-
-
-
-# get file
-qry = sys.argv[1]
-pat = sys.argv[2]
 
 # double and sort the file
 f = open(qry, 'r')
@@ -139,19 +135,14 @@ for i in f:
 f.close()
 _o.close()
 
-os.system('sort --parallel=%s %s.ful %s.ful.sort'%(cpu, qry, qry))
+os.system('sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
 
 
-f = open(qry, 'r')
-G = mmap(f.fileno(), 0, access = ACCESS_READ)
+f = open(qry + '.ful.sort', 'r')
+G = mmap(f.fileno(), 0, access=ACCESS_READ)
 
-for i in connect(G, f):
+for i in connect(f, G):
     print '\t'.join(i)
 
 
 f.close()
-
-
-
-
-
