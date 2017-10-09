@@ -42,51 +42,69 @@ except:
 
 
 # correct the position
-correct = lambda s, i: s.rfind('\n', 0, i) + 1
+def correct(s, m, l=None, r=None):
+    if not l and not r:
+        return s.rfind('\n', 0, m) + 1
+    M = s.rfind('\n', l, m) + 1
+    if l < M < r:
+        return M
+    else:
+        M = s.find('\n', m, r) + 1
+        return M
+
 
 # bsearch for a sorted file  by given a query pattern
-
-
-def binary_search(s, p, L=0, R=-1):
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     n = len(s)
     pn = len(p)
     R = R == -1 and n - 1 or R
     l = correct(s, L)
     r = correct(s, R)
     # find left
-    while l <= r:
+    while l < r:
         m = (l + r) // 2
-        m = correct(s, m)
-        if m == l:
-            if s[m: end] >= p:
-                r = m
-            else:
-                l = m
+        m = correct(s, m, l, r)
+        if m == l or m == r:
             break
-        end = m + pn
-        if s[m: end] >= p:
+        t = s[m: s.find('\n', m)]
+        pat = key(t)
+        if pat[:pn] >= p:
             r = m
         else:
             l = m
 
-    left = r
-    if s[left: left + pn] != p:
+    # search from both direction
+    left = r - 1
+    while left >= 0:
+        start = s.rfind('\n', 0, left)
+        line = s[start+1: left]
+        if key(line).startswith(p):
+            left = start
+        else:
+            break
+    left += 1
+
+    line = s[left: s.find('\n', left)]
+    if not key(line).startswith(p):
         return -1, -1
-    right = r
+
+    right = left
     while 1:
-        right = s.find('\n', right)
-        if right != -1 and s[right + 1: right + 1 + pn] == p:
-            right += 1
+        end = s.find('\n', right)
+        if key(s[right: end]).startswith(p):
+            right = end + 1
         else:
             break
 
     return left, right
 
 
+
 # give a graph and a node, find neighbors of the node.
 def neighbor(G, n):
     l, r = binary_search(G, n)
-    pat = G[l:r]
+    pat = G[l:r].strip()
+    #print 'query is', n, 'taget', pat
     if pat:
         return [elem.split('\t')[1] for elem in pat.split('\n')]
     else:
@@ -110,8 +128,13 @@ def connect(f, G):
             while stack:
                 q = stack.pop()
                 comp.add(q)
+                #t = [elem[1] for elem in neighbor(G, q) if elem not in comp]
                 t = [elem for elem in neighbor(G, q) if elem not in comp]
                 stack = stack.union(t)
+
+            if len(comp) == 1:
+                tmp = list(comp)[0]
+                #print 'tmp in comps', tmp, neighbor(G, tmp), neighbor(G, 'GCF_000005845.2_ASM584v2|b1158')
             comps = comps.union(comp)
 
         else:
@@ -142,6 +165,8 @@ f = open(qry + '.ful.sort', 'r')
 G = mmap(f.fileno(), 0, access=ACCESS_READ)
 
 for i in connect(f, G):
+    #i.sort()
+    i = sorted(i)
     print '\t'.join(i)
 
 

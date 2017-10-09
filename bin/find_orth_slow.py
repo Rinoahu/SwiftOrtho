@@ -282,8 +282,19 @@ os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qco, qcosort, qcosor
 # get CO
 # correct the position
 # binary search by lines
-correct = lambda s, i: s.rfind('\n', 0, i) + 1
-def binary_search(s, p, L = 0, R = -1):
+correct0 = lambda s, i: s.rfind('\n', 0, i) + 1
+# correct the position
+def correct(s, m, l=None, r=None):
+    if not l and not r:
+        return s.rfind('\n', 0, m) + 1
+    M = s.rfind('\n', l, m) + 1
+    if l < M < r:
+        return M
+    else:
+        M = s.find('\n', m, r) + 1
+        return M
+
+def binary_search0(s, p, L = 0, R = -1):
     n = len(s)
     pn = len(p)
     R = R == -1 and n - 1 or R
@@ -321,6 +332,55 @@ def binary_search(s, p, L = 0, R = -1):
 
     pairs = s[left: right].split('\n')
     return left, right, pairs
+
+
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+    n = len(s)
+    pn = len(p)
+    R = R == -1 and n - 1 or R
+    l = correct(s, L)
+    r = correct(s, R)
+    # find left
+    while l < r:
+        m = (l + r) // 2
+        m = correct(s, m, l, r)
+        if m == l or m == r:
+            break
+        t = s[m: s.find('\n', m)]
+        pat = key(t)
+        if pat[:pn] >= p:
+            r = m
+        else:
+            l = m
+
+    # search from both direction
+    left = r - 1
+    while left >= 0:
+        start = s.rfind('\n', 0, left)
+        line = s[start+1: left]
+        if key(line).startswith(p):
+            left = start
+        else:
+            break
+    left += 1
+
+    line = s[left: s.find('\n', left)]
+    if not key(line).startswith(p):
+        pairs = s[-1: -1].split('\n')
+        return -1, -1, pairs
+
+    right = left
+    while 1:
+        end = s.find('\n', right)
+        if key(s[right: end]).startswith(p):
+            right = end + 1
+        else:
+            break
+
+    pairs = s[left: right].strip().split('\n')
+    return left, right, pairs
+
+
 
 # sort the IPs by k2
 os.system("awk '{print $2\"\\t\"$1\"\\t\"$3}' %s > %s.tmp; sort --parallel=%s -k1 %s.tmp -o %s.k2; rm %s.tmp"%(ipn, ipn, np, ipn, ipn, ipn))
