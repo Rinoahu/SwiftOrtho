@@ -336,6 +336,7 @@ def correct(s, m, l=None, r=None):
 
 
 def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+    mx = chr(255)
     n = len(s)
     pn = len(p)
     R = R == -1 and n - 1 or R
@@ -349,7 +350,8 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
             break
         t = s[m: s.find('\n', m)]
         pat = key(t)
-        if pat[:pn] >= p:
+        #if pat[:pn] >= p:
+        if pat+mx >= p+mx:
             r = m
         else:
             l = m
@@ -428,6 +430,8 @@ for i in f1:
     for j in pairs0 + pairs1:
         if j:
             a, b = j.split('\t')[: 2]
+            if a != qo:
+                continue
             qip.add(a)
             qip.add(b)
 
@@ -445,6 +449,8 @@ for i in f1:
     for j in pairs0 + pairs1:
         if j:
             a, b = j.split('\t')[: 2]
+            if a != so:
+                continue
             sip.add(a)
             sip.add(b)
 

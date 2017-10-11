@@ -55,6 +55,7 @@ def correct(s, m, l=None, r=None):
 
 # bsearch for a sorted file  by given a query pattern
 def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+    mx = chr(255)
     n = len(s)
     pn = len(p)
     R = R == -1 and n - 1 or R
@@ -68,7 +69,8 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
             break
         t = s[m: s.find('\n', m)]
         pat = key(t)
-        if pat[:pn] >= p:
+        #if pat[:pn] >= p:
+        if pat+mx >= p+mx:
             r = m
         else:
             l = m
@@ -101,12 +103,22 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
 
 
 # give a graph and a node, find neighbors of the node.
-def neighbor(G, n):
+def neighbor0(G, n):
     l, r = binary_search(G, n)
     pat = G[l:r].strip()
     #print 'query is', n, 'taget', pat
     if pat:
         return [elem.split('\t')[1] for elem in pat.split('\n')]
+    else:
+        return []
+
+
+def neighbor(G, n):
+    l, r = binary_search(G, n)
+    pat = [elem.split('\t') for elem in G[l:r].strip().split('\n')]
+    #print 'query is', n, 'taget', pat
+    if pat:
+        return [elem[1] for elem in pat if elem[0] == n]
     else:
         return []
 
@@ -128,13 +140,14 @@ def connect(f, G):
             while stack:
                 q = stack.pop()
                 comp.add(q)
-                #t = [elem[1] for elem in neighbor(G, q) if elem not in comp]
                 t = [elem for elem in neighbor(G, q) if elem not in comp]
+                #t = [elem for elem in neighbor(G, q) if elem not in comp and elem not in comps]
                 stack = stack.union(t)
 
-            if len(comp) == 1:
-                tmp = list(comp)[0]
-                #print 'tmp in comps', tmp, neighbor(G, tmp), neighbor(G, 'GCF_000005845.2_ASM584v2|b1158')
+            comp -= comps
+            #if len(comp) == 1:
+            #    #print 'tmp in comps', tmp, neighbor(G, tmp), neighbor(G, 'GCF_000005845.2_ASM584v2|b1158')
+            #    comp = set()
             comps = comps.union(comp)
 
         else:
@@ -158,7 +171,8 @@ for i in f:
 f.close()
 _o.close()
 
-os.system('sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
+os.system('sort -k1 --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
+#os.system('sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
 
 
 f = open(qry + '.ful.sort', 'r')
@@ -171,3 +185,5 @@ for i in connect(f, G):
 
 
 f.close()
+
+os.system('rm %s.ful %s.ful.sort'%(qry, qry))
