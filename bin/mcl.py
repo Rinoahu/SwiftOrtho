@@ -54,7 +54,7 @@ def correct(s, m, l=None, r=None):
 
 
 # bsearch for a sorted file  by given a query pattern
-def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+def binary_search0(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     mx = chr(255)
     n = len(s)
     pn = len(p)
@@ -100,6 +100,58 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
 
     return left, right
 
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+    #mx = chr(255)
+    n = len(s)
+    pn = len(p)
+    R = R == -1 and n - 1 or R
+    l = correct(s, L)
+    r = correct(s, R)
+    # find left
+    while l < r:
+        m = (l + r) // 2
+        m = correct(s, m, l, r)
+        if m == l or m == r:
+            break
+        t = s[m: s.find('\n', m)]
+        pat = key(t)
+        #if pat[:pn] >= p:
+        #if pat+mx >= p+mx:
+        if pat >= p:
+            r = m
+        else:
+            l = m
+
+    #print 'mid is', key(s[m: s.find('\n', m)]), p
+
+    # search from both direction
+    #left = r - 1
+    left = m - 1
+    while left >= 0:
+        start = s.rfind('\n', 0, left)
+        line = s[start+1: left]
+        #if key(line).startswith(p):
+        if key(line) == p:
+            left = start
+        else:
+            break
+    left += 1
+
+    line = s[left: s.find('\n', left)]
+    #if not key(line).startswith(p):
+    if key(line) != p:
+        return -1, -1
+
+    right = left
+    while 1:
+        end = s.find('\n', right)
+        #if key(s[right: end]).startswith(p):
+        if key(s[right: end]) == p:
+            right = end + 1
+        else:
+            break
+
+    return left, right
 
 
 # give a graph and a node, find neighbors of the node.
@@ -171,8 +223,8 @@ for i in f:
 f.close()
 _o.close()
 
-os.system('sort -k1 --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
-#os.system('sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
+#os.system('sort -k1 --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
+os.system('export LC_ALL=C && sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, qry, qry))
 
 
 f = open(qry + '.ful.sort', 'r')
@@ -186,4 +238,4 @@ for i in connect(f, G):
 
 f.close()
 
-os.system('rm %s.ful %s.ful.sort'%(qry, qry))
+#os.system('rm %s.ful %s.ful.sort'%(qry, qry))

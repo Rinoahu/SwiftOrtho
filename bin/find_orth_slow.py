@@ -216,10 +216,10 @@ _oCOs.close()
 
 # sort QIP and QO
 qipsort = qip + '.sort'
-os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qip, qipsort, qipsort, qip))
+os.system('export LC_ALL=C && sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qip, qipsort, qipsort, qip))
 
 qosort = qo + '.sort'
-os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qo, qosort, qosort, qo))
+os.system('export LC_ALL=C && sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qo, qosort, qosort, qo))
 
 # get IPs and Os
 def find_IPO(f):
@@ -277,7 +277,7 @@ _o.close()
 
 qcosort = qco + '.sort'
 # sort qCOs
-os.system('sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qco, qcosort, qcosort, qco))
+os.system('export LC_ALL=C && sort --parallel=%s -k1,2 %s -o %s;mv %s %s'%(np, qco, qcosort, qcosort, qco))
 
 # get CO
 # correct the position
@@ -335,7 +335,7 @@ def correct(s, m, l=None, r=None):
         return M
 
 
-def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+def binary_search1(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     mx = chr(255)
     n = len(s)
     pn = len(p)
@@ -383,10 +383,63 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     pairs = s[left: right].strip().split('\n')
     return left, right, pairs
 
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
+    #mx = chr(255)
+    n = len(s)
+    pn = len(p)
+    R = R == -1 and n - 1 or R
+    l = correct(s, L)
+    r = correct(s, R)
+    # find left
+    while l < r:
+        m = (l + r) // 2
+        m = correct(s, m, l, r)
+        if m == l or m == r:
+            break
+        t = s[m: s.find('\n', m)]
+        pat = key(t)
+        #if pat[:pn] >= p:
+        #if pat+mx >= p+mx:
+        if pat >= p:
+            r = m
+        else:
+            l = m
+
+    #print 'mid is', key(s[m: s.find('\n', m)]), p
+
+    # search from both direction
+    #left = r - 1
+    left = m - 1
+    while left >= 0:
+        start = s.rfind('\n', 0, left)
+        line = s[start+1: left]
+        #if key(line).startswith(p):
+        if key(line) == p:
+            left = start
+        else:
+            break
+    left += 1
+
+    line = s[left: s.find('\n', left)]
+    #if not key(line).startswith(p):
+    if key(line) != p:
+        return -1, -1
+
+    right = left
+    while 1:
+        end = s.find('\n', right)
+        #if key(s[right: end]).startswith(p):
+        if key(s[right: end]) == p:
+            right = end + 1
+        else:
+            break
+
+    pairs = s[left: right].strip().split('\n')
+    return left, right, pairs
 
 
 # sort the IPs by k2
-os.system("awk '{print $2\"\\t\"$1\"\\t\"$3}' %s > %s.tmp; sort --parallel=%s -k1 %s.tmp -o %s.k2; rm %s.tmp"%(ipn, ipn, np, ipn, ipn, ipn))
+os.system("awk '{print $2\"\\t\"$1\"\\t\"$3}' %s > %s.tmp; export LC_ALL=C && sort --parallel=%s -k1 %s.tmp -o %s.k2; rm %s.tmp"%(ipn, ipn, np, ipn, ipn, ipn))
 ipnk2 = ipn + '.k2'
 f0k2 = open(ipnk2, 'r')
 try:
@@ -565,7 +618,7 @@ f.close()
 _o.close()
 
 #os.system('sort --parallel=%s -k1,2 %s.tmp | uniq > %s.tmp.srt'%(np, cosn, cosn))
-os.system('sort --parallel=%s -k1,2 %s.tmp -o %s.tmp.srt.tmp && rm %s.tmp && uniq %s.tmp.srt.tmp > %s.tmp.srt'%(np, cosn, cosn, cosn, cosn, cosn))
+os.system('export LC_ALL=C && sort --parallel=%s -k1,2 %s.tmp -o %s.tmp.srt.tmp && rm %s.tmp && uniq %s.tmp.srt.tmp > %s.tmp.srt'%(np, cosn, cosn, cosn, cosn, cosn))
 
 
 f = open(cosn+'.tmp.srt', 'r')
@@ -594,7 +647,7 @@ f.close()
 _o.close()
 
 #os.system('sort --parallel=%s -k1,2 %s.tmp | uniq > %s.tmp.srt'%(np, osn, osn))
-os.system('sort --parallel=%s -k1,2 %s.tmp -o %s.tmp.srt.tmp && rm %s.tmp && uniq %s.tmp.srt.tmp > %s.tmp.srt'%(np, osn, osn, osn, osn, osn))
+os.system('export LC_ALL=C && sort --parallel=%s -k1,2 %s.tmp -o %s.tmp.srt.tmp && rm %s.tmp && uniq %s.tmp.srt.tmp > %s.tmp.srt'%(np, osn, osn, osn, osn, osn))
 
 
 f = open(osn+'.tmp.srt', 'r')
