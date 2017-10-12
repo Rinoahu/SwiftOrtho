@@ -157,16 +157,6 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
 # give a graph and a node, find neighbors of the node.
 def neighbor0(G, n):
     l, r = binary_search(G, n)
-    pat = G[l:r].strip()
-    #print 'query is', n, 'taget', pat
-    if pat:
-        return [elem.split('\t')[1] for elem in pat.split('\n')]
-    else:
-        return []
-
-
-def neighbor(G, n):
-    l, r = binary_search(G, n)
     pat = [elem.split('\t') for elem in G[l:r].strip().split('\n')]
     #print 'query is', n, 'taget', pat
     if pat:
@@ -175,38 +165,64 @@ def neighbor(G, n):
         return []
 
 
+def neighbor(G, n):
+    l, r = binary_search(G, n)
+    lines = G[l:r].strip().split('\n')
+    pat = [elem.split('\t') for elem in lines]
+    sids = set()
+    pairs = {}
+    for i in lines:
+        j = i.split('\t')
+        qid, sid = j[:2]
+        if qid == n:
+            sids.add(sid)
+            if qid < sid:
+                try:
+                    pairs[qid].append(i)
+                except:
+                    pairs[qid] = [i]
+        else:
+            continue
+
+    return sids, pairs
+
+
+
 # find connected componets in a graph
 def connect(f, G):
     comps = set()
     comp = set()
+    pairs = {}
     for i in f:
         j = i[:-1].split('\t', 3)
         x, y = j[:2]
         # get new node and find new component
         if x not in comps:
-            if comp:
-                yield comp
+            #if comp:
+            if comp and pairs:
+                #yield comp
+                yield comp, pairs
 
             stack = set([x])
             comp = set()
+            pairs = {}
             while stack:
                 q = stack.pop()
                 comp.add(q)
-                t = [elem for elem in neighbor(G, q) if elem not in comp]
-                #t = [elem for elem in neighbor(G, q) if elem not in comp and elem not in comps]
+                sids, pair = neighbor(G, q) 
+                #t = [elem for elem in neighbor(G, q) if elem not in comp]
+                t = [elem for elem in sids if elem not in comp]
+                pairs.update(pair)
                 stack = stack.union(t)
 
             comp -= comps
-            #if len(comp) == 1:
-            #    #print 'tmp in comps', tmp, neighbor(G, tmp), neighbor(G, 'GCF_000005845.2_ASM584v2|b1158')
-            #    comp = set()
             comps = comps.union(comp)
 
         else:
             continue
 
     if comp:
-        yield comp
+        yield comp, pairs
 
 
 # double and sort the file
@@ -230,11 +246,15 @@ os.system('export LC_ALL=C && sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, 
 f = open(qry + '.ful.sort', 'r')
 G = mmap(f.fileno(), 0, access=ACCESS_READ)
 
-for i in connect(f, G):
-    #i.sort()
-    i = sorted(i)
-    print '\t'.join(i)
-
+for i, j in connect(f, G):
+    #i.split(ort()
+    #i = sorted(i)
+    #print '\t'.join(i)
+    #print len(i), map(j.get, i)
+    #print '\t'.join(map(j.get, i))
+    for k in i:
+        for x in j.get(k, []):
+            print x
 
 f.close()
 
