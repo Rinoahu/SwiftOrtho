@@ -423,7 +423,7 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     line = s[left: s.find('\n', left)]
     #if not key(line).startswith(p):
     if key(line) != p:
-        return -1, -1, ''
+        return -1, -1, []
 
     right = left
     while 1:
