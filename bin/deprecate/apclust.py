@@ -10,7 +10,6 @@ except:
     jit = lambda x: x
 
 from collections import Counter
-import networkx as nx
 
 
 # print the manual
@@ -52,19 +51,13 @@ except:
 
 # ap cluster algorithm
 @jit
-def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
+def apclust(data, KS=-1, damp=.5, itr=100):
     # data:
     # 0: qid, 1: sid, 2: score, 3: R, 4: A
+
     if KS == -1:
         KS = int(data[:, :2].max()) + 1
 
-    beta = 1 - damp
-
-    lab = np.arange(KS)
-    ras = np.repeat(-np.inf, KS)
-
-    # set max convergency iteraion
-    mconv = 0
     #print 'K is', K, data.shape, data[:, :2].min()
     # 0:row max; 1: index, 2: 2nd row max; 3: index; 4: col sum; 5: diag of r
     diag = np.zeros((KS, 6))
@@ -98,12 +91,13 @@ def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
             else:
                 r = s - diag[i, 2]
 
-            data[n, 3] *= damp
-            data[n, 3] += beta * r
+            #tmp = data[n, 3] * (1-damp)
+            #data[n, 3] = tmp + damp * r
+            data[n, 3] *= (1-damp)
+            data[n, 3] += damp * r
             if i == k:
                 diag[i, 5] = data[n, 3]
 
-        diag[:, 4] = 0
         # get col sum
         for n in xrange(N):
             I, K, s, r, a = data[n]
@@ -118,66 +112,36 @@ def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
             I, K, s, r, a = data[n]
             i = int(I)
             k = int(K)
-            data[n, 4] *= damp
+            #tmp = data[n, 4] * (1-damp)
+            data[n, 4] *= (1-damp)
             if i != k:
-                data[n, 4] += beta * min(0, diag[k, 5] + diag[k, 4] - max(0, data[n, 3]))
+                #data[n, 4] = tmp + damp * min(0, diag[k, 4] - max(0, data[n, 3]))
+                data[n, 4] += damp * min(0, diag[k, 5] + diag[k, 4] - max(0, data[n, 3]))
             else:
-                data[n, 4] += beta * diag[k, 4]
-        #print 'max of RA', np.sum(data[:, 3]>0), np.sum(data[:, 4]>0), (diag[:, 5] > 0).sum()
+                #data[n, 4] = tmp + damp * diag[k, 4]
+                data[n, 4] += damp * diag[k, 4]
 
-        # identify exemplar
-        #lab = np.arange(KS)
-        #ras = np.repeat(-np.inf, KS)
-        #for lb in xrange(KS):
-        #    lab[lb] = lb
-        ras[:] = -np.inf
-        change = 0
-        for n in xrange(N):
-            I, K, s, r, a = data[n]
-            i = int(I)
-            k = int(K)
-            ra = r + a
-            if ras[i] < ra:
-                ras[i] = ra
-                if lab[i] != k:
-                    change = 1
-                    lab[i] = k
-                else:
-                    continue
-            '''
-            if i != k:
-                if ras[i] < ra and ras[i] != k:
-                    lab[i] = k
-                    ras[i] = ra
-                    change = 1
-            else:
-                if ra > 0:
-                    if lab[i] != k:
-                        change = 1
-                    lab[i] = k
-                    ras[i] = ra
-            '''
+    RAs = np.zeros(KS)
+    clr = np.arange(KS)
+    N = 0
+    for n in xrange(N):
+        I, K, s, r, a = data[n]
+        i = int(I)
+        k = int(K)
+        ra = r + a
+        if ra > RAs[i]:
+            clr[i] = k
+            RAs[i] = ra
+            N += 1
 
-        #if change == 0:
-        #    mconv += 1
-        #else:
-        #    mconv = 0
-        mconv = change == 0 and mconv+1 or 0
-        #print 'mconv', mconv, it
-        if mconv > convit:
-            break
-
-    return lab
+    return clr, N
 
 # double and sort the file
 # convert fastclust results to matrix
 def fc2mat(qry):
     flag = N = 0
-    MIN = float('+inf')
-    MAX = 0
-
     # locus to number
-    #KK = Counter()
+    KK = Counter()
     l2n = {}
     f = open(qry, 'r')
     _o = open(qry + '.npy', 'wb')
@@ -200,30 +164,19 @@ def fc2mat(qry):
 
         X, Y = map(l2n.get, [x, y])
         Z = float(z)
-        if MIN > Z:
-            MIN = Z
-        if MAX < X:
-            MAX = Z
+        if KK[X] < Z:
+            KK[X] = Z
 
-        #if KK[X] < Z:
-        #    KK[X] = Z
-
-        #if KK[Y] < Z:
-        #    KK[Y] = Z
+        if KK[Y] < Z:
+            KK[Y] = Z
 
         _o.write(pack('fffff', X, Y, Z, 0, 0))
         _o.write(pack('fffff', Y, X, Z, 0, 0))
         N += 2
 
-    #Z = np.median(KK.values())
-    #print 'mini relation', MIN, MAX, 2 * MIN - MAX
-    #ms = -MIN
-    #for i, j in KK.items():
-    for i in l2n.values():
+    for i, j in KK.items():
         X = Y = i
-        #Z = MIN * 2 - MAX
-        #Z = MIN
-        Z = -10 * 1.5
+        Z = j
         _o.write(pack('fffff', X, Y, Z, 0, 0))
         N += 1
 
@@ -231,32 +184,19 @@ def fc2mat(qry):
     _o.close()
 
     D = len(l2n)
-    
-    n2l = [None] * len(l2n)
-    for i, j in l2n.items():
-        n2l[j] = i
-    return N, D, n2l
+    return N, D
 
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
-N, D, n2l = fc2mat(qry)
-
+N, D = fc2mat(qry)
+print 'N, D', N, D
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
+print 'N is', N
 data = np.memmap(qry+'.npy', mode='r+', shape = (N, 5), dtype='float32')
 dat = np.asarray(data, dtype = 'float32')
+print 'dat0', dat.shape, D
+print 'dat1', dat[:, 3:5].sum(1).max()
+clr, N = apclust(dat, KS=D)
 
-
-labels = apclust(dat, KS=D)
-
-#groups = {}
-G = nx.Graph()
-for i in xrange(len(labels)):
-    j = labels[i]
-    G.add_edge(i, j)
-
-for i in nx.connected_components(G):
-    print '\t'.join([n2l[elem] for elem in i])
-
-#print 'sequence number', len(n2l), len(labels)
-#for i, j in groups.items():
-#    print '\t'.join([n2l[elem] for elem in [i] + j])
+print 'dat2', np.sum(dat[: 3:5].sum(1)<0)
+print len(set(clr)), N
 
