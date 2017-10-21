@@ -338,7 +338,7 @@ class OTH:
         self.OTs = OTs
         self.COs = COs
 
-        # print all ortholog and paralog
+    # print all ortholog and paralog
     def printf(self):
         for qid in self.IPs:
             for sid, sco in self.IPs[qid].iteritems():
