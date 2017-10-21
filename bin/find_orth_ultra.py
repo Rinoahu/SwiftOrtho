@@ -77,6 +77,7 @@ class OTH:
         self.evl = evl
         self.norm = norm
         self.temp = fn + '_tmp/'
+        os.system('rm -rf %s'%self.temp)
         os.system('mkdir -p %s'%self.temp)
 
     # parse blast8
