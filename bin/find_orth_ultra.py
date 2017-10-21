@@ -207,13 +207,11 @@ class OTH:
                     out[x] = {y: z}
             qCOs.update(out)
 
-
         # get IP, OT and CO
         OTs = Dict(self.temp + './ots')
         OTs_avg = Dict(self.temp + './ots_avg')
 
         # get orthologs
-        #print 'qot', [x for x in qOTs.iteritems()]
         #for qid, sids in qOTs.iteritems():
         for qid in qOTs:
             sids = qOTs[qid]
@@ -266,21 +264,22 @@ class OTH:
 
             IPs.update(out)
             for qid in out:
-                sid, sco = out[qid].items()[0]
-                qtx = qid.split('|')[0]
-                stx = sid.split('|')[0]
-                if qtx == stx:
-                    if qtx in IP_pairs:
-                        a, b = IP_pairs[qtx]
-                        IP_pairs[qtx] = [a+sco, b+1.]
-                    else:
-                        IP_pairs[qtx] = [sco, 1.]
-                if qid in OTs or sid in OTs:
-                    if qtx in IPqA:
-                        a, b = IPqA[qtx]
-                        IPqA[qtx] = [a+sco, b+1.]
-                    else:
-                        IPqA[qtx] = [sco, 1.]
+                for sid, sco in out[qid].iteritems():
+                    sid, sco = out[qid].items()[0]
+                    qtx = qid.split('|')[0]
+                    stx = sid.split('|')[0]
+                    if qtx == stx:
+                        if qtx in IP_pairs:
+                            a, b = IP_pairs[qtx]
+                            IP_pairs[qtx] = [a+sco, b+1.]
+                        else:
+                            IP_pairs[qtx] = [sco, 1.]
+                    if qid in OTs or sid in OTs:
+                        if qtx in IPqA:
+                            a, b = IPqA[qtx]
+                            IPqA[qtx] = [a+sco, b+1.]
+                        else:
+                            IPqA[qtx] = [sco, 1.]
 
         self.IPqA_avg = {}
         for qtx in IP_pairs:
@@ -292,8 +291,8 @@ class OTH:
 
         # get co-orthologs
         COs_avg = Dict(self.temp + './cos_avg')
-        COs_visit = Dict(self.temp + './cos_visit')
-        COs = Dict(self.temp + '.cos')
+        COs_visit = Dict(self.temp + './visit')
+        COs = Dict(self.temp + './cos')
         for qid in OTs:
             for sid in OTs[qid].iterkeys():
                 qips = qIPs.get(qid, {}).keys()
@@ -325,16 +324,9 @@ class OTH:
                             key = qtx + '\t' + stx
                             if key not in COs_avg:
                                 COs_avg[key] = [sco, 1.]
-                                #print 'k0', k0, 'sco', sco, 'key', key, [sco, 1.]
                             else:
                                 a, b = COs_avg[key]
                                 COs_avg[key] = [a+sco, b+1.]
-                                #try:
-                                #    COs_avg[key] = [a+sco, b+1.]
-                                #except:
-                                #    print 'sco a b', COs_avg.items(), sco, a, b
-                                #    raise SystemExit()
-
 
         for key in COs_avg:
             a, b = COs_avg[key]
@@ -349,7 +341,7 @@ class OTH:
     def printf(self):
         for qid in self.IPs:
             for sid, sco in self.IPs[qid].iteritems():
-                if qid > sid:
+                if qid >= sid:
                     continue
                 qtx = qid.split('|')[0]
                 key = qtx
@@ -358,7 +350,7 @@ class OTH:
 
         for qid in self.OTs:
             for sid, sco in self.OTs[qid].iteritems():
-                if qid > sid:
+                if qid >= sid:
                     continue
                 qtx = qid.split('|')[0]
                 stx = sid.split('|')[0]
@@ -370,11 +362,13 @@ class OTH:
         for key in self.COs:
             sco = self.COs[key]
             qid, sid = key.split('\t')
+            if qid >= sid:
+                continue
             qtx = qid.split('|')[0]
             stx = sid.split('|')[0]
             key = qtx + '\t' + stx
             nsc = sco / self.COs_avg[key]
-            print '\t'.join(['OT'] + map(str, [qid, sid, nsc]))
+            print '\t'.join(['CO'] + map(str, [qid, sid, nsc]))
 
 
 
