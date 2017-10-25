@@ -448,9 +448,16 @@ IPqA.clear()
 def get_sam_tax(f, n2l):
     flag = None
     out = []
+    visit = set()
     for i in f:
         x, y, sco = i[:-1].split('\t')
         x, y = map(int, [x, y])
+
+        if (x, y) not in visit:
+            visit.add((x, y))
+        else:
+            continue
+
         qid, sid = n2l[x], n2l[y]
         qtx = qid.split('|')[0]
         sco = float(sco)
