@@ -15,15 +15,118 @@ from collections import Counter
 from bisect import bisect_left
 import json
 from leveldict import LevelDict, LevelDictSerialized
+import shelve
+from gc import collect
 
 # initial a dictionary
-Dict = lambda x: LevelDictSerialized(x, serializer=json)
+#Dict = lambda x: LevelDictSerialized(x, serializer=json, max_open_files=25, block_cache_size=1024**2*512, write_buffer_size=1024**2*512)
+Dict = lambda x: LevelDictSerialized(x, serializer=json, max_open_files=50)
+
+class Dict0:
+    def __init__(self, name, n = 43):
+        self.N = n
+        os.system('mkdir -p %s_db'%name)
+        self.temp = name + '_db'
+        #self.dbs = [anydbm.open(self.temp + '/%d'%elem, 'c') for elem in xrange(self.N)]
+        self.dbs = [shelve.open(self.temp + '/%d'%elem) for elem in xrange(self.N)]
+
+    def __setitem__(self, x, y):
+        i = hash(x) % self.N
+        self.dbs[i][x] = y
+
+    def __getitem__(self, x):
+        i = hash(x) % self.N
+        return self.dbs[i][x]
+
+    def get(self, x, y = None):
+        i = hash(x) % self.N
+        return self.dbs[i].get(x, y)
+
+    def __iter__(self):
+        for db in self.dbs:
+            for i in db:
+                yield i
+
+    def __len__(self):
+        return sum(map(len, self.dbs))
+
+    def update(self, x):
+        for k, v in x.iteritems():
+            self[k] = v
+
+    def close(self):
+        for i in self.dbs:
+            i.close()
+
+    def clear(self):
+        self.close()
+        os.system('rm -rf %s'%self.temp)
+
+
+# correct search results
+def correct(s, m, l=None, r=None, sep='\n'):
+    if not l and not r:
+        return s.rfind(sep, 0, m) + 1
+    M = s.rfind(sep, l, m) + 1
+    if l < M < r:
+        return M
+    else:
+        M = s.find(sep, m, r) + 1
+        return M
+
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
+    n = len(s)
+    pn = len(p)
+    R = R == -1 and n-1 or R
+    l = correct(s, L, sep=sep)
+    r = correct(s, R, sep=sep)
+    # find left
+    while l < r:
+        m = (l + r) // 2
+        m = correct(s, m, l, r, sep=sep)
+        if m == l or m == r:
+            break
+        t = s[m: s.find('\n', m)]
+        pat = key(t)
+        if pat >= p:
+            r = m
+        else:
+            l = m
+
+    # search from both direction
+    left = m - 1
+    while left >= 0:
+        start = s.rfind('\n', 0, left)
+        line = s[start+1: left]
+        #if key(line).startswith(p):
+        if key(line) == p:
+            left = start
+        else:
+            break
+    left += 1
+    line = s[left: s.find('\n', left)]
+    #if not key(line).startswith(p):
+    if key(line) != p:
+        return -1, -1, []
+
+    right = left
+    while 1:
+        end = s.find('\n', right)
+        #if key(s[right: end]).startswith(p):
+        if key(s[right: end]) == p:
+            right = end + 1
+        else:
+            break
+
+    pairs = s[left: right].strip().split('\n')
+    return left, right, pairs
+
 
 
 # print the manual
 def manual_print():
     print 'Usage:'
-    print '    python fast_search.py -i foo.sc [-c .5] [-y 50] [-n no]'
+    print '    python find_orth_ultra.py -i foo.sc [-c .5] [-y 50] [-n no]'
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 14 columns'
     print '  -c: min coverage of sequence [0~1]'
@@ -99,7 +202,6 @@ class OTH:
 
         if hits:
             yield hits.values()
-
 
     # filter the blast8 hits by identity, query-coverage and e-value
     def filter(self):
@@ -239,6 +341,7 @@ class OTH:
                         a, b = OTs_avg[key]
                         OTs_avg[key] = [a+sco, b+1.]
 
+        qOTs.clear()
         for key in OTs_avg:
             a, b = OTs_avg[key]
             OTs_avg[key] = a/b
@@ -282,6 +385,7 @@ class OTH:
                         else:
                             IPqA[qtx] = [sco, 1.]
 
+        qIPs.clear()
         self.IPqA_avg = {}
         for qtx in IP_pairs:
             if qtx in IPqA:
@@ -296,8 +400,8 @@ class OTH:
         COs = Dict(self.temp + './cos')
         for qid in OTs:
             for sid in OTs[qid].iterkeys():
-                qips = qIPs.get(qid, {}).keys()
-                sips = qIPs.get(sid, {}).keys()
+                qips = IPs.get(qid, {}).keys()
+                sips = IPs.get(sid, {}).keys()
                 for qip in qips:
                     for sip in sips:
                         vk = qip + '\t' + sip
@@ -328,7 +432,7 @@ class OTH:
                             else:
                                 a, b = COs_avg[key]
                                 COs_avg[key] = [a+sco, b+1.]
-
+        qCOs.clear()
         for key in COs_avg:
             a, b = COs_avg[key]
             COs_avg[key] = a/b
@@ -348,6 +452,7 @@ class OTH:
                 key = qtx
                 nsc = sco / self.IPqA_avg[key]
                 print '\t'.join(['IP'] + map(str, [qid, sid, nsc]))
+        self.IPs.clear()
 
         for qid in self.OTs:
             for sid, sco in self.OTs[qid].iteritems():
@@ -358,6 +463,7 @@ class OTH:
                 key = qtx + '\t' + stx
                 nsc = sco / self.OTs_avg[key]
                 print '\t'.join(['OT'] + map(str, [qid, sid, nsc]))
+        self.OTs.clear()
 
         #for key, sco in self.COs.iteritems():
         for key in self.COs:
@@ -370,7 +476,7 @@ class OTH:
             key = qtx + '\t' + stx
             nsc = sco / self.COs_avg[key]
             print '\t'.join(['CO'] + map(str, [qid, sid, nsc]))
-
+        self.COs.clear()
 
 
 clf = OTH(qry, coverage, identity)

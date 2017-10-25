@@ -79,7 +79,7 @@ def m8parse(f):
         qid = j[0]
         if flag != qid:
             if out:
-                out.sort(key=lambda x: -int(x[11]))
+                out.sort(key=lambda x: -float(x[11]))
                 yield out
             flag = qid
             out = [j]
@@ -87,7 +87,7 @@ def m8parse(f):
             out.append(j)
 
     if out:
-        out.sort(key=lambda x: -int(x[11]))
+        out.sort(key=lambda x: -float(x[11]))
         yield out
 
 Orth = orth
