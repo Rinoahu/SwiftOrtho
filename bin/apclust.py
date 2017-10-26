@@ -23,7 +23,7 @@ def manual_print():
     print '  -p: parameter of preference'
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.38', '-p': '-10000'}
+args = {'-i': '', '-d': '0.5', '-p': '-10000'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -44,7 +44,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, dmp, prf = args['-i'], float(args['-d']), int(args['-p']),
+    qry, dmp, prf = args['-i'], float(args['-d']), float(args['-p'])
 
 except:
     manual_print()
@@ -52,7 +52,7 @@ except:
 
 # ap cluster algorithm
 @jit
-def apclust(data, KS=-1, damp=.5, convit=15, itr=200):
+def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
     # data:
     # 0: qid, 1: sid, 2: score, 3: R, 4: A
     if KS == -1:
@@ -161,6 +161,7 @@ def fc2mat(qry, prefer=-10000):
     # locus to number
     #KK = Counter()
     l2n = {}
+    txs = set()
     f = open(qry, 'r')
     _o = open(qry + '.npy', 'wb')
     for i in f:
@@ -171,7 +172,10 @@ def fc2mat(qry, prefer=-10000):
             x, y, z = j
         if x > y:
             continue
-
+        qtx = x.split('|')[0]
+        stx = y.split('|')[0]
+        txs.add(qtx)
+        txs.add(stx)
         if x not in l2n:
             l2n[x] = flag
             flag += 1
@@ -197,6 +201,9 @@ def fc2mat(qry, prefer=-10000):
         _o.write(pack('fffff', Y, X, Z, 0, 0))
         N += 2
 
+    #Z = prefer
+    Z = len(stx) * -10
+    print 'Z is', Z
     #Z = np.median(KK.values())
     #ms = -MIN
     #for i, j in KK.items():
@@ -205,7 +212,6 @@ def fc2mat(qry, prefer=-10000):
         #Z = MIN * 2 - MAX
         #Z = MIN
         #Z = -10000
-        Z = prefer
         _o.write(pack('fffff', X, Y, Z, 0, 0))
         N += 1
 
