@@ -19,11 +19,11 @@ def manual_print():
     print '    python mcl.py -i foo.xyz -d 0.5'
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 3 columns'
-    print '  -d: inflation parameter.'
-    print '  -a: number of threads'
+    print '  -d: damp'
+    print '  -p: parameter of preference'
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.5', '-a': '1'}
+args = {'-i': '', '-d': '0.38', '-p': '-10000'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -44,7 +44,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, dmp, cpu = args['-i'], float(args['-d']), int(args['-a']),
+    qry, dmp, prf = args['-i'], float(args['-d']), int(args['-p']),
 
 except:
     manual_print()
@@ -52,7 +52,7 @@ except:
 
 # ap cluster algorithm
 @jit
-def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
+def apclust(data, KS=-1, damp=.5, convit=15, itr=200):
     # data:
     # 0: qid, 1: sid, 2: score, 3: R, 4: A
     if KS == -1:
@@ -144,26 +144,8 @@ def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
                     lab[i] = k
                 else:
                     continue
-            '''
-            if i != k:
-                if ras[i] < ra and ras[i] != k:
-                    lab[i] = k
-                    ras[i] = ra
-                    change = 1
-            else:
-                if ra > 0:
-                    if lab[i] != k:
-                        change = 1
-                    lab[i] = k
-                    ras[i] = ra
-            '''
 
-        #if change == 0:
-        #    mconv += 1
-        #else:
-        #    mconv = 0
         mconv = change == 0 and mconv+1 or 0
-        #print 'mconv', mconv, it
         if mconv > convit:
             break
 
@@ -171,7 +153,7 @@ def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
 
 # double and sort the file
 # convert fastclust results to matrix
-def fc2mat(qry):
+def fc2mat(qry, prefer=-10000):
     flag = N = 0
     MIN = float('+inf')
     MAX = 0
@@ -200,10 +182,10 @@ def fc2mat(qry):
 
         X, Y = map(l2n.get, [x, y])
         Z = float(z)
-        if MIN > Z:
-            MIN = Z
-        if MAX < X:
-            MAX = Z
+        #if MIN > Z:
+        #    MIN = Z
+        #if MAX < X:
+        #    MAX = Z
 
         #if KK[X] < Z:
         #    KK[X] = Z
@@ -216,14 +198,14 @@ def fc2mat(qry):
         N += 2
 
     #Z = np.median(KK.values())
-    #print 'mini relation', MIN, MAX, 2 * MIN - MAX
     #ms = -MIN
     #for i, j in KK.items():
     for i in l2n.values():
         X = Y = i
         #Z = MIN * 2 - MAX
         #Z = MIN
-        Z = -10 * 1.5
+        #Z = -10000
+        Z = prefer
         _o.write(pack('fffff', X, Y, Z, 0, 0))
         N += 1
 
@@ -238,14 +220,14 @@ def fc2mat(qry):
     return N, D, n2l
 
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
-N, D, n2l = fc2mat(qry)
+N, D, n2l = fc2mat(qry, prf)
 
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
 data = np.memmap(qry+'.npy', mode='r+', shape = (N, 5), dtype='float32')
 dat = np.asarray(data, dtype = 'float32')
 
 
-labels = apclust(dat, KS=D)
+labels = apclust(dat, KS=D, damp=dmp)
 
 #groups = {}
 G = nx.Graph()

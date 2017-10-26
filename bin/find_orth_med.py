@@ -418,7 +418,12 @@ for i in f:
                 if not pairs:
                     st, ed, pairs = binary_search(Sqco, [sip, qip], lambda x: map(int, x.split('\t', 3)[:2]))
                 if pairs:
-                    _ocos.write(pairs[0]+'\n')
+                    x, y, sco = pairs[0].split('\t')
+                    x, y = int(x) < int(y) and x, y or y, x
+                    _ocos.write('\t'.join([x, y, sco]) + '\n')
+                    #_ocos.write(pairs[0]+'\n')
+                else:
+                    continue
                    
 _ocos.close()
 f.close()
@@ -432,10 +437,10 @@ for i in f:
     x, y = map(int, [x, y])
     qid, sid = n2l[x], n2l[y]
     tax = qid.split('|')[0]
-    n = IPqA[tax]
+    avg = IPqA[tax]
     score = float(score)
     try:
-        out = map(str, ['IP', qid, sid, score/n])
+        out = map(str, ['IP', qid, sid, score/avg])
     except:
         continue
     print '\t'.join(out)
@@ -473,22 +478,22 @@ def get_sam_tax(f, n2l):
 
 # normal co or ot
 def n_co_ot(out):
-    total = {}
+    avgs = {}
     for qid, sid, sco in out:
         stx = sid.split('|')[0]
         try:
-            total[stx][0] += sco
-            total[stx][1] += 1.
+            avgs[stx][0] += sco
+            avgs[stx][1] += 1.
         except:
-            total[stx] = [sco, 1.]
+            avgs[stx] = [sco, 1.]
     for k in total:
         a, b = total[k]
-        total[k] = a/b
+        avgs[k] = a / b
 
     for qid, sid, sco in out:
         stx = sid.split('|')[0]
-        nml = total[stx]
-        yield [qid, sid, sco / nml]
+        avg = avgs[stx]
+        yield [qid, sid, sco / avg]
 
 
 ###############################################################################
