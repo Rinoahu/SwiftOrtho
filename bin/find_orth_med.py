@@ -206,7 +206,7 @@ f = open(qry, 'r')
 qip = qry + '.qIPs.txt'
 _oqips = open(qip, 'w')
 
-qot = qry + '.qOs.txt'
+qot = qry + '.qOTs.txt'
 _oqots = open(qot, 'w')
 
 qco = qry + '.qCOs.txt'
@@ -289,7 +289,7 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
 # get OTs
 ###############################################################################
 inots = [-1] * len(l2n)
-ots = qry + '.Os.txt'
+ots = qry + '.OTs.txt'
 _oots = open(ots, 'w')
 f = open(qot, 'r')
 S = mmap(f.fileno(), 0, access = ACCESS_READ)
@@ -419,7 +419,8 @@ for i in f:
                     st, ed, pairs = binary_search(Sqco, [sip, qip], lambda x: map(int, x.split('\t', 3)[:2]))
                 if pairs:
                     x, y, sco = pairs[0].split('\t')
-                    x, y = int(x) < int(y) and x, y or y, x
+                    if int(x) > int(y):
+                        x, y = y, x
                     _ocos.write('\t'.join([x, y, sco]) + '\n')
                     #_ocos.write(pairs[0]+'\n')
                 else:
@@ -486,8 +487,8 @@ def n_co_ot(out):
             avgs[stx][1] += 1.
         except:
             avgs[stx] = [sco, 1.]
-    for k in total:
-        a, b = total[k]
+    for k in avgs:
+        a, b = avgs[k]
         avgs[k] = a / b
 
     for qid, sid, sco in out:
