@@ -12,9 +12,6 @@ import os
 from commands import getoutput
 from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 from collections import Counter
-import io
-
-#open = io.open
 
 
 # print the manual
@@ -567,21 +564,19 @@ f.close()
 IPqA.clear()
 
 
-# get co or ot from same taxon
-def get_sam_tax0(f, n2l):
+# get orthology relationships from same query species
+def get_sam_tax0(f):
     flag = None
     out = []
     visit = set()
     for i in f:
         x, y, sco = i[:-1].split('\t')
-        x, y = map(int, [x, y])
-
         if (x, y) not in visit:
             visit.add((x, y))
         else:
             continue
 
-        qid, sid = n2l[x], n2l[y]
+        qid, sid = x, y
         qtx = qid.split('|')[0]
         sco = float(sco)
         if qtx != flag:
@@ -594,47 +589,33 @@ def get_sam_tax0(f, n2l):
     if out:
         yield out
 
-# get orthology relationship with same tax name
 def get_sam_tax(f):
     flag = None
     out = []
     visit = set()
     for i in f:
-        qid, sid, sco = i[:-1].split('\t')
+        x, y, sco = i[:-1].split('\t')
+        if (x, y) not in visit:
+            visit.add((x, y))
+        else:
+            continue
+
+        qid, sid = x, y
         qtx = qid.split('|')[0]
+        stx = sid.split('|')[0]
+
         sco = float(sco)
         if qtx != flag:
             if out:
                 yield out
-            flag = qtx
+            flag = (qtx, stx)
             out = [[qid, sid, sco]]
             visit = set((qid, sid))
         else:
-            if (qid, sid) not in visit:
-                out.append([qid, sid, sco])
-                visit.add((qid, sid))
+            out.append([qid, sid, sco])
     if out:
         yield out
 
-# normal co or ot
-def n_co_ot(out):
-    avgs = {}
-    for qid, sid, sco in out:
-        stx = sid.split('|')[0]
-        try:
-            avgs[stx][0] += sco
-            avgs[stx][1] += 1.
-        except:
-            avgs[stx] = [sco, 1.]
-    for k in avgs:
-        a, b = avgs[k]
-        avgs[k] = a / b
-
-    for qid, sid, sco in out:
-        stx = sid.split('|')[0]
-        avg = avgs[stx]
-        yield [qid, sid, sco / avg]
-
 
 
 # normal co or ot
@@ -655,11 +636,14 @@ def n_co_ot(out):
         stx = sid.split('|')[0]
         avg = avgs[stx]
         yield [qid, sid, sco / avg]
+
 
 ###############################################################################
 # print normalized OTs and COs
 ###############################################################################
-f = open(ots, 'r')
+# sort ots
+os.system('export LC_ALL=C && sort --parallel=%s %s -o %s && rm %s'%(cpu, ots, otssrt, ots))
+f = open(otssrt, 'r')
 for i in get_sam_tax(f):
     for j in n_co_ot(i):
         out = '\t'.join(map(str, j))
@@ -667,7 +651,10 @@ for i in get_sam_tax(f):
 
 f.close()
 
-f = open(cos, 'r')
+# sort cos
+os.system('export LC_ALL=C && sort --parallel=%s %s -o %s && rm %s'%(cpu, cos, cossrt, cos))
+
+f = open(cossrt, 'r')
 for i in get_sam_tax(f):
     for j in n_co_ot(i):
         out = '\t'.join(map(str, j))
