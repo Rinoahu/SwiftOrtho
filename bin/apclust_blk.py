@@ -163,7 +163,7 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
     N, d = dat.shape
     data = np.empty((chk, 5))
     for it in xrange(itr):
-        print 'iteration', it
+        #print 'iteration', it
         # get max of row
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
@@ -364,7 +364,7 @@ def fc2mat(qry, prefer=-10000):
 
     #Z = prefer
     Z = len(txs) * -10
-    print 'Z is', Z
+    #print 'Z is', Z
     #Z = np.median(KK.values())
     #ms = -MIN
     #for i, j in KK.items():
@@ -388,6 +388,7 @@ def fc2mat(qry, prefer=-10000):
 
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
 N, D, n2l = fc2mat(qry, prf)
+#D = 6000000
 
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
 data = np.memmap(qry+'.npy', mode='r+', shape = (N, 5), dtype='float32')
@@ -395,7 +396,7 @@ dat = np.asarray(data, dtype = 'float32')
 
 
 #labels = apclust(dat, KS=D, damp=dmp)
-labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**8*2)
+labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**6)
 
 #groups = {}
 G = nx.Graph()
