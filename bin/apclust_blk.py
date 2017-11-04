@@ -55,7 +55,8 @@ except:
 # ras[:] = -np.inf
 # chang = 0
 @jit
-def update_RA(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+def max_row(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+
     #N = data.shape[0]
     N = size
     # get row max and 2nd
@@ -73,6 +74,10 @@ def update_RA(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0)
         else:
             continue
 
+# update R
+@jit
+def update_R(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+    N = size
     # update R
     for n in xrange(N):
         I, K, s, r, a = data[n]
@@ -88,6 +93,11 @@ def update_RA(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0)
         if i == k:
             diag[i, 5] = data[n, 3]
 
+
+# get sum of col
+@jit
+def sum_col(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+    N = size
     # get col sum
     for n in xrange(N):
         I, K, s, r, a = data[n]
@@ -97,6 +107,10 @@ def update_RA(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0)
             r = max(0, r)
             diag[k, 4] += r
 
+# update A
+@jit
+def update_A(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+    N = size
     # update A
     for n in xrange(N):
         I, K, s, r, a = data[n]
@@ -108,6 +122,10 @@ def update_RA(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0)
         else:
             data[n, 4] += beta * diag[k, 4]
 
+# changes
+@jit
+def get_change(data, diag, ras, lab, size=0, damp=.5, beta=.5, mconv=0, change=0):
+    N = size
     for n in xrange(N):
         I, K, s, r, a = data[n]
         i = int(I)
@@ -130,7 +148,7 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
     # data:
     # 0: qid, 1: sid, 2: score, 3: R, 4: A
     if KS == -1:
-        KS = int(data[:, :2].max()) + 1
+        KS = int(dat[:, :2].max()) + 1
 
     beta = 1 - damp
     lab = np.arange(KS)
@@ -138,21 +156,56 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
 
     # set max convergency iteraion
     mconv = 0
+    change = 0
     #print 'K is', K, data.shape, data[:, :2].min()
     # 0:row max; 1: index, 2: 2nd row max; 3: index; 4: col sum; 5: diag of r
     diag = np.zeros((KS, 6))
-    N, d = data.shape
+    N, d = dat.shape
     data = np.empty((chk, 5))
     for it in xrange(itr):
+        print 'iteration', it
+        # get max of row
+        for x in xrange(0, N, chk):
+            y = min(x+chk, N)
+            z = y - x
+            data[:z, :] = dat[x:y, :]
+            max_row(data, diag, ras, lab, z, damp, beta, mconv)
+
+        # update R
+        for x in xrange(0, N, chk):
+            y = min(x+chk, N)
+            z = y - x
+            data[:z, :] = dat[x:y, :]
+            update_R(data, diag, ras, lab, z, damp, beta, mconv)
+            dat[x:y, :] = data[:z, :]
+
         diag[:, 4] = 0
+        # get sum of col
+        for x in xrange(0, N, chk):
+            y = min(x+chk, N)
+            z = y - x
+            data[:z, :] = dat[x:y, :]
+            sum_col(data, diag, ras, lab, z, damp, beta, mconv)
+
+        # update A
+        for x in xrange(0, N, chk):
+            y = min(x+chk, N)
+            z = y - x
+            data[:z, :] = dat[x:y, :]
+            update_A(data, diag, ras, lab, z, damp, beta, mconv)
+            dat[x:y, :] = data[:z, :]
+
+        # get change
         ras[:] = -np.inf
         chang = 0
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
             data[:z, :] = dat[x:y, :]
-            update_RA(data, diag, ras, lab, z, damp, beta, mconv, change):
-            dat[x:y, :] = data[:z, :]
+            get_change(data, diag, ras, lab, z, damp, beta, mconv, change)
+
+        if mconv > convit:
+            break
 
     return lab
 
@@ -310,7 +363,7 @@ def fc2mat(qry, prefer=-10000):
         N += 2
 
     #Z = prefer
-    Z = len(stx) * -10
+    Z = len(txs) * -10
     print 'Z is', Z
     #Z = np.median(KK.values())
     #ms = -MIN
@@ -341,7 +394,8 @@ data = np.memmap(qry+'.npy', mode='r+', shape = (N, 5), dtype='float32')
 dat = np.asarray(data, dtype = 'float32')
 
 
-labels = apclust(dat, KS=D, damp=dmp)
+#labels = apclust(dat, KS=D, damp=dmp)
+labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**8*2)
 
 #groups = {}
 G = nx.Graph()
