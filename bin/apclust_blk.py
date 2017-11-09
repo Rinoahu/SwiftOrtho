@@ -177,7 +177,10 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
             z = y - x
             data[:z, :] = dat[x:y, :]
             update_R(data, diag, ras, lab, z, damp, beta, mconv)
-            dat[x:y, :] = data[:z, :]
+            if z == chk:
+                dat[x:y, :] = data
+            else:
+                dat[x:y, :] = data[:z, :]
 
         diag[:, 4] = 0
         # get sum of col
@@ -193,7 +196,10 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
             z = y - x
             data[:z, :] = dat[x:y, :]
             update_A(data, diag, ras, lab, z, damp, beta, mconv)
-            dat[x:y, :] = data[:z, :]
+            if z == chk:
+                dat[x:y, :] = data
+            else:
+                dat[x:y, :] = data[:z, :]
 
         # get change
         ras[:] = -np.inf
@@ -391,12 +397,12 @@ N, D, n2l = fc2mat(qry, prf)
 #D = 6000000
 
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
-data = np.memmap(qry+'.npy', mode='r+', shape = (N, 5), dtype='float32')
-dat = np.asarray(data, dtype = 'float32')
+data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
+dat = np.asarray(data, dtype='float32')
 
 
 #labels = apclust(dat, KS=D, damp=dmp)
-labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**6)
+labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**8*2)
 
 #groups = {}
 G = nx.Graph()
