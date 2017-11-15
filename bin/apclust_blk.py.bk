@@ -10,12 +10,10 @@ except:
     jit = lambda x: x
 
 from scipy import sparse
-#from sklearn.preprocessing import normalize
+from sklearn.preprocessing import normalize
 from collections import Counter
 import networkx as nx
-from itertools import izip
-
-from pysapc import SAP
+from itertools import import izip
 
 # print the manual
 def manual_print():
@@ -322,76 +320,42 @@ def apclust(data, KS=-1, damp=.5, convit=15, itr=100):
     return lab
 
 
-# normalize
-def normalize0(x, norm='l1', axis=0):
-    ri, ci = x.nonzero()
-    cs = x.sum(axis)
-    if cs.min() == 0:
-        er = cs.nonzero().min()/100.
-        cs += er
-    if axis == 1:
-        cs = cs.T
-        idx = ri
-    else:
-        idx = ci
-    y = np.asarray(cs)[0]
-    x.data /= y[idx]
-        
-def normalize(x, norm='l1', axis=0):
-    cs = x.sum(axis)
-    y = np.asarray(cs)[0]
-    if y.min() == 0:
-        y += y.nonzero().min()/1e-3
-
-    x.data /= y.take(x.indices, mode='clip')
-    #x.data /= y[x.indice]
-
-
-
 # mcl cluster based on sparse matrix
 #    x: dok matrix
 #    I: inflation parameter
 #    E: expension parameter
 #    P: 1e-5. threshold to prune weak edge
-def mcl(x, I=1.5, E=2, P=1e-7, rtol=1e-5, atol=1e-8, itr=100, check=5):
-
+def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
     for i in xrange(itr):
-
-        #print 'iteration', i
-
         # normalization of col
         normalize(x, norm='l1', axis=0)
+
         if i % check == 0:
             x_old = x.copy()
 
         # expension
         x **= E
-
         # inflation
-        #x = x.power(I)
-        x.data **= I
+        x = x.power(I)
 
         # stop if no change
-        if i % check == 0 and i > 0:
-            #print 'iteration', i, x.max(), x.min()
-            if (abs(x-x_old)-rtol * abs(x_old)).max() <= atol:
+        if i % check == 0:
+            if (abs(x-x_old)-rtol * abs(b)).max() <= atol:
                 break
             # prune weak edge
-            #x.data[x.data < P] = 0.
-
-        # prune weak edge
-        x.data[x.data < P] = 0.
-
+            x[x<tol] = 0
 
     # get cluster
     G = nx.Graph()
     rows, cols = x.nonzero()
-    vals = x.data
-    for i, j, k in izip(rows, cols, vals):
-        if k > P:
-            G.add_edge(i, j)
+    for i, j in izip(rows, cols):
+        G.add_edge(i, j)
 
     return G
+
+
+
+
 
 
 # double and sort the file
@@ -533,8 +497,8 @@ def fc2mat(qry, prefer=-10000):
             prfs[X] -= Z
             G.add_edge(X, Y)
 
-    #for co in nx.connected_components(G):
-    #   print 'co', co
+    for co in nx.connected_components(G):
+        print 'co', co
 
     #print 'prfs', prfs
     for i in xrange(len(l2n)):
@@ -561,52 +525,6 @@ N, D, n2l = fc2mat(qry, prf)
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
 data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
 dat = np.asarray(data, dtype='float32')
-
-###############################################################################
-mini = min(dat[:, 2])
-maxi = max(dat[:, 2])
-print 'start getting data'
-#X = sparse.dok_matrix((D, D), dtype='float32')
-#X = sparse.csr_matrix((D, D), dtype='float32')
-X = sparse.lil_matrix((D, D), dtype='float32')
-for i in dat:
-    x, y, z = i[:3]
-    x, y = int(x), int(y)
-    #print x, y, z
-    X[x, y] = (z - mini)/(maxi - mini)
-
-print 'end getting data'
-X = X.tocsr()
-#print max(X), min(X)
-#print 'max, min', X[X.nonzero()].max(), X[X.nonzero()].min()
-print X[X.nonzero()]
-
-print 'mcl'
-G = mcl(X)
-for i in nx.connected_components(G):
-    print '\t'.join([n2l[elem] for elem in i])
-
-raise SystemExit()
-
-
-clf = SAP()
-#clf.preference = 'median'
-clf.preference = np.asarray([-500.] * len(n2l))
-Y = clf.fit_predict(X)
-clsr = {}
-for i in xrange(len(Y)):
-    j = n2l[i]
-    k = Y[i]
-    try:
-        clsr[k].append(j)
-    except:
-        clsr[k] = [j]
-
-for i in clsr.itervalues():
-    print '\t'.join(i)
-
-raise SystemExit()
-##############################################################################
 
 
 #labels = apclust(dat, KS=D, damp=dmp)
