@@ -562,14 +562,15 @@ def fc2mat(qry, prefer=-10000, alg='mcl'):
 def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
 
     if alg == 'mcl':
-        a = dat[:, 2].min()
-        b = dat[:, 2].max()
-        c = b - a
+        #a = dat[:, 2].min()
+        #b = dat[:, 2].max()
+        #c = b - a
         X = sparse.lil_matrix((D, D), dtype='float32')
         for i in dat:
             x, y, z = i[:3]
             x, y = int(x), int(y)
-            X[x, y] = (z - a)/c
+            #X[x, y] = (z - a)/c
+            X[x, y] = z
 
         X = X.tocsr()
         G = mcl(X, I=I)
@@ -640,69 +641,5 @@ dat = np.asarray(data, dtype='float32')
 main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 
 
-
 raise SystemExit()
 ###############################################################################
-mini = min(dat[:, 2])
-maxi = max(dat[:, 2])
-print 'start getting data'
-#X = sparse.dok_matrix((D, D), dtype='float32')
-#X = sparse.csr_matrix((D, D), dtype='float32')
-X = sparse.lil_matrix((D, D), dtype='float32')
-for i in dat:
-    x, y, z = i[:3]
-    x, y = int(x), int(y)
-    #print x, y, z
-    X[x, y] = (z - mini)/(maxi - mini)
-
-print 'end getting data'
-X = X.tocsr()
-#print max(X), min(X)
-#print 'max, min', X[X.nonzero()].max(), X[X.nonzero()].min()
-print X[X.nonzero()]
-
-print 'mcl'
-G = mcl(X)
-for i in nx.connected_components(G):
-    print '\t'.join([n2l[elem] for elem in i])
-
-raise SystemExit()
-
-
-##############################################################################
-clf = SAP()
-#clf.preference = 'median'
-clf.preference = np.asarray([-500.] * len(n2l))
-Y = clf.fit_predict(X)
-clsr = {}
-for i in xrange(len(Y)):
-    j = n2l[i]
-    k = Y[i]
-    try:
-        clsr[k].append(j)
-    except:
-        clsr[k] = [j]
-
-for i in clsr.itervalues():
-    print '\t'.join(i)
-
-raise SystemExit()
-##############################################################################
-
-
-#labels = apclust(dat, KS=D, damp=dmp)
-labels = apclust_blk(dat, KS=D, damp=dmp, chk=10**8*2)
-
-#groups = {}
-G = nx.Graph()
-for i in xrange(len(labels)):
-    j = labels[i]
-    G.add_edge(i, j)
-
-for i in nx.connected_components(G):
-    print '\t'.join([n2l[elem] for elem in i])
-
-#print 'sequence number', len(n2l), len(labels)
-#for i, j in groups.items():
-#    print '\t'.join([n2l[elem] for elem in [i] + j])
-
