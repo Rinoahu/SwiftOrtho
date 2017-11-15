@@ -24,10 +24,14 @@ def manual_print():
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 3 columns'
     print '  -d: damp'
-    print '  -p: parameter of preference'
+    print '  -p: parameter of preference for apc'
+    print '  -I: inflation parameter for mcl'
+    print '  -a: algorithm'
+
+
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.5', '-p': '-10000'}
+args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'alg'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -48,7 +52,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, dmp, prf = args['-i'], float(args['-d']), float(args['-p'])
+    qry, dmp, prf, ifl, alg = args['-i'], float(args['-d']), float(args['-p']), float(args['-I']), args['-a'].lower()
 
 except:
     manual_print()
@@ -353,7 +357,7 @@ def normalize(x, norm='l1', axis=0):
 #    I: inflation parameter
 #    E: expension parameter
 #    P: 1e-5. threshold to prune weak edge
-def mcl(x, I=1.5, E=2, P=1e-7, rtol=1e-5, atol=1e-8, itr=100, check=5):
+def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
 
     for i in xrange(itr):
 
@@ -469,7 +473,7 @@ def fc2mat0(qry, prefer=-10000):
     return N, D, n2l
 
 
-def fc2mat(qry, prefer=-10000):
+def fc2mat(qry, prefer=-10000, alg='mcl'):
     flag = N = 0
     MIN = float('+inf')
     MAX = 0
@@ -533,16 +537,15 @@ def fc2mat(qry, prefer=-10000):
             prfs[X] -= Z
             G.add_edge(X, Y)
 
-    #for co in nx.connected_components(G):
-    #   print 'co', co
-
-    #print 'prfs', prfs
-    for i in xrange(len(l2n)):
-        X = Y = i
-        Z = prfs[i]
-        #Z = -len(prfs)
-        _o.write(pack('fffff', X, Y, Z, 0, 0))
-        N += 1
+    Prf = len(set([elem.split('|')[0] for elem in l2n])) * -10.
+    if alg == 'apc' or alg == 'sap':
+        for i in xrange(len(l2n)):
+            X = Y = i
+            #Z = prfs[i]
+            #Z = -len(prfs)
+            Z = Prf
+            _o.write(pack('fffff', X, Y, Z, 0, 0))
+            N += 1
 
     f.close()
     _o.close()
@@ -554,14 +557,91 @@ def fc2mat(qry, prefer=-10000):
         n2l[j] = i
     return N, D, n2l
 
+
+# main function
+def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
+
+    if alg == 'mcl':
+        a = dat[:, 2].min()
+        b = dat[:, 2].max()
+        c = b - a
+        X = sparse.lil_matrix((D, D), dtype='float32')
+        for i in dat:
+            x, y, z = i[:3]
+            x, y = int(x), int(y)
+            X[x, y] = (z - a)/c
+
+        X = X.tocsr()
+        G = mcl(X, I=I)
+        if n2l:
+            for i in nx.connected_components(G):
+                print '\t'.join([n2l[elem] for elem in i])
+        else:
+            for i in nx.connected_components(G):
+                print '\t'.join(map(str, i))
+
+
+    elif alg == 'apc':
+        labels = apclust_blk(dat, KS=KS, damp=damp, chk=10**8*2)
+        G = nx.Graph()
+        for i in xrange(len(labels)):
+            j = labels[i]
+            G.add_edge(i, j)
+
+        if n2l:
+            for i in nx.connected_components(G):
+                print '\t'.join([n2l[elem] for elem in i])
+        else:
+            for i in nx.connected_components(G):
+                print '\t'.join(map(str, i))
+
+    elif alg == 'sap':
+        a = dat[:, 2].min()
+        b = dat[:, 2].max()
+        c = b - a
+        X = sparse.lil_matrix((D, D), dtype='float32')
+        for i in dat:
+            x, y, z = i[:3]
+            x, y = int(x), int(y)
+            X[x, y] = (z - a)/c
+
+        X = X.tocsr()
+        clf = SAP()
+        #clf.preference = 'median'
+        Prf = len(set([elem.split('|')[0] for elem in n2l])) * -10.
+        clf.preference = np.asarray([Prf] * len(n2l))
+        Y = clf.fit_predict(X)
+        clsr = {}
+        for i in xrange(len(Y)):
+            j = n2l[i]
+            k = Y[i]
+            try:
+                clsr[k].append(j)
+            except:
+                clsr[k] = [j]
+
+        for i in clsr.itervalues():
+            print '\t'.join(i)
+
+
+    else:
+        pass
+
+
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
-N, D, n2l = fc2mat(qry, prf)
+N, D, n2l = fc2mat(qry, prf, alg=alg)
 #D = 6000000
 
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
 data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
 dat = np.asarray(data, dtype='float32')
 
+
+main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+
+
+
+raise SystemExit()
 ###############################################################################
 mini = min(dat[:, 2])
 maxi = max(dat[:, 2])
@@ -589,6 +669,7 @@ for i in nx.connected_components(G):
 raise SystemExit()
 
 
+##############################################################################
 clf = SAP()
 #clf.preference = 'median'
 clf.preference = np.asarray([-500.] * len(n2l))
