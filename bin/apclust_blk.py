@@ -14,6 +14,7 @@ from scipy import sparse
 from collections import Counter
 import networkx as nx
 from itertools import izip
+import gc
 
 from pysapc import SAP
 
@@ -344,12 +345,12 @@ def normalize0(x, norm='l1', axis=0):
 def normalize(x, norm='l1', axis=0):
     cs = x.sum(axis)
     y = np.asarray(cs)[0]
-    if y.min() == 0:
-        y += y.nonzero().min()/1e-3
+    if y.min() == 0 and y.max() > 0:
+        y += y.nonzero()[0].min()/1e3
+    else:
+        y += 1e-8
 
     x.data /= y.take(x.indices, mode='clip')
-    #x.data /= y[x.indice]
-
 
 
 # mcl cluster based on sparse matrix
@@ -374,6 +375,7 @@ def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
         # inflation
         #x = x.power(I)
         x.data **= I
+        #print 'max cell', x.data.max()
 
         # stop if no change
         if i % check == 0 and i > 0:
@@ -557,6 +559,311 @@ def fc2mat(qry, prefer=-10000, alg='mcl'):
         n2l[j] = i
     return N, D, n2l
 
+# get connect components from graph for mcl
+def cnc0(qry, alg='mcl'):
+    flag = N = 0
+    # locus to number
+    # nearest neighbors
+    NNs = {}
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j[:3]
+
+        if x > y:
+            continue
+
+        Z = float(z)
+        if x in NNs:
+            if Z > NNs[x][0]:
+                NNs[x] = [Z, y]
+            elif Z == NNs[x][0]:
+                NNs[x].append(y)
+            else:
+                pass
+        else:
+            NNs[x] = [Z, y]
+
+        if y in NNs:
+            if Z > NNs[y][0]:
+                NNs[y] = [Z, x]
+            elif Z == NNs[y][0]:
+                NNs[y].append(x)
+            else:
+                pass
+        else:
+            NNs[y] = [Z, x]
+
+    f.close()
+    # get 1st round of cluster
+    G = nx.Graph()
+    for x, j in NNs.iteritems():
+        for y in j[1:]:
+            G.add_edge(x, y)
+
+    l2n = {}
+    cnt = {}
+    flag = 0
+    for i in nx.connected_components(G):
+        cnt[flag] = len(i)
+        for j in i:
+            l2n[j] = flag
+        flag += 1
+
+
+    # get second round of cluster
+    del G
+    gc.collect()
+
+    D = flag
+    G_w = sparse.lil_matrix((D, D), dtype='float32')
+    G_d = sparse.lil_matrix((D, D), dtype='float32')
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j
+
+        if x > y:
+            continue
+
+        X, Y = map(l2n.get, [x, y])
+        Z = float(z)
+        a, b = cnt[X], cnt[Y]
+        c = (a * b) ** .5
+        #c = a * b
+        G_w[X, Y] += Z / c
+        G_w[Y, X] = G_w[X, Y]
+        G_d[X, Y] += 1. / c
+        G_d[Y, X] = G_d[X, Y]
+
+    f.close()
+    # use mcl to cluster degree based similar
+    # print G_d.nonzero(), G_d.data
+    # print G_w.nonzero(), G_w.data
+    G_d = G_d.tocsr()
+    G = mcl(G_d, I=1.2)
+    n2n = {}
+    flag = 0
+    for i in nx.connected_components(G):
+        for j in i:
+            n2n[j] = flag
+        flag += 1
+
+    # clusters
+    cls = {}
+    for i, j in l2n.iteritems():
+        try:
+            cls[j].append(i)
+        except:
+            cls[j] = [i]
+
+    cls = {}
+    for i in l2n:
+        j = l2n[i]
+        try:
+            #l2n[i] = n2n[j]
+            c = n2n[j]
+        except:
+            #l2n[i] = flag
+            c = flag
+            flag += 1
+        cls[i] = c
+
+
+    #print 'cluster size', len(cls)
+    N = 0
+    n2l = []
+    for i in l2n.iterkeys():
+        l2n[i] = N
+        n2l.append(i)
+        N += 1
+
+    #D = flag
+    D = len(n2l)
+    G_d = sparse.lil_matrix((D, D), dtype='float32')
+    #print 'shape', G_d.shape
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j
+
+        if x > y:
+            continue
+
+        cx, cy = map(cls.get, [x, y])
+        if cx == cy:
+            X, Y = map(l2n.get, [x, y])
+            Z = float(z)
+            G_d[X, Y] = Z
+            G_d[Y, X] = Z
+            #print 'pair', X, Y, Z
+
+    G_d = G_d.tocsr()
+    #print G_d.nonzero(), G_d.data
+
+    G = mcl(G_d, I=1.5)
+    #print G.size()
+    for i in nx.connected_components(G):
+        print '\t'.join([n2l[elem] for elem in i])
+
+
+    return G_w, G_d
+
+
+def cnc(qry, alg='mcl'):
+    flag = N = 0
+    # locus to number
+    # nearest neighbors
+    NNs = {}
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j[:3]
+
+        if x > y:
+            continue
+
+        Z = float(z)
+        if x in NNs:
+            if Z > NNs[x][0]:
+                NNs[x] = [Z, y]
+            elif Z == NNs[x][0]:
+                NNs[x].append(y)
+            else:
+                pass
+        else:
+            NNs[x] = [Z, y]
+
+        if y in NNs:
+            if Z > NNs[y][0]:
+                NNs[y] = [Z, x]
+            elif Z == NNs[y][0]:
+                NNs[y].append(x)
+            else:
+                pass
+        else:
+            NNs[y] = [Z, x]
+
+    f.close()
+    # get 1st round of cluster
+    G = nx.Graph()
+    for x, j in NNs.iteritems():
+        for y in j[1:]:
+            G.add_edge(x, y)
+
+    l2n = {}
+    cnt = {}
+    flag = 0
+    cls = {}
+    for i in nx.connected_components(G):
+        cnt[flag] = len(i)
+        cls[flag] = list(i)
+        for j in i:
+            l2n[j] = flag
+
+        flag += 1
+
+    # get second round of cluster
+    del G
+    gc.collect()
+
+    D = flag
+    G_w = sparse.lil_matrix((D, D), dtype='float32')
+    G_d = sparse.lil_matrix((D, D), dtype='float32')
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j
+
+        if x > y:
+            continue
+
+        X, Y = map(l2n.get, [x, y])
+        Z = float(z)
+        a, b = cnt[X], cnt[Y]
+        c = (a * b) ** .5
+        #c = a * b
+        G_w[X, Y] += Z / c
+        G_w[Y, X] = G_w[X, Y]
+        G_d[X, Y] += 1. / c
+        G_d[Y, X] = G_d[X, Y]
+
+    f.close()
+    # use mcl to merge small cluster
+    G_d = G_d.tocsr()
+    G = mcl(G_d, I=1.2)
+
+    for i in nx.connected_components(G):
+        xs = list(i)
+        x = xs[0]
+        for k in xs[1:]:
+            v = cls.pop(k, [])
+            cls[x].extend(v)
+
+
+    #print 'cluster size', len(cls)
+    N = 0
+    n2l = []
+    for i in l2n.iterkeys():
+        l2n[i] = N
+        n2l.append(i)
+        N += 1
+
+    #D = flag
+    D = len(n2l)
+    G_d = sparse.lil_matrix((D, D), dtype='float32')
+    #print 'shape', G_d.shape
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 4:
+            x, y, z = j[1:4]
+        else:
+            x, y, z = j
+
+        if x > y:
+            continue
+
+        cx, cy = map(cls.get, [x, y])
+        if cx == cy:
+            X, Y = map(l2n.get, [x, y])
+            Z = float(z)
+            G_d[X, Y] = Z
+            G_d[Y, X] = Z
+            #print 'pair', X, Y, Z
+
+    G_d = G_d.tocsr()
+    #print G_d.nonzero(), G_d.data
+
+    G = mcl(G_d, I=1.5)
+    #print G.size()
+    for i in nx.connected_components(G):
+        print '\t'.join([n2l[elem] for elem in i])
+
+
+    return G_w, G_d
+
+
+
 
 # main function
 def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
@@ -629,17 +936,20 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
         pass
 
 
+G_w, G_d = cnc(qry, alg=alg)
+#for i in nx.connected_components(G):
+#    print i
+
+raise SystemExit()
+
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
 N, D, n2l = fc2mat(qry, prf, alg=alg)
-#D = 6000000
 
 N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
 data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
 dat = np.asarray(data, dtype='float32')
 
-
 main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 
 
-raise SystemExit()
-###############################################################################
+
