@@ -1213,7 +1213,9 @@ def index(f):
     idx = []
     for i in xrange(N):
         if fasta.getitem(i) == '>':
-            idx.append(i)
+            j = i - 1
+            if i == 0 or fasta.getitem(j) == '\n':
+                idx.append(i)
     return fasta, N, idx
 
 

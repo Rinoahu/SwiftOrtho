@@ -54,52 +54,6 @@ def correct(s, m, l=None, r=None):
 
 
 # bsearch for a sorted file  by given a query pattern
-def binary_search0(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
-    mx = chr(255)
-    n = len(s)
-    pn = len(p)
-    R = R == -1 and n - 1 or R
-    l = correct(s, L)
-    r = correct(s, R)
-    # find left
-    while l < r:
-        m = (l + r) // 2
-        m = correct(s, m, l, r)
-        if m == l or m == r:
-            break
-        t = s[m: s.find('\n', m)]
-        pat = key(t)
-        #if pat[:pn] >= p:
-        if pat+mx >= p+mx:
-            r = m
-        else:
-            l = m
-
-    # search from both direction
-    left = r - 1
-    while left >= 0:
-        start = s.rfind('\n', 0, left)
-        line = s[start+1: left]
-        if key(line).startswith(p):
-            left = start
-        else:
-            break
-    left += 1
-
-    line = s[left: s.find('\n', left)]
-    if not key(line).startswith(p):
-        return -1, -1
-
-    right = left
-    while 1:
-        end = s.find('\n', right)
-        if key(s[right: end]).startswith(p):
-            right = end + 1
-        else:
-            break
-
-    return left, right
-
 def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     #mx = chr(255)
     n = len(s)
@@ -115,22 +69,16 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
             break
         t = s[m: s.find('\n', m)]
         pat = key(t)
-        #if pat[:pn] >= p:
-        #if pat+mx >= p+mx:
         if pat >= p:
             r = m
         else:
             l = m
 
-    #print 'mid is', key(s[m: s.find('\n', m)]), p
-
     # search from both direction
-    #left = r - 1
     left = m - 1
     while left >= 0:
         start = s.rfind('\n', 0, left)
         line = s[start+1: left]
-        #if key(line).startswith(p):
         if key(line) == p:
             left = start
         else:
@@ -138,14 +86,12 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
     left += 1
 
     line = s[left: s.find('\n', left)]
-    #if not key(line).startswith(p):
     if key(line) != p:
         return -1, -1
 
     right = left
     while 1:
         end = s.find('\n', right)
-        #if key(s[right: end]).startswith(p):
         if key(s[right: end]) == p:
             right = end + 1
         else:
@@ -155,78 +101,41 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L = 0, R = -1):
 
 
 # give a graph and a node, find neighbors of the node.
-def neighbor0(G, n):
-    l, r = binary_search(G, n)
-    pat = [elem.split('\t') for elem in G[l:r].strip().split('\n')]
-    #print 'query is', n, 'taget', pat
-    if pat:
-        return [elem[1] for elem in pat if elem[0] == n]
-    else:
-        return []
-
-
 def neighbor(G, n):
     l, r = binary_search(G, n)
-    lines = G[l:r].strip().split('\n')
-    pat = [elem.split('\t') for elem in lines]
-    sids = set()
-    pairs = {}
-    for i in lines:
-        j = i.split('\t')
-        qid, sid = j[:2]
-        if qid == n:
-            sids.add(sid)
-            if qid < sid:
-                try:
-                    pairs[qid].append(i)
-                except:
-                    pairs[qid] = [i]
-        else:
-            continue
-
-    return sids, pairs
-
-
+    pairs = [elem for elem in G[l:r].strip().split('\n') if elem]
+    return pairs
 
 # find connected componets in a graph
-def connect(f, G):
+def connect(qry, G):
     comps = set()
-    comp = set()
-    stack = set()
-    pairs = {}
-    for i in f:
+    flag = 0
+    for i in qry:
         j = i[:-1].split('\t', 3)
         x, y = j[:2]
         # get new node and find new component
         if x not in comps:
-            #if comp:
-            if comp and pairs:
-                #yield comp
-                yield comp, pairs
-
-            stack.clear()
             stack = set([x])
-            #comp = set()
-            comp.clear()
-            #pairs = {}
-            pairs.clear()
+            visit = set()
             while stack:
                 q = stack.pop()
-                comp.add(q)
-                sids, pair = neighbor(G, q) 
-                #t = [elem for elem in neighbor(G, q) if elem not in comp]
-                t = [elem for elem in sids if elem not in comp]
-                pairs.update(pair)
-                stack = stack.union(t)
+                visit.add(q)
+                pairs = neighbor(G, q)
+                for pair in pairs:
+                    #print 'pair is', pair, len(pair)
+                    x, y, z = pair.split('\t')[:3]
+                    if y not in visit:
+                        #stack = stack.union(y)
+                        stack.add(y)
+                        if x <= y:
+                            #print pair
+                            yield str(flag) + '\t' + pair
 
-            comp -= comps
-            comps = comps.union(comp)
+            comps = comps.union(visit)
+            flag += 1
 
         else:
             continue
-
-    if comp:
-        yield comp, pairs
 
 
 # double and sort the file
@@ -250,15 +159,8 @@ os.system('export LC_ALL=C && sort --parallel=%s %s.ful -o %s.ful.sort' % (cpu, 
 f = open(qry + '.ful.sort', 'r')
 G = mmap(f.fileno(), 0, access=ACCESS_READ)
 
-for i, j in connect(f, G):
-    #i.split(ort()
-    #i = sorted(i)
-    #print '\t'.join(i)
-    #print len(i), map(j.get, i)
-    #print '\t'.join(map(j.get, i))
-    for k in i:
-        for x in j.get(k, []):
-            print x
+for i in connect(f, G):
+    print i
 
 f.close()
 

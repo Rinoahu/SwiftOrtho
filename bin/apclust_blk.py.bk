@@ -24,7 +24,7 @@ except:
 # print the manual
 def manual_print():
     print 'Usage:'
-    print '    python this.py -i foo.xyz -d 0.5'
+    print '    python mcl.py -i foo.xyz -d 0.5'
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 3 columns'
     print '  -d: damp'
@@ -542,7 +542,7 @@ def fc2mat(qry, prefer=-10000, alg='mcl'):
             prfs[X] -= Z
             G.add_edge(X, Y)
 
-    Prf = len(set([elem.split('|')[0] for elem in l2n])) * -20.
+    Prf = len(set([elem.split('|')[0] for elem in l2n])) * -10.
     if alg == 'apc' or alg == 'sap':
         for i in xrange(len(l2n)):
             X = Y = i
@@ -724,7 +724,7 @@ def cnc0(qry, alg='mcl'):
     return G_w, G_d
 
 
-def cnc1(qry, alg='mcl'):
+def cnc(qry, alg='mcl'):
     flag = N = 0
     # locus to number
     # nearest neighbors
@@ -810,9 +810,6 @@ def cnc1(qry, alg='mcl'):
         G_d[Y, X] = G_d[X, Y]
 
     f.close()
-
-
-
     # use mcl to merge small cluster
     G_d = G_d.tocsr()
     G = mcl(G_d, I=1.2)
@@ -869,463 +866,6 @@ def cnc1(qry, alg='mcl'):
     return G_w, G_d
 
 
-# connect components based mcl
-def cnc2(qry, alg='mcl'):
-    flag = N = 0
-    # locus to number
-    # nearest neighbors
-    NNs = {}
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j[:3]
-
-        if x > y:
-            continue
-
-        Z = float(z)
-        if x in NNs:
-            if Z > NNs[x][0]:
-                NNs[x] = [Z, y]
-            elif Z == NNs[x][0]:
-                NNs[x].append(y)
-            else:
-                pass
-        else:
-            NNs[x] = [Z, y]
-
-        if y in NNs:
-            if Z > NNs[y][0]:
-                NNs[y] = [Z, x]
-            elif Z == NNs[y][0]:
-                NNs[y].append(x)
-            else:
-                pass
-        else:
-            NNs[y] = [Z, x]
-
-    f.close()
-    # get 1st round of cluster
-    G = nx.Graph()
-    for x, j in NNs.iteritems():
-        for y in j[1:]:
-            G.add_edge(x, y)
-
-    l2n = {}
-    cnt = {}
-    flag = 0
-    cls = {}
-    for i in nx.connected_components(G):
-        cnt[flag] = len(i)
-        cls[flag] = list(i)
-        for j in i:
-            l2n[j] = flag
-
-        flag += 1
-
-    # get second round of cluster
-    del G
-    gc.collect()
-
-    _o = open(qry+'.coo', 'w')
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j
-
-        if x > y:
-            continue
-
-        X, Y = map(l2n.get, [x, y])
-        Z = float(z)
-        a, b = cnt[X], cnt[Y]
-        #c = (a * b) ** .5
-        #c = a * b
-        wt = Z / a
-        dg = 1. / a
-        _o.write('%d\t%d\t%f\t%f\n'%(X, Y, wt, dg))
-        wt = Z / b
-        dg = 1. / b
-        _o.write('%d\t%d\t%f\t%f\n'%(Y, X, wt, dg))
-
-    _o.close()
-    f.close()
-
-    # sort coo file and merge
-    os.system('export LC_ALL=C && sort -n --parallel=8 %s.coo -o %s.coo.srt && rm %s.coo'%(qry, qry, qry))
-    _o = open(qry+'.coo', 'wb')
-    f = open(qry+'.coo.srt', 'r')
-    output = []
-    count = 0
-    Dmx = 0 
-    for i in f:
-        j = i[:-1].split('\t')
-        x, y, w, d = map(float, j[:4])
-        #print 'xyzo', x, y, w, d
-        Dmx = max(x, y, Dmx)
-        if [x, y] != output[:2]:
-            if output:
-                #_o.write(pack('ffff', X, Y, w, d))
-                a, b, c, d = output[:4]
-                _o.write(pack('ffff', a, b, c, d))
-                count += 1
-            #output = [x, y, w, d]
-            output = map(float, j[:4])
-            #print 'output1', output
-        else:
-            output[2] += w
-            output[3] += d
-        #print 'output', output
-
-    if output:
-        #_o.write(pack('ffff', X, Y, w, d))
-        #(a, b), (c, d) = output.items()[0]
-        #print 'xyz', a, b, c, d
-        a, b, c, d = output
-        _o.write(pack('ffff', a, b, c, d))
-
-        count += 1
-
-    f.close()
-    _o.close()
-
-    COO = np.memmap(qry+'.coo', mode='r', shape=(count, 4), dtype='float32')
-    #print 'COO shape', COO.shape, COO[:, :2].max()
-    data = COO[:, 3]
-    row = np.asarray(COO[:, 0], 'int32')
-    col = np.asarray(COO[:, 1], 'int32')
-    #print 'Dmx', Dmx, row.max(), col.max()
-    Dmx += 1
-    G_d = sparse.coo_matrix((data, (row, col)), shape=(Dmx, Dmx), dtype='float32')
-    print 'G_d shape', G_d.shape
-    Aa, Bb = sparse.csgraph.connected_components(G_d, False)
-    print 'components', Aa, len(set(Bb))
-
-
-    # use mcl to merge small cluster
-    #G_d = G_d.tocsr()
-    #G = mcl(G_d, I=1.2)
-
-    #for i in nx.connected_components(G):
-    #    xs = list(i)
-    #    x = xs[0]
-    #    for k in xs[1:]:
-    #        v = cls.pop(k, [])
-    #        cls[x].extend(v)
-    print 'connect', Bb.shape
-    CLS = {}
-    while cls:
-        key, val = cls.popitem()
-        try:
-            CLS[Bb[key]].extend(val)
-        except:
-            CLS[Bb[key]] = val
-    cls = CLS
-    print 'connect finish', len(cls)
-
-
-    #print 'cluster size', len(cls)
-    N = 0
-    n2l = []
-    for i in l2n.iterkeys():
-        l2n[i] = N
-        n2l.append(i)
-        N += 1
-
-    #D = flag
-    D = len(n2l)
-    G_d = sparse.lil_matrix((D, D), dtype='float32')
-    #print 'shape', G_d.shape
-
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j
-
-        if x > y:
-            continue
-
-        cx, cy = map(cls.get, [x, y])
-        if cx == cy:
-            X, Y = map(l2n.get, [x, y])
-            Z = float(z)
-            G_d[X, Y] = Z
-            G_d[Y, X] = Z
-            #print 'pair', X, Y, Z
-
-    G_d = G_d.tocsr()
-    #print G_d.nonzero(), G_d.data
-
-    G = mcl(G_d, I=1.5)
-    #print G.size()
-    for i in nx.connected_components(G):
-        print '\t'.join([n2l[elem] for elem in i])
-
-
-    return G_w, G_d
-
-# get batch
-def batch(f):
-    flag = None
-    output = []
-    for i in f:
-        j = i[:-1].split('\t')
-        if j[0] != flag:
-            if output:
-                yield output
-            output = [j]
-            flag = j[0]
-        else:
-            output.append(j)
-
-    if output:
-        yield output
-
-
-# mcl wrapper for c,x,y,z format
-def mcl_xyz(cxyz):
-    l2n = {}
-    dmx = 0
-    for c,x,y,z in cxyz:
-        if x not in l2n:
-            l2n[x] = dmx
-            dmx += 1
-        if y not in l2n:
-            l2n[y] = dmx
-            dmx += 1
-
-    dmx += 1
-    G_d = sparse.lil_matrix((dmx, dmx), dtype='float32')
-    for c,x,y,z in cxyz:
-        if x > y:
-            continue
-        X, Y = map(l2n.get, [x, y])
-        Z = float(z)
-        G_d[X, Y] = Z
-        G_d[Y, X] = Z
-
-    n2l = {}
-    while l2n:
-        key, val = l2n.popitem()
-        n2l[val] = key
-
-    G_d = G_d.tocsr()
-    G = mcl(G_d, I=1.5)
-    for i in nx.connected_components(G):
-        print '\t'.join([n2l[elem] for elem in i])
-
-
-
-
-# connected based mcl
-def cnc(qry, alg='mcl', chk=100000):
-    flag = N = 0
-    # locus to number
-    # nearest neighbors
-    NNs = {}
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j[:3]
-
-        if x > y:
-            continue
-
-        Z = float(z)
-        if x in NNs:
-            if Z > NNs[x][0]:
-                NNs[x] = [Z, y]
-            elif Z == NNs[x][0]:
-                NNs[x].append(y)
-            else:
-                pass
-        else:
-            NNs[x] = [Z, y]
-
-        if y in NNs:
-            if Z > NNs[y][0]:
-                NNs[y] = [Z, x]
-            elif Z == NNs[y][0]:
-                NNs[y].append(x)
-            else:
-                pass
-        else:
-            NNs[y] = [Z, x]
-
-    f.close()
-    # get 1st round of cluster
-    G = nx.Graph()
-    for x, j in NNs.iteritems():
-        for y in j[1:]:
-            G.add_edge(x, y)
-
-    l2n = {}
-    cnt = {}
-    flag = 0
-    cls = {}
-    for i in nx.connected_components(G):
-        cnt[flag] = len(i)
-        cls[flag] = list(i)
-        for j in i:
-            l2n[j] = flag
-
-        flag += 1
-
-    # get second round of cluster
-    del G
-    gc.collect()
-
-    _o = open(qry+'.coo', 'w')
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j
-
-        if x > y:
-            continue
-
-        X, Y = map(l2n.get, [x, y])
-        Z = float(z)
-        a, b = cnt[X], cnt[Y]
-        #c = (a * b) ** .5
-        #c = a * b
-        wt = Z / a
-        dg = 1. / a
-        _o.write('%d\t%d\t%f\t%f\n'%(X, Y, wt, dg))
-        wt = Z / b
-        dg = 1. / b
-        _o.write('%d\t%d\t%f\t%f\n'%(Y, X, wt, dg))
-
-    _o.close()
-    f.close()
-
-    # sort coo file and merge
-    os.system('export LC_ALL=C && sort -n --parallel=8 %s.coo -o %s.coo.srt && rm %s.coo'%(qry, qry, qry))
-    _o = open(qry+'.coo', 'wb')
-    f = open(qry+'.coo.srt', 'r')
-    output = []
-    count = 0
-    Dmx = 0 
-    for i in f:
-        j = i[:-1].split('\t')
-        x, y, w, d = map(float, j[:4])
-        Dmx = max(x, y, Dmx)
-        if [x, y] != output[:2]:
-            if output:
-                a, b, c, d = output[:4]
-                _o.write(pack('ffff', a, b, c, d))
-                count += 1
-            output = map(float, j[:4])
-        else:
-            output[2] += w
-            output[3] += d
-
-    if output:
-        a, b, c, d = output
-        _o.write(pack('ffff', a, b, c, d))
-
-        count += 1
-
-    f.close()
-    _o.close()
-
-    COO = np.memmap(qry+'.coo', mode='r', shape=(count, 4), dtype='float32')
-    data = COO[:, 3]
-    row = np.asarray(COO[:, 0], 'int32')
-    col = np.asarray(COO[:, 1], 'int32')
-    Dmx += 1
-    G_d = sparse.coo_matrix((data, (row, col)), shape=(Dmx, Dmx), dtype='float32')
-    print 'G_d shape', G_d.shape
-    Aa, Bb = sparse.csgraph.connected_components(G_d, False)
-    print 'components', Aa, len(set(Bb))
-
-
-    # use mcl to merge small cluster
-    print 'connect', Bb.shape
-    CLS = {}
-    while cls:
-        key, val = cls.popitem()
-        try:
-            CLS[Bb[key]].extend(val)
-        except:
-            CLS[Bb[key]] = val
-
-    while CLS:
-        key, vals = CLS.popitem()
-        for val in vals:
-            cls[val] = key
-
-    print 'connect finish', len(cls)
-    #print cls
-
-    N = 0
-    n2l = []
-    for i in l2n.iterkeys():
-        l2n[i] = N
-        n2l.append(i)
-        N += 1
-
-    D = len(n2l)
-    _o = open(qry+'.abcd', 'wb')
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 4:
-            x, y, z = j[1:4]
-        else:
-            x, y, z = j
-
-        if x > y:
-            continue
-
-        cx, cy = map(cls.get, [x, y])
-        if cx == cy:
-            #X, Y = map(l2n.get, [x, y])
-            #Z = float(z)
-            #G_d[X, Y] = Z
-            #G_d[Y, X] = Z
-            #out = '\t'.join(map(str, [cx, X, Y, Z]))
-            out = '\t'.join(map(str, [cx, x, y, z]))
-            _o.write(out+'\n')
-
-    _o.close()
-
-    #os.system('export LC_ALL=C && sort -n --parallel=8 %s.abcd -o %s.abcd.srt'%(qry, qry))
-    os.system('export LC_ALL=C && sort -n --parallel=8 %s.abcd -o %s.abcd.srt && mv %s.abcd.srt %s.abcd'%(qry, qry, qry, qry))
-    #raise SystemExit()
-
-    cxyzs = []
-    f = open(qry+'.abcd', 'r')
-    for cxyz in batch(f):
-        cxyzs.extend(cxyz)
-        if len(cxyzs) < chk:
-            continue
-       
-        mcl_xyz(cxyzs)
-        cxyzs = []
-        gc.collect()
-
-    if cxyzs:
-        mcl_xyz(cxyzs)
-        del cxyzs
-
-    return G_w, G_d
-
 
 
 # main function
@@ -1352,7 +892,7 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
                 print '\t'.join(map(str, i))
 
 
-    elif alg.startswith('ap'):
+    elif alg == 'apc':
         labels = apclust_blk(dat, KS=KS, damp=damp, chk=10**8*2)
         G = nx.Graph()
         for i in xrange(len(labels)):
@@ -1399,11 +939,11 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
         pass
 
 
-#G_w, G_d = cnc(qry, alg=alg)
+G_w, G_d = cnc(qry, alg=alg)
 #for i in nx.connected_components(G):
 #    print i
 
-#raise SystemExit()
+raise SystemExit()
 
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
 N, D, n2l = fc2mat(qry, prf, alg=alg)
