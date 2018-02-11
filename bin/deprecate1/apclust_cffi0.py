@@ -4,6 +4,7 @@ import sys
 from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 from struct import pack, unpack
 import numpy as np
+
 try:
     from numba import jit
 except:
@@ -58,33 +59,6 @@ except:
 
 #sa = np.memmap('test64.npy', shape = len(ta), dtype = 'float32', mode = 'r+b')
 #SA = ffi.cast('float32_t *', sa.ctypes.data)
-
-class dmat0:
-
-    def __init__(self, name, shape=None, dtype='i'):
-        assert isinstance(shape, tuple)
-        n, d = shape
-        self.n = n
-        self.d = d
-        self.dtype = dtype
-        #self.data = darray(name, n * d, self.dtype)
-        self.ffi = FFI()
-        sa = np.memmap(name, shape=n*d, dtype=self.dtype, mode='r+')
-        self.data = self.ffi.cast('float *', sa.ctypes.data)
-        self.shape = shape
-        print 'initial', n * d, len(sa), n, d
-
-    def __getitem__(self, (x, y)):
-        n, d = self.n, self.d
-        return self.data[x*d+y]
-
-    def __setitem__(self, (x, y), z):
-        n, d = self.n, self.d
-        self.data[x*d+y] = z
-
-    def shape(self):
-        return self.shape
-
 
 
 def makemat(name, shape=None, dtype='f'):
@@ -303,7 +277,6 @@ N, D, n2l = fc2mat(qry)
 #dat = np.asarray(data, dtype='float32')
 dat, n, d = makemat(qry+'.npy', shape=(N, 5), dtype='float')
 
-#print 'dat size', len(dat)
 
 labels = apclust(dat, shape=(n, d), KS=D)
 
