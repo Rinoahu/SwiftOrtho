@@ -1642,7 +1642,7 @@ if cc == 'jit' or alg == 'mcl':
     main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 else: 
     dat, n, d = makemat(qry+'.npy', shape=(N, 5), dtype='float')
-    labels = apclust(dat, shape=(n, d), KS=D)
+    labels = apclust_pypy(dat, shape=(n, d), KS=D)
     G = nx.Graph()
     for i in xrange(len(labels)):
         j = labels[i]
