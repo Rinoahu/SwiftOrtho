@@ -11,7 +11,10 @@ except:
     jit = lambda x: x
     cc = 'pypy'
 
-from scipy import sparse
+try:
+    from scipy import sparse
+except:
+    pass
 #from sklearn.preprocessing import normalize
 from collections import Counter
 import networkx as nx
@@ -80,11 +83,12 @@ def manual_print():
     print '  -p: parameter of preference for apc'
     print '  -I: inflation parameter for mcl'
     print '  -a: algorithm'
+    print '  -t: cpu number'
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'alg'}
+args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'apc', '-t': '2'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -105,7 +109,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, dmp, prf, ifl, alg = args['-i'], float(args['-d']), float(args['-p']), float(args['-I']), args['-a'].lower()
+    qry, dmp, prf, ifl, alg, cpu = args['-i'], float(args['-d']), float(args['-p']), float(args['-I']), args['-a'].lower(), int(args['-t'])
 
 except:
     manual_print()
@@ -180,9 +184,10 @@ def apclust_pypy(data, shape=None, KS=-1, damp=.5, convit=15, itr=100):
     dim = d
 
     #N = 8*10**8
+
     #itr = 100
     for it in xrange(itr):
-        print 'iteraion', it
+        #print 'iteraion', it
         # get row max and 2nd
         for n in xrange(N):
             #I, K, s, r, a = [data[n, elem] for elem in xrange(dim)]
@@ -591,7 +596,6 @@ def normalize(x, norm='l1', axis=0):
 def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
 
     for i in xrange(itr):
-
         #print 'iteration', i
 
         # normalization of col
@@ -1319,10 +1323,15 @@ def batch(f):
 
 
 # mcl wrapper for c,x,y,z format
-def mcl_xyz(cxyz):
+def mcl_xyz0(cxyz):
     l2n = {}
     dmx = 0
-    for c,x,y,z in cxyz:
+    print 'cxyz is', cxyz
+    #for c,x,y,z in cxyz:
+    #for x,y,z in cxyz:
+    for abc in cxyz:
+        x, y, z = abc[:-1].split('\t')[-3:]
+
         if x not in l2n:
             l2n[x] = dmx
             dmx += 1
@@ -1352,10 +1361,54 @@ def mcl_xyz(cxyz):
 
 
 
+# connected based mcl
+def mcl_xyz(f):
+    l2n = {}
+    dmx = 0
+    # for x,y,z in xyz:
+    for i in f:
+        x, y = i.split('\t', 3)[:2]
+        if x not in l2n:
+            l2n[x] = dmx
+            dmx += 1
+        if y not in l2n:
+            l2n[y] = dmx
+            dmx += 1
+
+    f.seek(0)
+    dmx += 1
+    G_d = sparse.lil_matrix((dmx, dmx), dtype='float32')
+    # for x,y,z in xyz:
+    for i in f:
+        x, y, z = i.split('\t', 4)[:3]
+        if x > y:
+            continue
+        X, Y = map(l2n.get, [x, y])
+        Z = float(z)
+        G_d[X, Y] = Z
+        G_d[Y, X] = Z
+        if G_d[X, X] < Z:
+            G_d[X, X] = Z
+        if G_d[Y, Y] < Z:
+            G_d[Y, Y] = Z
+
+    #print G_d.data
+    n2l = {}
+    while l2n:
+        key, val = l2n.popitem()
+        n2l[val] = key
+
+    G_d = G_d.tocsr()
+    G = mcl(G_d, I=ifl)
+    for i in nx.connected_components(G):
+        # print '\t'.join([n2l[elem] for elem in i])
+        out = '\t'.join([n2l[elem] for elem in i])
+        yield out
+
 
 # connected based mcl
-def cnc(qry, alg='mcl', chk=100000):
-    flag = N = 0
+def cnc(qry, alg='mcl', rnd=2, chk=10**7, output=''):
+    flag = 0
     # locus to number
     # nearest neighbors
     NNs = {}
@@ -1394,164 +1447,167 @@ def cnc(qry, alg='mcl', chk=100000):
     f.close()
     # get 1st round of cluster
     G = nx.Graph()
-    for x, j in NNs.iteritems():
+    while NNs:
+        x, j = NNs.popitem()
         for y in j[1:]:
             G.add_edge(x, y)
 
     l2n = {}
-    cnt = {}
     flag = 0
-    cls = {}
     for i in nx.connected_components(G):
-        cnt[flag] = len(i)
-        cls[flag] = list(i)
         for j in i:
             l2n[j] = flag
 
         flag += 1
 
-    # get second round of cluster
     del G
     gc.collect()
 
-    _o = open(qry+'.coo', 'w')
+    # get 2nd round of cluster
+    #G1 = nx.Graph()
+    G1 = Counter()
     f = open(qry, 'r')
     for i in f:
         j = i[:-1].split('\t')
         if len(j) == 4:
             x, y, z = j[1:4]
         else:
-            x, y, z = j
+            x, y, z = j[:3]
 
         if x > y:
             continue
 
         X, Y = map(l2n.get, [x, y])
         Z = float(z)
-        a, b = cnt[X], cnt[Y]
-        #c = (a * b) ** .5
-        #c = a * b
-        wt = Z / a
-        dg = 1. / a
-        _o.write('%d\t%d\t%f\t%f\n'%(X, Y, wt, dg))
-        wt = Z / b
-        dg = 1. / b
-        _o.write('%d\t%d\t%f\t%f\n'%(Y, X, wt, dg))
+        if X and Y:
+            key = X < Y and (X, Y) or (Y, X)
+            G1[key] += Z
+            #G1[key] += 1
 
-    _o.close()
     f.close()
+
+    if rnd > 1:
+        if 1:
+            G2 = nx.Graph()
+            for x, y in G1:
+                G2.add_edge(x, y)
+
+            G1 = []
+            for pths in nx.connected_components(G2):
+                G1.append(pths)
+
+        else:
+            _o = open(qry+'.abc', 'w')
+            for key in G1:
+                x, y = key
+                z = G1[key]
+                #print x, y
+                _o.write('%d\t%d\t%f\n'%(x, y, z))
+
+            _o.close()
+            os.system('mcl %s.abc --abc -q x -V all -I 1.2 -te %d -o %s.abc.mcl'%(qry, cpu, qry))
+
+            G1 = []
+            f = open(qry+'.abc.mcl', 'r')
+            for pth in f:
+                pths = pth[:-1].split('\t')
+                G1.append(map(int, pths))
+                #G1.add_path(pths)
+
+            f.close()
+            #os.system('rm %s.abc %s.abc.mcl'%(qry, qry))
+
+    n2n = {}
+    flag = 0
+    for i in G1:
+        for j in i:
+            n2n[j] = flag
+
+        flag += 1
+
+    del G1
+    gc.collect()
+
+    print 'cluster number', flag, len(n2n)
+
+    for i in l2n:
+        j = l2n[i]
+        l2n[i] = n2n.get(j, -1)
 
     # sort coo file and merge
-    os.system('export LC_ALL=C && sort -n --parallel=8 %s.coo -o %s.coo.srt && rm %s.coo'%(qry, qry, qry))
-    _o = open(qry+'.coo', 'wb')
-    f = open(qry+'.coo.srt', 'r')
-    output = []
-    count = 0
-    Dmx = 0 
-    for i in f:
-        j = i[:-1].split('\t')
-        x, y, w, d = map(float, j[:4])
-        Dmx = max(x, y, Dmx)
-        if [x, y] != output[:2]:
-            if output:
-                a, b, c, d = output[:4]
-                _o.write(pack('ffff', a, b, c, d))
-                count += 1
-            output = map(float, j[:4])
-        else:
-            output[2] += w
-            output[3] += d
-
-    if output:
-        a, b, c, d = output
-        _o.write(pack('ffff', a, b, c, d))
-
-        count += 1
-
-    f.close()
-    _o.close()
-
-    COO = np.memmap(qry+'.coo', mode='r', shape=(count, 4), dtype='float32')
-    data = COO[:, 3]
-    row = np.asarray(COO[:, 0], 'int32')
-    col = np.asarray(COO[:, 1], 'int32')
-    Dmx += 1
-    G_d = sparse.coo_matrix((data, (row, col)), shape=(Dmx, Dmx), dtype='float32')
-    print 'G_d shape', G_d.shape
-    Aa, Bb = sparse.csgraph.connected_components(G_d, False)
-    print 'components', Aa, len(set(Bb))
-
-
-    # use mcl to merge small cluster
-    print 'connect', Bb.shape
-    CLS = {}
-    while cls:
-        key, val = cls.popitem()
-        try:
-            CLS[Bb[key]].extend(val)
-        except:
-            CLS[Bb[key]] = val
-
-    while CLS:
-        key, vals = CLS.popitem()
-        for val in vals:
-            cls[val] = key
-
-    print 'connect finish', len(cls)
-    #print cls
-
-    N = 0
-    n2l = []
-    for i in l2n.iterkeys():
-        l2n[i] = N
-        n2l.append(i)
-        N += 1
-
-    D = len(n2l)
-    _o = open(qry+'.abcd', 'wb')
+    _o = open(qry + '.abcd', 'wb')
     f = open(qry, 'r')
     for i in f:
         j = i[:-1].split('\t')
         if len(j) == 4:
             x, y, z = j[1:4]
         else:
-            x, y, z = j
+            x, y, z = j[:3]
 
         if x > y:
             continue
 
-        cx, cy = map(cls.get, [x, y])
-        if cx == cy:
-            #X, Y = map(l2n.get, [x, y])
-            #Z = float(z)
-            #G_d[X, Y] = Z
-            #G_d[Y, X] = Z
-            #out = '\t'.join(map(str, [cx, X, Y, Z]))
+        cx, cy = map(l2n.get, [x, y])
+        if cx and cy and cx == cy:
             out = '\t'.join(map(str, [cx, x, y, z]))
-            _o.write(out+'\n')
+            _o.write(out + '\n')
 
     _o.close()
 
-    #os.system('export LC_ALL=C && sort -n --parallel=8 %s.abcd -o %s.abcd.srt'%(qry, qry))
-    os.system('export LC_ALL=C && sort -n --parallel=8 %s.abcd -o %s.abcd.srt && mv %s.abcd.srt %s.abcd'%(qry, qry, qry, qry))
+    os.system('export LC_ALL=C && sort -n --parallel=%d %s.abcd -o %s.abcd.srt && mv %s.abcd.srt %s.abcd' %
+              (cpu, qry, qry, qry, qry))
     #raise SystemExit()
 
-    cxyzs = []
-    f = open(qry+'.abcd', 'r')
-    for cxyz in batch(f):
-        cxyzs.extend(cxyz)
-        if len(cxyzs) < chk:
-            continue
-       
-        mcl_xyz(cxyzs)
-        cxyzs = []
-        gc.collect()
+    os.system('rm -f %s.mcl' % (qry))
+    cls = None
+    flag = 0
+    if output:
+        _oopt = open(qry+'.mcl', 'w')
 
-    if cxyzs:
-        mcl_xyz(cxyzs)
-        del cxyzs
+    _o = open(qry + '.abc', 'wb')
+    f = open(qry + '.abcd', 'r')
+    for i in f:
+        c = i.split('\t', 2)[0]
+        if c != cls:
+            #if flag > 0 and flag % chk == 0:
+            if flag > chk:
+                _o.close()
+                #os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem && cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
+                f1 = open(qry + '.abc', 'r')
+                for cl in mcl_xyz(f1):
+                    #print cl
+                    if output:
+                        _oopt.write(cl+'\n')
+                    else:
+                        print cl
+                f1.close()
+                _o = open(qry + '.abc', 'wb')
+                flag = 0
 
-    return G_w, G_d
+            cls = c
+
+        j = i.split('\t')
+        k = '\t'.join(j[1:])
+        _o.write(k)
+        flag += 1
+
+    _o.close()
+    #os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem &&  cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
+    f1 = open(qry + '.abc', 'r')
+    mcl_xyz(f1)
+    for cl in mcl_xyz(f1):
+        if output:
+            _oopt.write(cl+'\n')
+        else:
+            print cl
+    f1.close()
+    if output:
+        _oopt.close()
+
+    os.system('rm -f %s.abc %s.abcd %s.mcl_mem'%(qry, qry, qry))
+    f.close()
+
+
 
 
 
@@ -1569,8 +1625,15 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
             #X[x, y] = (z - a)/c
             X[x, y] = z
 
+            # self loop
+            if X[x, x] < z:
+                X[x, x] = z
+            if X[y, y] < z:
+                X[y, y] = z
+
         X = X.tocsr()
         G = mcl(X, I=I)
+        #print 'using mcl'
         if n2l:
             for i in nx.connected_components(G):
                 print '\t'.join([n2l[elem] for elem in i])
@@ -1639,7 +1702,15 @@ if cc == 'jit' or alg == 'mcl':
     #N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
     data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
     dat = np.asarray(data, dtype='float32')
-    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+    #if alg == 'mcl':
+    #    G_w, G_d = cnc(qry, alg=alg)
+    #    #for i in nx.connected_components(G):
+    #    #    print i
+    #else:
+    #    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+    cnc(qry, alg=alg)
+    #main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+
 else: 
     dat, n, d = makemat(qry+'.npy', shape=(N, 5), dtype='float')
     labels = apclust_pypy(dat, shape=(n, d), KS=D)
@@ -1653,4 +1724,4 @@ else:
 
 
 
-
+os.system('rm %s.npy'%qry)

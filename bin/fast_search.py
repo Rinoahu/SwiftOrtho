@@ -162,5 +162,6 @@ if __name__ == '__main__':
         manual_print()
         raise SystemExit()
 
-if not 'clean':
+#if not 'clean':
+if 'clean':
     os.system('rm -rf %s'%tmpdir)

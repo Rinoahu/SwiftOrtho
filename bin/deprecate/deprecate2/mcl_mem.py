@@ -17,11 +17,13 @@ def manual_print():
     print '  -i: tab-delimited file which contain 3 columns'
     print '  -I: inflation parameter for mcl'
     print '  -a: cpu number'
+    print '  -o: output'
+
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-I': '1.5', '-a': '4'}
+args = {'-i': '', '-I': '1.5', '-a': '4', '-o':''}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -42,7 +44,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, ifl, cpu = args['-i'], float(args['-I']), int(args['-a'])
+    qry, ifl, cpu, out = args['-i'], float(args['-I']), int(args['-a']), args['-o']
 
 except:
     manual_print()
@@ -53,7 +55,7 @@ def normalize(x, norm='l1', axis=0):
     cs = x.sum(axis)
     y = np.asarray(cs)[0]
     if y.min() == 0 and y.max() > 0:
-        y += y.nonzero()[0].min() / 1e3
+        y += y.nonzero()[0].min() / 1e8
     else:
         y += 1e-8
 
@@ -66,11 +68,13 @@ def normalize(x, norm='l1', axis=0):
 #    E: expension parameter
 #    P: 1e-5. threshold to prune weak edge
 def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
-
+    X = x.copy()
+    #print x.data.shape, x.nonzero()[0].shape
     for i in xrange(itr):
 
         # normalization of col
         normalize(x, norm='l1', axis=0)
+        #print map(len, x.nonzero())
         if i % check == 0:
             x_old = x.copy()
 
@@ -82,14 +86,18 @@ def mcl(x, I=1.5, E=2, P=1e-5, rtol=1e-5, atol=1e-8, itr=100, check=5):
 
         # stop if no change
         if i % check == 0 and i > 0:
-            if (abs(x - x_old) - rtol * abs(x_old)).max() <= atol:
+            if (abs(x-x_old)-rtol*abs(x_old)).max() <= atol:
                 break
 
         # prune weak edge
-        x.data[x.data < P] = 0.
+        if i > 10:
+            x.data[x.data < P] = 0.
 
     # get cluster
     G = nx.Graph()
+
+    x = X
+
     rows, cols = x.nonzero()
     vals = x.data
     for i, j, k in izip(rows, cols, vals):
@@ -126,6 +134,7 @@ def mcl_xyz(f):
         G_d[X, Y] = Z
         G_d[Y, X] = Z
 
+    #print G_d.data
     n2l = {}
     while l2n:
         key, val = l2n.popitem()
@@ -140,7 +149,7 @@ def mcl_xyz(f):
 
 
 # connected based mcl
-def cnc(qry, alg='mcl', rnd=2, chk=10**7):
+def cnc(qry, alg='mcl', rnd=2, chk=10**7, output=out):
     flag = 0
     # locus to number
     # nearest neighbors
@@ -285,7 +294,9 @@ def cnc(qry, alg='mcl', rnd=2, chk=10**7):
     os.system('rm -f %s.mcl' % (qry))
     cls = None
     flag = 0
-    #_oopt = open(qry+'.mcl', 'w')
+    if output:
+        _oopt = open(qry+'.mcl', 'w')
+
     _o = open(qry + '.abc', 'wb')
     f = open(qry + '.abcd', 'r')
     for i in f:
@@ -294,12 +305,15 @@ def cnc(qry, alg='mcl', rnd=2, chk=10**7):
             #if flag > 0 and flag % chk == 0:
             if flag > chk:
                 _o.close()
-                os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem && cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
-                #f1 = open(qry + '.abc', 'r')
-                #for cl in mcl_xyz(f1):
-                #    #print cl
-                #    _oopt.write(cl+'\n')
-                #f1.close()
+                #os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem && cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
+                f1 = open(qry + '.abc', 'r')
+                for cl in mcl_xyz(f1):
+                    #print cl
+                    if output:
+                        _oopt.write(cl+'\n')
+                    else:
+                        print cl
+                f1.close()
                 _o = open(qry + '.abc', 'wb')
                 flag = 0
 
@@ -311,18 +325,25 @@ def cnc(qry, alg='mcl', rnd=2, chk=10**7):
         flag += 1
 
     _o.close()
-    os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem &&  cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
-    #f1 = open(qry + '.abc', 'r')
-    #mcl_xyz(f1)
-    #for cl in mcl_xyz(f1):
-    #    #print cl
-    #    _oopt.write(cl+'\n')
-    #f1.close()
-    #_oopt.close()
+    #os.system('mcl %s.abc --abc -q x -V all -I %f -te %d -o %s.mcl_mem &&  cat %s.mcl_mem >> %s.mcl'%(qry, ifl, cpu, qry, qry, qry))
+    f1 = open(qry + '.abc', 'r')
+    mcl_xyz(f1)
+    for cl in mcl_xyz(f1):
+        if output:
+            _oopt.write(cl+'\n')
+        else:
+            print cl
+    f1.close()
+    if output:
+        _oopt.close()
 
     #os.system('rm -f %s.abc %s.abcd %s.mcl_mem'%(qry, qry, qry))
     f.close()
 
 if __name__ == '__main__':
     cnc(qry)
-#cnc(qry)
+    #print 'qry is', qry
+    #f = open(qry, 'r')
+    #for i in mcl_xyz(f):
+    #    print i
+    #f.close()

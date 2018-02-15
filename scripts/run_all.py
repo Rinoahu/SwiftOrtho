@@ -30,12 +30,14 @@ def manual_print():
     print 'Optional parameters for pan-genome:'
     print ' -l: threshold for specific genes. parameter for pan-genome'
     print ' -u: threshold for core genes. parameter for pan-genome'
+    print ' -A: clustering algorithm. [mcl|apc]'
+    print ' -I: Inflation parameter of mcl. default: 1.5'
 
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-r': '', '-p': '', '-s':'111111', '-c':'.5', '-y':'50', '-n':'no', '-l':'.05', '-u':'.95', '-a':'4'}
+args = {'-i': '', '-r': '', '-p': '', '-s':'111111', '-c':'.5', '-y':'50', '-n':'no', '-l':'.05', '-u':'.95', '-a':'4', '-A':'mcl', '-I':'1.5'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -53,7 +55,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    fas, otg, operon, seed, cov, idy, norm, low, up, np = map(args.get, ['-i', '-r', '-p', '-s', '-c', '-y', '-n', '-l', '-u', '-a'])
+    fas, otg, operon, seed, cov, idy, norm, low, up, np, alg, ifl = map(args.get, ['-i', '-r', '-p', '-s', '-c', '-y', '-n', '-l', '-u', '-a', '-A', '-I'])
 except:
     manual_print()
     raise SystemExit()
@@ -118,7 +120,8 @@ _o.close()
 #cmd = 'cut -f2-4 %s_results/%s.opc > %s_results/%s.xyz'%(fas, sfx, fas, sfx)
 #os.system(cmd)
 
-cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.grp -te %s > %s_results/log'%(fas, sfx, fas, sfx, np, fas)
+#cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.grp -te %s > %s_results/log'%(fas, sfx, fas, sfx, np, fas)
+cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.grp'%(pyc, here, fas, sfx, alg, ifl, fas, sfx)
 os.system(cmd)
 
 # recover header from number
@@ -142,10 +145,10 @@ for i in f:
 f.close()
 _o.close()
 
-
+# remove grp file
+os.system('rm %s_results/%s.grp'%(fas, sfx))
 
 print 'use mcl to group protein family time:', time() - start
-
 
 #######################################################################################
 # statistics of pan-genome
@@ -153,7 +156,7 @@ print 'use mcl to group protein family time:', time() - start
 start = time()
 
 #cmd = 'python %s/pangenome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'
-cmd = '%s %s/pangenome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'%(pyc, here, fas, fas, sfx, fas, sfx)
+cmd = '%s %s/pan_genome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'%(pyc, here, fas, fas, sfx, fas, sfx)
 os.system(cmd)
 
 print 'pan-genome analysis time:', time() - start
@@ -182,13 +185,16 @@ print 'species tree construction time:', time() - start
 if os.path.isfile(operon):
     start = time()
     sfxo = operon.split(os.sep)[-1]
-    cmd = '%s %s/opclust.py -g %s_results/%s.mcl -p %s > %s_results/%s.xyz'%(pyc, here, fas, sfx, operon, fas, sfxo)
+    cmd = '%s %s/operon_cluster.py -g %s_results/%s.mcl -p %s > %s_results/%s.xyz'%(pyc, here, fas, sfx, operon, fas, sfxo)
     #print operon
     #print cmd
     os.system(cmd)
 
     # use mcl to cluster operon
-    cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s'%(fas, sfxo, fas, sfxo, np)
+    #cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s'%(fas, sfxo, fas, sfxo, np)
+    cmd = 'nohup %s %s/operon_cluster.py -i %s_results/%s.xyz -I 1.5 > %s_results/%s.mcl'%(pyc, here, fas, sfxo, fas, sfxo)
 
     print 'operon clustering time:', time() - start
+
+os.system('rm -rf %s_results/*_tmp'%fas)
 
