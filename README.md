@@ -133,4 +133,8 @@ Usage:
 
         $python run_all.py -i input.fsa -a 4
 
--i: input file. protein sequences in fasta format.
+-i: input file. protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier.
+-a: number of multi-thread.
+
+Results:
+
