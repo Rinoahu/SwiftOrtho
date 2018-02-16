@@ -108,6 +108,7 @@ Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster ortholo
 ## Useful tools and pipeline
 
 Run_all.py automatically implements the following steps:
+
     1. all-to-all homologous search.
     2. orthology inference.
     3. cluster orthology relationships into orthology groups.
