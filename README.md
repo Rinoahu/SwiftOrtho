@@ -1,6 +1,6 @@
 ## Introduction
 
-Fastclust is [orthomcl](http://orthomcl.org/common/downloads/software/v2.0/ "http://orthomcl.org/common/downloads/software/v2.0/")-like tool. It identifies orthologs, paralogs and co-orthologs for genomes.
+SwiftOrtho is orthology analysis tool which identifies orthologs, paralogs and co-orthologs for genomes. It is a graph-based approach.
 
 <!--First, it calls its own fast homologous protein searching tool to do a all-to-all homologous searching. Then, [orthomcl algorithm](https://docs.google.com/document/d/1RB-SqCjBmcpNq-YbOYdFxotHGuU7RK_wqxqDAMjyP_w/pub "https://docs.google.com/document/d/1RB-SqCjBmcpNq-YbOYdFxotHGuU7RK_wqxqDAMjyP_w/pub") is used to identify ortholog, inparalog and co-ortholog protein paris. Finally, [MCL](https://micans.org/mcl "https://micans.org/mcl") is used to group all the protein paris.-->
 
@@ -15,7 +15,7 @@ Make sure that you have the following installed
 
         $ pip install rpython networkx
 
-2. [MCL](https://micans.org/mcl "https://micans.org/mcl")
+2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional)
 
 
 ## Download
