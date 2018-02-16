@@ -117,4 +117,12 @@ Run_all.py automatically implements the following steps:
     6. perform operonic clustering if the operonic information supplied.[optional]
 
 
+Requirement:
+1. FastTree 2(http://www.microbesonline.org/fasttree/, "http://www.microbesonline.org/fasttree/").
+2. One of the following multiple sequence alignment tools:
+    1. FAMSA(https://github.com/refresh-bio/FAMSA, "https://github.com/refresh-bio/FAMSA"), highly recommended.
+    2. MAFFT(https://mafft.cbrc.jp/alignment/software/, "https://mafft.cbrc.jp/alignment/software/")
+    3. MUSCLE(https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
+
+
 
