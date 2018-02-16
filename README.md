@@ -125,16 +125,22 @@ Run_all.py in directory scripts automatically implements the following steps:
 Requirement:
 1. FastTree 2(http://www.microbesonline.org/fasttree/, "http://www.microbesonline.org/fasttree/").
 2. One of the following multiple sequence alignment tools:
-    1. [FAMSA](https://github.com/refresh-bio/FAMSA, "https://github.com/refresh-bio/FAMSA"), highly recommended.
+    1. [FAMSA](https://github.com/refresh-bio/FAMSA, "https://github.com/refresh-bio/FAMSA")(highly recommended).
     2. [MAFFT](https://mafft.cbrc.jp/alignment/software/, "https://mafft.cbrc.jp/alignment/software/")
     3. [MUSCLE](https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
+3. [trimAl](http://trimal.cgenomics.org/, "http://trimal.cgenomics.org/")
 
 Usage:
 
-        $python run_all.py -i input.fsa -a 4
+        $python run_all.py -i test.fsa -p test.fsa.operon -a 4
 
 -i: input file. protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier.
+
+-p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3.>>>
+
 -a: number of multi-thread.
 
 Results:
-
+Severl files are generated:
+1. test.fsa.aln
+2. test.fsa.aln.trim
