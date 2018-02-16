@@ -163,3 +163,6 @@ Severl files are generated:
 7. test.fsa.pan
 
     features of pan-genome
+
+
+the end
