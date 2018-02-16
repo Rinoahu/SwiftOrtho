@@ -28,7 +28,7 @@ Make sure that you have the following installed
 
 
 
-**1. All-to-all homologous searching:**
+**1. All-to-all homologous search:**
 
     $python fastclust/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
 
@@ -80,11 +80,9 @@ Make sure that you have the following installed
         IP  GCF_000006645.1_ASM664v1|Y_RS19920  GCF_000006645.1_ASM664v1|Y_RS20965  1.23374340949
         CO  GCF_000005845.2_ASM584v2|b0112  GCF_000006645.1_ASM664v1|Y_RS13245  1.41459539212
 
-  Column 1: orthology relationship such as OT(ortholog), CO(co-ortholog), IP(in-paralog).
-
-Column 2-3: query and target genes' names.
-
-  Column 4: weight of orthology relationship.
+    Column 1: orthology relationship such as OT(ortholog), CO(co-ortholog), IP(in-paralog).
+    Column 2-3: query and target genes' names.
+    Column 4: weight of orthology relationship.
 
 
 
