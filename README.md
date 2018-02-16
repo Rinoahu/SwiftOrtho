@@ -96,7 +96,9 @@ Use  built-in tool to cluster orthology relationships into orthology groups:
         $python fastclust/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
 
 -i: a file containing orthology relationships infered by step 2. 
+
 -a: algorithm to cluster. [mcl|apc]
+
 -I: Inflation parameters for mcl algorithm. 
 
 Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups:
