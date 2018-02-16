@@ -147,7 +147,7 @@ Severl files are generated:
     result of all-vs-all homologous search
 2. test.fsa.aln.trim
 
-    trimmed concatenation of aligned conserved gene
+    concatenation of trimmed aligned conserved genes
 3. test.fsa.nwk
 
     species phylogenetic tree constructed by conserved gene
