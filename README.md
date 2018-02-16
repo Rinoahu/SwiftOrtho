@@ -72,8 +72,11 @@ Make sure that you have the following installed
         $python fastclust/bin/find_orth.py -i input.fsa.sc -c 0.6 -y 0.5 > input.fsa.sc.orth
 
 -i: input file. It is output file of step 1.
+
 -c: alignment coverage of pairwise sequences. 
+
 -y: alignment identity of pairwise sequences.
+
  >: output file. It is a tabular text file that contains 4 columns in the following format:
 
         OT  GCF_000006625.1_ASM662v1|UU_RS00560 GCF_000006645.1_ASM664v1|Y_RS14400  1.33510402833
@@ -97,7 +100,9 @@ Use  built-in tool to cluster orthology relationships into orthology groups:
 
 -a: algorithm to cluster. [mcl|apc]
 
--I: Inflation parameters for mcl algorithm. 
+-I: inflation parameters for mcl algorithm. 
+
+ >: output file. this file contains severl rows, each row stands for an orthology group. 
 
 Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups:
 
@@ -125,4 +130,4 @@ Requirement:
     3. [MUSCLE](https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
 
 Usage:
-
+    $python run_all.py -i input.fsa -a 4 
