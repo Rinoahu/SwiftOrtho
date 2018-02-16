@@ -164,5 +164,3 @@ Severl files are generated:
 
     features of pan-genome
 
-
-the end
