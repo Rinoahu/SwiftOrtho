@@ -123,7 +123,7 @@ Run_all.py in directory scripts automatically implements the following steps:
 
 
 Requirement:
-1. FastTree 2(http://www.microbesonline.org/fasttree/, "http://www.microbesonline.org/fasttree/").
+1. [FastTree 2](http://www.microbesonline.org/fasttree/, "http://www.microbesonline.org/fasttree/").
 2. One of the following multiple sequence alignment tools:
     1. [FAMSA](https://github.com/refresh-bio/FAMSA, "https://github.com/refresh-bio/FAMSA")(highly recommended).
     2. [MAFFT](https://mafft.cbrc.jp/alignment/software/, "https://mafft.cbrc.jp/alignment/software/")
