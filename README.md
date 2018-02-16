@@ -131,6 +131,6 @@ Requirement:
 
 Usage:
 
-    $python run_all.py -i input.fsa -a 4
+        $python run_all.py -i input.fsa -a 4
 
 -i: input file. protein sequences in fasta format.
