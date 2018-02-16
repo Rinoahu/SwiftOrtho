@@ -136,7 +136,7 @@ Usage:
 
 -i: input file. protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier.
 
--p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x0-4 stand for gene names.
+-p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene names.
 
 -a: number of multi-thread.
 
