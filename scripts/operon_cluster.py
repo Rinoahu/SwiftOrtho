@@ -159,7 +159,10 @@ def operon_clust(f, groups):
             score = 2. * cv0 * cv1 / (cv0 + cv1)
             # score = N_shr
             if N_shr > 2 and max(cv1, cv0) > .5:
-                print i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score
+                #print i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score
+                #opt = [i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score]
+                opt = [i, j, score]
+                print '\t'.join(map(str, opt))
                 G.add_edge(i0, j0, w=score)
 
     return G

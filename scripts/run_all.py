@@ -205,9 +205,11 @@ if os.path.isfile(operon):
 
     # use mcl to cluster operon
     #cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s'%(fas, sfxo, fas, sfxo, np)
-    cmd = 'nohup %s %s/operon_cluster.py -i %s_results/%s.xyz -I 1.5 > %s_results/%s.mcl'%(pyc, here, fas, sfxo, fas, sfxo)
-
+    cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.mcl'%(pyc, here, fas, sfxo, alg, ifl, fas, sfxo)
     print 'operon clustering time:', time() - start
+    os.system(cmd)
 
 os.system('rm -rf %s_results/*_tmp'%fas)
+os.system('rm %s_results/*.xyz'%fas)
+os.system('rm %s_results/*.aln'%fas)
 
