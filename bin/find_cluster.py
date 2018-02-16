@@ -1528,7 +1528,7 @@ def cnc(qry, alg='mcl', rnd=2, chk=10**7, output=''):
     del G1
     gc.collect()
 
-    print 'cluster number', flag, len(n2n)
+    #print 'cluster number', flag, len(n2n)
 
     for i in l2n:
         j = l2n[i]

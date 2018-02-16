@@ -9,28 +9,41 @@ from time import time
 # python this_script.py -i foo.pep.fsa -g foo.ortholog [-r taxon]
 def manual_print():
     print 'Integrate pipeline can be used to identify orthologs, construct phylotree and get profile of pan-genomes'
-    print 'If the operonic information supplied, this pipeline can also cluster the operons'
+    print 'If the operonic information supplied, this pipeline can also cluster the operon_cluster'
     print 'Usage:'
-    print '  python this.py -i foo.pep.fsa [-r taxonomy] [-p foo.operon]'
-    print 'Parameters:'
-    print ' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'
-    print ' -r: taxonomy name used as reference [optional]'
+    print '  python this.py -i foo.pep.fsa [-r taxonomy] [-p foo.operon] [...]'
+
+    print 'Input fasta file:'
+    print ' -i: protein sequences in fasta formt. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'
+    print ''
+
+    print 'Operon information if operon clustering is needed:'
     print ' -p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3.'
+    print ''
 
-    print 'Optional parameters for protein searching:'
-    print ' -s: spaced seed in format: 1111,1110,1001.. etc. parameter for fast search part'
+
+    print 'Optional parameters for all-vs-all homologous search:'
+    print ' -s: spaced seed in format: 1111,11110,1001111 parameter'
     print ' -a: number of processors to use'
+    print ''
 
-    print 'Optional parameters for ortholog, paralog and co-ortholog identification:'
+    print 'Optional parameters for orthology inference:'
     print ' -c: min coverage of sequence [0~1]'
     print ' -y: identity [0~100]'
     print ' -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
     print ''
 
-    print 'Optional parameters for pan-genome:'
-    print ' -l: threshold for specific genes. parameter for pan-genome'
-    print ' -u: threshold for core genes. parameter for pan-genome'
+    print 'Optional parameters for clustering:'
     print ' -A: clustering algorithm. [mcl|apc]'
+    print ''
+
+    print 'Optional parameters for species tree construction:'
+    print ' -r: taxonomy name used as reference [optional]'
+    print ''
+
+    print 'Optional parameters for pan-genome:'
+    print ' -l: threshold to identify specific genes. For example, 0.05 means the specific gene should only exist in less than 5% of sll selected pecies'
+    print ' -u: threshold to identify core genes. For example, 0.95 means core gene should exist in atleast 95% of all selected species '
     print ' -I: Inflation parameter of mcl. default: 1.5'
 
 
