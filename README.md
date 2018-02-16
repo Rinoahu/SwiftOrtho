@@ -143,6 +143,7 @@ Usage:
 Results:
 Severl files are generated:
 1. test.fsa.sc
+
     result of all-vs-all homologous search
 2. test.fsa.aln.trim
     trimmed concatenation of aligned conserved gene
