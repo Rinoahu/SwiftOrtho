@@ -102,7 +102,7 @@ Use  built-in tool to cluster orthology relationships into orthology groups:
 
 -I: inflation parameters for mcl algorithm. 
 
-\>: output file. this file contains severl rows, each row stands for an orthology group. 
+\>: output file. this file contains severl rows, each row contains gene names that belong to the same orthology group. 
 
 Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups:
 
@@ -130,4 +130,5 @@ Requirement:
     3. [MUSCLE](https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
 
 Usage:
-    $python run_all.py -i input.fsa -a 4 
+    $python run_all.py -i input.fsa -a 4
+-i: input file. protein sequences in fasta format.
