@@ -146,14 +146,20 @@ Severl files are generated:
 
     result of all-vs-all homologous search
 2. test.fsa.aln.trim
+
     trimmed concatenation of aligned conserved gene
 3. test.fsa.nwk
+
     species phylogenetic tree constructed by conserved gene
 4. test.fsa.opc
+
     orthology relationships
 5. test.fsa.mcl
+
     orthology groups
 6. test.fsa.operon.mcl
+
     grouped operons
 7. test.fsa.pan
+
     features of pan-genome
