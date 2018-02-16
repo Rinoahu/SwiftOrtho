@@ -77,7 +77,7 @@ Make sure that you have the following installed
 
 -y: alignment identity of pairwise sequences.
 
- >: output file. It is a tabular text file that contains 4 columns in the following format:
+\>: output file. It is a tabular text file that contains 4 columns in the following format:
 
         OT  GCF_000006625.1_ASM662v1|UU_RS00560 GCF_000006645.1_ASM664v1|Y_RS14400  1.33510402833
         IP  GCF_000006645.1_ASM664v1|Y_RS19920  GCF_000006645.1_ASM664v1|Y_RS20965  1.23374340949
@@ -102,7 +102,7 @@ Use  built-in tool to cluster orthology relationships into orthology groups:
 
 -I: inflation parameters for mcl algorithm. 
 
- >: output file. this file contains severl rows, each row stands for an orthology group. 
+\>: output file. this file contains severl rows, each row stands for an orthology group. 
 
 Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups:
 
