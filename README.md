@@ -130,5 +130,7 @@ Requirement:
     3. [MUSCLE](https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
 
 Usage:
+
     $python run_all.py -i input.fsa -a 4
+
 -i: input file. protein sequences in fasta format.
