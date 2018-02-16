@@ -107,14 +107,14 @@ Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster ortholo
 
 ## Useful tools and pipeline
 
-Run_all.py automatically implements the following steps:
+Run_all.py in directory scripts automatically implements the following steps:
 
-    1. all-to-all homologous search.
-    2. orthology inference.
-    3. cluster orthology relationships into orthology groups.
-    4. perform a pan-genome analysis. this step estimate features of pan-genome including gene numbers of core|shared|specific, core size of pan-genome, openess...
-    5. use conseved proteins to construct species phylogenetic tree.
-    6. perform operonic clustering if the operonic information supplied.[optional]
+1. all-to-all homologous search.
+2. orthology inference.
+3. cluster orthology relationships into orthology groups.
+4. perform a pan-genome analysis. this step estimate features of pan-genome including gene numbers of core|shared|specific, core size of pan-genome, openess...
+5. use conseved proteins to construct species phylogenetic tree.
+6. perform operonic clustering if the operonic information supplied.[optional]
 
 
 Requirement:
@@ -124,5 +124,5 @@ Requirement:
     2. [MAFFT](https://mafft.cbrc.jp/alignment/software/, "https://mafft.cbrc.jp/alignment/software/")
     3. [MUSCLE](https://www.drive5.com/muscle/, "https://www.drive5.com/muscle/")
 
-
+Usage:
 
