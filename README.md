@@ -115,7 +115,7 @@ Run_all.py in directory scripts automatically implements the following steps:
 1. all-to-all homologous search.
 2. orthology inference.
 3. cluster orthology relationships into orthology groups.
-4. perform a pan-genome analysis. this step estimate features of pan-genome including gene numbers of core|shared|specific, core size of pan-genome, openess...
+4. perform a pan-genome analysis and estimate main features of pan-genome such as gene numbers of core|shared|specific, core size of pan-genome, openess...
 5. use conseved proteins to construct species phylogenetic tree.
 6. perform operonic clustering if the operonic information supplied.[optional]
 
@@ -161,7 +161,7 @@ Severl files are generated:
     orthology groups
 6. test.fsa.operon.mcl
 
-    grouped operons
+    grouped operons which reflect conservation of operons in different species.
 7. test.fsa.pan
 
     main features of pan-genome
