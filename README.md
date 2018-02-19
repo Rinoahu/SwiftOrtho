@@ -13,9 +13,10 @@ Make sure that you have the following installed
     2. [RPython](https://pypi.python.org/pypi/rpython/0.1.4 "https://pypi.python.org/pypi/rpython/0.1.4")
     3. [numpy](http://www.numpy.org/ "http://www.numpy.org/")
     4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")
-    5. Install packages via pip:
+	5. [Biopython](http://biopython.org/ "http://biopython.org/")
+    6. Install packages via pip:
 
-        $ pip install rpython networkx scipy numpy
+        $ pip install -U rpython networkx scipy numpy biopython
 
 2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional)
 
@@ -146,7 +147,7 @@ Results:
 Severl files are generated:
 1. test.fsa.sc
 
-		result of all-vs-all homologous search.
+	result of all-vs-all homologous search.
 2. test.fsa.aln.trim
 
     concatenation of trimmed aligned conserved genes.
@@ -164,7 +165,7 @@ Severl files are generated:
     grouped operons which reflect conservation of operons in different species.
 7. test.fsa.pan
 
-    main features of pan-genome
+    main features of pan-genome. For example:
 
         # Statistics and profile of pan-genome:
         # The methods can be found in Hu X, et al. Trajectory and genomic determinants of fungal-pathogen speciation and host adaptation.
@@ -194,3 +195,4 @@ Severl files are generated:
         group_000000002 Specific        2       0       0       0       0
         group_000000003 Specific        2       0       0       0       0
         group_000000004 Specific        3       0       0       0       0
+		...

@@ -24,9 +24,10 @@ except:
 
 try:
     from numexpr import evaluate
+    cpu = 1
 except:
     evaluate = eval
-
+    cpu = 0
 
 # do the core gene find
 # python this_script.py -i foo.pep.fsa -c foo.mcl [-l .5] [-u .95]
@@ -183,6 +184,8 @@ print '\t'.join(map(str, ['# Number', core, shar, spec, N]))
 #_o.close()
 # calculate the core, share and specific gene's profile
 fp = np.memmap('pan.npy', mode='r+', shape=(flag, N), dtype='int32')
+
+#print 'fp is', fp[:]
 mat = np.asarray(fp, dtype='bool')
 mat = np.asarray(mat, dtype='int8')
 #mat[mat>0] = 1
@@ -246,6 +249,7 @@ def pan_feature1(x, size=100, ts=.05, tc=.95):
 
 
 def pan_feature(x, size=100, ts=.05, tc=.95):
+    #print 'x shape', x.shape, x.min()
     n, d = x.shape 
     #size = min(size, d*(d-1)/2)
     idx = range(d)
@@ -267,20 +271,29 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
         Tc = tc < 1 and tc * j or tc
 
         yn = x[:, [elem[i] for elem in idxs]]
-        sp = np.asarray(evaluate('(ys<=0) & (yn>0)'), dtype='int8')
-        #sp = np.asarray(evaluate('(ys<=Ts) & (yn>0)'), dtype='int8')
-        spec = evaluate('sum(sp, 0)')
+        if cpu == 1:
+            sp = np.asarray(evaluate('(ys<=0) & (yn>0)'), dtype='int8')
+            #sp = np.asarray(evaluate('(ys<=Ts) & (yn>0)'), dtype='int8')
+            spec = evaluate('sum(sp, 0)')
 
-        ys = evaluate('ys+yn')
-        cr = np.asarray(evaluate('ys>=Tc'), dtype='int8')
-        core = evaluate('sum(cr, 0)')
-        #core = evaluate('sum(Ys>=Tc, 0)')
-        #core = np.sum(ys>=Tc, 0)
-        #spec = evaluate('sum((Ys<=Ts) & (Ys>0), 0)')
-        #spec = np.sum((ys<=Ts) & (ys>0), 0)
-        pa = np.asarray(evaluate('ys>0'), dtype='int8')
-        panz = evaluate('sum(pa, 0)')
-        #panz = np.sum(ys>0, 0)
+            ys = evaluate('ys+yn')
+            cr = np.asarray(evaluate('ys>=Tc'), dtype='int8')
+            core = evaluate('sum(cr, 0)')
+            #core = evaluate('sum(Ys>=Tc, 0)')
+            #core = np.sum(ys>=Tc, 0)
+            #spec = evaluate('sum((Ys<=Ts) & (Ys>0), 0)')
+            #spec = np.sum((ys<=Ts) & (ys>0), 0)
+            pa = np.asarray(evaluate('ys>0'), dtype='int8')
+            panz = evaluate('sum(pa, 0)')
+            #panz = np.sum(ys>0, 0)
+        else:
+            sp = np.asarray(np.logical_and(ys<=0, yn>0), 'int8')
+            spec = sp.sum(0)
+            ys = ys + yn
+            cr = np.asarray(ys>=Tc, dtype='int8')
+            core = cr.sum(0)
+            pa = np.asarray(ys>0, dtype='int8')
+            panz = pa.sum(0)
 
         cores.extend(core)
         specs.extend(spec)
@@ -319,6 +332,10 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
 
 
 index, cores, specs, panzs = pan_feature(mat)
+
+#print 'index', index
+#print 'cores', cores
+#print 'specs', specs
 
 #for a, b in zip(index, specs):
 #    print a, b
@@ -372,7 +389,12 @@ def find_med(coreN):
 
 def fit_curve(f, X, Y, alpha=.05):
     x, y = map(np.asarray, [X, Y])
-    pars, pcov = curve_fit(f, x, y)
+    try:
+        #print x, y
+        pars, pcov = curve_fit(f, x, y)
+    except:
+        pars, pcov = curve_fit(f, x, y, method='dogbox')
+
     n = len(y)
     p = len(pars)
     dof = max(0, n - p)

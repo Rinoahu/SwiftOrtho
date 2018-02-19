@@ -1,6 +1,6 @@
 #!usr/bin/env python
 import sys
-from Bio import SeqIO
+#from Bio import SeqIO
 from collections import Counter
 import os
 from time import time
