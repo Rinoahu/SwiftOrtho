@@ -56,7 +56,7 @@ Make sure that you have the following installed
 -s: space seed pattern.
 
 
-**2. Find ortholog, inparalog and co-ortholog:**
+**2. Orthology inference:**
 
         $python SwiftOrtho/bin/find_orth.py -i input.fsa.sc -c 0.6 -y 0.5 > input.fsa.sc.orth
 
@@ -68,18 +68,20 @@ Make sure that you have the following installed
 
 \>: output file. It is a tabular text file that contains 4 columns in the following format:
 
-        OT  GCF_000006625.1_ASM662v1|UU_RS00560 GCF_000006645.1_ASM664v1|Y_RS14400  1.33510402833
-        IP  GCF_000006645.1_ASM664v1|Y_RS19920  GCF_000006645.1_ASM664v1|Y_RS20965  1.23374340949
-        CO  GCF_000005845.2_ASM584v2|b0112  GCF_000006645.1_ASM664v1|Y_RS13245  1.41459539212
+        OT	A|a1	B|b1	1.33510402833
+        IP	A|a1	A|a2	1.23374340949
+        CO	A|a2	B|b2	1.41459539212
+        ...
 
-    Column 1: orthology relationship such as OT(ortholog), CO(co-ortholog), IP(in-paralog).
-    Column 2-3: query and target genes' names.
+    Column 1: orthology relationship, one of OT(ortholog), CO(co-ortholog) and IP(in-paralog).
+    Column 2: identifier of gene in species A.
+    Column 3: identifier of gene in species B.
     Column 4: weight of orthology relationship.
 
 
 
 
-**3. Cluster:**
+**3. Cluster orthology relation to groups:**
 
 Use  built-in tool to cluster orthology relationships into orthology groups:
 
