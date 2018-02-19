@@ -91,11 +91,17 @@ SwiftOrtho implements two cluster algorithms including Markov Clustering and Aff
 
 -a: algorithm to cluster. [mcl|apc]
 
--I: inflation parameters only for mcl algorithm. 
+-I: inflation parameter only for mcl. 
 
-\>: output file. This file contains severl rows, each row contains gene names that belong to the same orthology group. 
+\>: output file. This file contains severl rows. Each row stands for an orthology group. In each row, there are gene identifiers of same or different species. For example:
 
-If users prefer [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups, they can follow the steps below:
+		A|a1	A|a2	B|b1	C|c1	D|d1
+		A|a3	B|b3	C|c3
+		A|a4	B|b4
+		A|a5	A|a6
+		... 
+
+If users prefer [MCL](https://micans.org/mcl "https://micans.org/mcl"), they can follow the steps below:
 
 
         $cut -f2-4 input.fsa.sc.orth > input.fsa.sc.orth.xyz
@@ -128,7 +134,11 @@ Usage:
 
 -i: input file. protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier.
 
--p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene names.
+-p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene identifiers. For example:
+
+		A|a0-->A|a1 unknown-->COG1607       unknown::unknown-->I::Acyl-CoA hydrolase::Lipid transport and metabolism
+		B|b0<--B|b1 COG4644<--COG1961       X::Transposase and inactivated derivatives, TnpA family::Mobilome: prophages, transposons<--L::Site-specific DNA recombinase related to the DNA invertase Pin::Replication, recombination and repair
+
 
 -a: number of multi-thread.
 
@@ -136,13 +146,13 @@ Results:
 Severl files are generated:
 1. test.fsa.sc
 
-    result of all-vs-all homologous search
+    result of all-vs-all homologous search.
 2. test.fsa.aln.trim
 
-    concatenation of trimmed aligned conserved genes
+    concatenation of trimmed aligned conserved genes.
 3. test.fsa.nwk
 
-    species phylogenetic tree constructed by conserved gene
+    species phylogenetic tree constructed by conserved gene.
 4. test.fsa.opc
 
     orthology relationships
@@ -154,7 +164,7 @@ Severl files are generated:
     grouped operons
 7. test.fsa.pan
 
-    features of pan-genome
+    main features of pan-genome
 
         # Statistics and profile of pan-genome:
         # The methods can be found in Hu X, et al. Trajectory and genomic determinants of fungal-pathogen speciation and host adaptation.
