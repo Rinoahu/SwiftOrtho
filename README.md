@@ -37,12 +37,7 @@ Make sure that you have the following installed
     >A|a1
     MENIHDLWERALAEMEKKVSKPSYETWLKSTKANDIQNDVITITAPNEFARDWLEEHYAG
     LTSDTIEHLTGARLTPRFVIPQNELEDDFLIEPPKKKKPVSDNGSQNNGTKTMLNDKYTF
-    DTFVIGSGNRFAHAASLAVAEAPAKAYNPLFIYGGVGLGKTHLMHAIGHYVMDHNPNAKV
-    VYLSSEKFTNEFINSIRDNRAVNFRNKYRNVDVLLIDDIQFLAGKEQTQEEFFHTFNALH
-    EESKQIVISSDRPPKEIPTLEDRLRSRFEWGLITDITPPDLETRIAILRKKAKAENLDIP
-    NEVMLYIANQIDTNIRELEGALIRVVAYSSLINQDMNADLAAEALKDIIPNSKPKVLTIT
-    DIQKLVGEFYHVKLEDFKAKKRTKSVAYPRQIAMYLSREMTDASLPKIGSEFGGRDHTTV
-    IHAHEKISKMLTTDQELQQKVQEIMEQLRS
+	...
     >A|b2
     MQFTIQRDRFVHDVQNVAKAVSSRTTIPILTGIKIVADHEGVTLTGSDSDVSIETFIPKE
     ...
@@ -81,21 +76,27 @@ Make sure that you have the following installed
 
 
 
-**3. Cluster orthology relation to groups:**
+**3. Cluster orthology relationships to groups:**
 
-Use  built-in tool to cluster orthology relationships into orthology groups:
+SwiftOrtho implements two cluster algorithms including Markov Clustering and Affinity Aropagation in python. Here is an example of how to use it.
 
         $python SwiftOrtho/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
 
--i: a file containing orthology relationships infered by step 2. 
+-i: input file. Input file contains all the orthology relationships. For example:
+
+        OT	A|a1	B|b1	1.33510402833
+        IP	A|a1	A|a2	1.23374340949
+        CO	A|a2	B|b2	1.41459539212
+		...
 
 -a: algorithm to cluster. [mcl|apc]
 
--I: inflation parameters for mcl algorithm. 
+-I: inflation parameters only for mcl algorithm. 
 
-\>: output file. this file contains severl rows, each row contains gene names that belong to the same orthology group. 
+\>: output file. This file contains severl rows, each row contains gene names that belong to the same orthology group. 
 
-Or use [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups:
+If users prefer [MCL](https://micans.org/mcl "https://micans.org/mcl") to cluster orthology relationships into orthology groups, they can follow the steps below:
+
 
         $cut -f2-4 input.fsa.sc.orth > input.fsa.sc.orth.xyz
         $mcl input.fsa.sc.orth.xyz --abc -I 1.5 -o input.fsa.sc.orth.mcl -te 4
