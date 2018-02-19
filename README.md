@@ -136,8 +136,8 @@ Usage:
 
 -p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene identifiers. For example:
 
-		A|a0-->A|a1 unknown-->COG1607       unknown::unknown-->I::Acyl-CoA hydrolase::Lipid transport and metabolism
-		B|b0<--B|b1 COG4644<--COG1961       X::Transposase and inactivated derivatives, TnpA family::Mobilome: prophages, transposons<--L::Site-specific DNA recombinase related to the DNA invertase Pin::Replication, recombination and repair
+		A|a0-->A|a1	unknown-->COG1607	unknown::unknown-->I::Acyl-CoA hydrolase::Lipid transport and metabolism
+		B|b0<--B|b1	COG4644<--COG1961	X::Transposase and inactivated derivatives, TnpA family::Mobilome: prophages, transposons<--L::Site-specific DNA recombinase related to the DNA invertase Pin::Replication, recombination and repair
 
 
 -a: number of multi-thread.
@@ -146,7 +146,7 @@ Results:
 Severl files are generated:
 1. test.fsa.sc
 
-    result of all-vs-all homologous search.
+		result of all-vs-all homologous search.
 2. test.fsa.aln.trim
 
     concatenation of trimmed aligned conserved genes.
