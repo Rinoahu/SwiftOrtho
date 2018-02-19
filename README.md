@@ -49,8 +49,8 @@ Make sure that you have the following installed
 
 -o: output file. A tabular text file which contains 14 columns. The first 12 columns are the same as blastp -m8 format, the last 2 columns are the lengths of the query and target sequences.  For example:
 
-    GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000005825.2_ASM582v2|BPOF4_RS00005  100.00  450     0       0       1       450     1       450     2.88e-261       897     450     450
-    GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000006605.1_ASM660v1|JK_RS00005     53.52   340     158     0       111     450     240     579     1.60e-105       380     450     583
+    A|a1	A|a1	100.00	450	0	0	1	450	1	450	2.88e-261	897	450	450
+    A|a1	B|b2	53.52	340	158	0	111	450	240	579	1.60e-105	380	450	583
     ...
 -e: expect value.
 -s: space seed pattern.
@@ -73,10 +73,10 @@ Make sure that you have the following installed
         CO	A|a2	B|b2	1.41459539212
         ...
 
-    Column 1: orthology relationship, one of OT(ortholog), CO(co-ortholog) and IP(in-paralog).
-    Column 2: identifier of gene in species A.
-    Column 3: identifier of gene in species B.
-    Column 4: weight of orthology relationship.
+    Col 1: orthology relationship, one of OT(ortholog), CO(co-ortholog) and IP(in-paralog).
+    Col 2: identifier of gene in species A.
+    Col 3: identifier of gene in species B.
+    Col 4: weight of orthology relationship.
 
 
 
