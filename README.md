@@ -22,7 +22,7 @@ Make sure that you have the following installed
 
 ## Download
 
-    $ git clone https://github.com/Rinoahu/fastclust
+    $ git clone https://github.com/Rinoahu/SwiftOrtho
 
 ## Usage
 
@@ -30,7 +30,7 @@ Make sure that you have the following installed
 
 **1. All-to-all homologous search:**
 
-    $python fastclust/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
+    $python SwiftOrtho/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
 
 -i|-d: protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
@@ -45,31 +45,20 @@ Make sure that you have the following installed
     IHAHEKISKMLTTDQELQQKVQEIMEQLRS
     >GCF_000005825.2_ASM582v2|BPOF4_RS00010
     MQFTIQRDRFVHDVQNVAKAVSSRTTIPILTGIKIVADHEGVTLTGSDSDVSIETFIPKE
-    DAENEIVTIEQEGSIVLQARFFAEIVKKLPGETIELIVQDQFATTIRSGSSVFNLNGLDP
-    EEYPRLPQLEEDLLFRLPQDMLKNMIRQTVFAVSTQETRPVLTGVNLETEEGELICTATD
-    SHRLAMRKATIERNDEELTFSNVVIPGKSLNELSKIIDDSNELIDVVVTENQILFKFKNL
-    LFFSRLLEGKYPVTKNMIPAQSKTSFTLKTKPFLQTLERALLLSREGKNNVINLKTLDEG
-    LIEITSIQPEVGKVTENIQSEQMQGEDMRISFNGKNIIDALKVIDSEEINIVFTGAMSPF
-    VIRPTDHDHYLHLFSPVRTY
-    >GCF_000005825.2_ASM582v2|BPOF4_RS00015
-    MEKLSISTEYITLGQVLKEVGAIDTGGMAKWYLSEYEVYVNGELENRRGKKLFSGDRVKL
-    ADETSIEIVHE
-
+    ...
 
 -o: output file. A tabular text file which contains 14 columns. The first 12 columns are the same as blastp -m8 format, the last 2 columns are the lengths of the query and target sequences.  For example:
 
     GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000005825.2_ASM582v2|BPOF4_RS00005  100.00  450     0       0       1       450     1       450     2.88e-261       897     450     450
     GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000006605.1_ASM660v1|JK_RS00005     53.52   340     158     0       111     450     240     579     1.60e-105       380     450     583
-    GCF_000005825.2_ASM582v2|BPOF4_RS00005  GCF_000006645.1_ASM664v1|Y_RS21000      39.91   466     280     19      1       450     14      462     2.66e-99        359     450     462
-    GCF_000005825.2_ASM582v2|BPOF4_RS00010  GCF_000005825.2_ASM582v2|BPOF4_RS00010  100.00  380     0       0       1       380     1       380     1.20e-212       735     380     380
-    GCF_000005825.2_ASM582v2|BPOF4_RS00015  GCF_000005825.2_ASM582v2|BPOF4_RS00015  100.00  71      0       0       1       71      1       71      1.35e-35        142     71      71
+    ...
 -e: expect value.
 -s: space seed pattern.
 
 
 **2. Find ortholog, inparalog and co-ortholog:**
 
-        $python fastclust/bin/find_orth.py -i input.fsa.sc -c 0.6 -y 0.5 > input.fsa.sc.orth
+        $python SwiftOrtho/bin/find_orth.py -i input.fsa.sc -c 0.6 -y 0.5 > input.fsa.sc.orth
 
 -i: input file. It is output file of step 1.
 
@@ -94,7 +83,7 @@ Make sure that you have the following installed
 
 Use  built-in tool to cluster orthology relationships into orthology groups:
 
-        $python fastclust/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
+        $python SwiftOrtho/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
 
 -i: a file containing orthology relationships infered by step 2. 
 
