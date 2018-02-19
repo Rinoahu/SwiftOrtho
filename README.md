@@ -164,3 +164,31 @@ Severl files are generated:
 
     features of pan-genome
 
+        # Statistics and profile of pan-genome:
+        # The methods can be found in Hu X, et al. Trajectory and genomic determinants of fungal-pathogen speciation and host adaptation.
+        #
+        # statistic of core, shared and specific genes:
+        # Feature       core    shared  specific        taxon
+        # Number        27      2117    9766    5
+        #
+        # ω(core size of pan-genome) and 95% confidence interval:
+        # κc    τc      ω
+        # 18001.747907101293±97986.86937584748  0.4604747552601067±0.5879003578202601   29.071595667457963±45.51565446328978
+        #
+        # θ(new gene number for everay new genome sequenced) and 95% confidence interval:
+        # κs    τs      tg(θ)
+        # 1334.0072284367752±2342.5492209911768 2.2743910535524314±9.701652708550565    1952.605831944348±1311.6323603805986
+        #
+        # κ(size and openess of pan-genome, open if γ > 0) and 95% confidence interval:
+        # κ     γ
+        # 2899.5570049130965±179.58438208536737 0.8785342365438822±0.04423040927927408
+        #
+        # Type and frequency of each gene group in different species:
+        ################################################################################
+        #family type    GCF_000005825.2_ASM582v2        GCF_000006645.1_ASM664v1        GCF_000006605.1_ASM660v1        GCF_000005845.2_ASM584v2        GC
+        F_000006625.1_ASM662v1
+        group_000000000 Share   0       1       0       1       0
+        group_000000001 Specific        2       0       0       0       0
+        group_000000002 Specific        2       0       0       0       0
+        group_000000003 Specific        2       0       0       0       0
+        group_000000004 Specific        3       0       0       0       0
