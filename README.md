@@ -150,10 +150,10 @@ Severl files are generated:
 	result of all-vs-all homologous search.
 2. test.fsa.aln.trim
 
-    concatenation of trimmed aligned conserved genes.
+    concatenation of trimmed aligned protein sequences of conserved genes.
 3. test.fsa.nwk
 
-    species phylogenetic tree in newick format. the tree is constructed from the protein sequences of the conserved gene.
+    species phylogenetic tree in newick format. the tree is constructed from the aligned protein sequences of the conserved gene.
 4. test.fsa.opc
 
     orthology relationships
