@@ -94,7 +94,7 @@ SwiftOrtho implements two cluster algorithms including Markov Clustering and Aff
 
 -I: inflation parameter only for mcl. 
 
-\>: output file. This file contains severl rows. Each row stands for an orthology group. In each row, there are gene identifiers of same or different species. For example:
+\>: output file. This file contains several rows. Each row stands for an orthology group. In each row, there are gene identifiers of same or different species. For example:
 
 		A|a1	A|a2	B|b1	C|c1	D|d1
 		A|a3	B|b3	C|c3
@@ -153,7 +153,7 @@ Severl files are generated:
     concatenation of trimmed aligned conserved genes.
 3. test.fsa.nwk
 
-    species phylogenetic tree constructed by conserved gene.
+    species phylogenetic tree in newick format. the tree is constructed from the protein sequences of the conserved gene.
 4. test.fsa.opc
 
     orthology relationships
