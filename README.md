@@ -77,7 +77,7 @@ Make sure that you have the following installed
 
 
 
-**3. Cluster orthology relationships to groups:**
+**3. Cluster orthology relationships into groups:**
 
 SwiftOrtho implements two cluster algorithms including Markov Clustering and Affinity Aropagation in python. Here is an example of how to use it.
 
