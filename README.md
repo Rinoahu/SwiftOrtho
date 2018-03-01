@@ -94,7 +94,7 @@ SwiftOrtho implements two cluster algorithms including Markov Clustering and Aff
 
 -I: inflation parameter only for mcl. 
 
-\>: output file. This file contains several rows. Each row stands for an orthology group. In each row, there are gene identifiers of same or different species. For example:
+\>: output file. This file contains several rows. Each row stands for an orthologous group. In each row, there are gene identifiers of same or different species. For example:
 
 		A|a1	A|a2	B|b1	C|c1	D|d1
 		A|a3	B|b3	C|c3
@@ -115,7 +115,7 @@ Run_all.py in directory scripts automatically implements the following steps:
 
 1. all-to-all homologous search.
 2. orthology inference.
-3. cluster orthology relationships into orthology groups.
+3. cluster orthology relationships into orthologous groups.
 4. perform a pan-genome analysis and estimate main features of pan-genome such as gene numbers of core|shared|specific, core size of pan-genome, openess...
 5. use conseved proteins to construct species phylogenetic tree.
 6. perform operonic clustering if the operonic information supplied.[optional]
@@ -135,7 +135,7 @@ Usage:
 
 -i: input file. protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier.
 
--p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene identifiers. For example:
+-p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3. x# stand for gene identifiers and <-- or --> stands for strand of gene. For example:
 
 		A|a0-->A|a1	unknown-->COG1607	unknown::unknown-->I::Acyl-CoA hydrolase::Lipid transport and metabolism
 		B|b0<--B|b1	COG4644<--COG1961	X::Transposase and inactivated derivatives, TnpA family::Mobilome: prophages, transposons<--L::Site-specific DNA recombinase related to the DNA invertase Pin::Replication, recombination and repair
@@ -147,7 +147,7 @@ Results:
 Severl files are generated:
 1. test.fsa.sc
 
-	result of all-vs-all homologous search.
+	result of all-vs-all homologous search. see example above in Usage section.
 2. test.fsa.aln.trim
 
     concatenation of trimmed aligned protein sequences of conserved genes.
@@ -156,13 +156,20 @@ Severl files are generated:
     species phylogenetic tree in newick format. the tree is constructed from the aligned protein sequences of the conserved gene.
 4. test.fsa.opc
 
-    orthology relationships
+    orthology relationships. see an example above in Usage section.
 5. test.fsa.mcl
 
-    orthology groups
+    orthologous groups. see an example above in Usage section
 6. test.fsa.operon.mcl
 
-    grouped operons which reflect conservation of operons in different species.
+    grouped operons which reflect conservation of operons across multiple species. This file contains several rows. Each row stands for an conserved operonic group. In each row, there are operonic information from same or different species. For example:
+
+    	A1-->A2-->A3	B1<--B2<--B3	C1<--C2<--C3
+    	A4<--A5<--A6	B4<--B5<--B6	C4<--C5<--C6
+    	A7-->A8	B7<--B8<--B9
+		....
+
+
 7. test.fsa.pan
 
     main features of pan-genome. For example:
