@@ -50,8 +50,7 @@ void *mmap(void *addr, size_t length, int prot, int flags, int fd, size_t offset
 void *offset(void *mapped, size_t offset);
 """)
 
-try:
-    C = ffi.verify("""
+C = ffi.verify("""
 #include <sys/mman.h>
 void *offset(void *mapped, size_t offset) {
     return (void*)((char*)mapped + offset);
@@ -59,9 +58,7 @@ void *offset(void *mapped, size_t offset) {
 """)
 
 
-    globals().update({n: getattr(C, n) for n in dir(C)})
-except:
-    PROT_NONE = MAP_PRIVATE = -1
+globals().update({n: getattr(C, n) for n in dir(C)})
 
 
 def mmap(addr=ffi.NULL, length=0, prot=PROT_NONE, flags=MAP_PRIVATE, fd=0, offset=0, buffer=True):
@@ -1192,8 +1189,7 @@ def cnc2(qry, alg='mcl'):
     f.close()
 
     # sort coo file and merge
-    #os.system('export LC_ALL=C && sort -n --parallel=8 %s.coo -o %s.coo.srt && rm %s.coo'%(qry, qry, qry))
-    os.system('export LC_ALL=C && sort -n --parallel=%s %s.coo -o %s.coo.srt && rm %s.coo'%(cpu, qry, qry, qry))
+    os.system('export LC_ALL=C && sort -n --parallel=8 %s.coo -o %s.coo.srt && rm %s.coo'%(qry, qry, qry))
     _o = open(qry+'.coo', 'wb')
     f = open(qry+'.coo.srt', 'r')
     output = []
@@ -1702,7 +1698,7 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
 N, D, n2l = fc2mat(qry, prf, alg=alg)
 
-if cc == 'jit' and alg == 'mcl':
+if cc == 'jit' or alg == 'mcl':
     #N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
     data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
     dat = np.asarray(data, dtype='float32')
@@ -1714,8 +1710,6 @@ if cc == 'jit' and alg == 'mcl':
     #    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
     cnc(qry, alg=alg)
     #main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
-elif cc == 'jit' and alg.startswith('ap'):
-    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 
 else: 
     dat, n, d = makemat(qry+'.npy', shape=(N, 5), dtype='float')
