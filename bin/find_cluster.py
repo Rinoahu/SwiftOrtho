@@ -1702,6 +1702,7 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
 #os.system('rm %s.ful %s.ful.sort'%(qry, qry))
 N, D, n2l = fc2mat(qry, prf, alg=alg)
 
+#if cc == 'jit' and alg == 'mcl':
 if cc == 'jit' and alg == 'mcl':
     #N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
     data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
@@ -1712,10 +1713,12 @@ if cc == 'jit' and alg == 'mcl':
     #    #    print i
     #else:
     #    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
-    cnc(qry, alg=alg)
-    #main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
-elif cc == 'jit' and alg.startswith('ap'):
-    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+    if alg == 'mcl':
+        cnc(qry, alg=alg)
+    else:
+        main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+#elif cc == 'jit' and alg.startswith('ap'):
+#    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 
 else: 
     dat, n, d = makemat(qry+'.npy', shape=(N, 5), dtype='float')
