@@ -1702,7 +1702,7 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
 N, D, n2l = fc2mat(qry, prf, alg=alg)
 
 #if cc == 'jit' and alg == 'mcl':
-if cc == 'jit' and alg == 'mcl':
+if cc == 'jit':
     #N = len(np.memmap(qry+'.npy', mode='r', dtype='float32')) // 5
     data = np.memmap(qry+'.npy', mode='r+', shape=(N, 5), dtype='float32')
     dat = np.asarray(data, dtype='float32')
