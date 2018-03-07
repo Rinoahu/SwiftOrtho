@@ -61,8 +61,7 @@ void *offset(void *mapped, size_t offset) {
 
     globals().update({n: getattr(C, n) for n in dir(C)})
 except:
-    PROT_NONE = MAP_PRIVATE = -1
-
+    PROT_READ = PROT_WRITE = MAP_SHARED = PROT_NONE = MAP_PRIVATE = -1
 
 def mmap(addr=ffi.NULL, length=0, prot=PROT_NONE, flags=MAP_PRIVATE, fd=0, offset=0, buffer=True):
     m = C.mmap(addr, length, prot, flags, fd, offset)
