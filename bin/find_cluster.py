@@ -3,18 +3,20 @@ import os
 import sys
 from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 from struct import pack, unpack
-import numpy as np
+#import numpy as np
 try:
     from numba import jit
+    import numpy as np
+    from scipy import sparse
     cc = 'jit'
 except:
     jit = lambda x: x
     cc = 'pypy'
 
-try:
-    from scipy import sparse
-except:
-    pass
+#try:
+#    from scipy import sparse
+#except:
+#    pass
 #from sklearn.preprocessing import normalize
 from collections import Counter
 import networkx as nx
