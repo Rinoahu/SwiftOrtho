@@ -1646,11 +1646,11 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl', bch=0):
 
 
     elif alg.startswith('ap'):
-        if bch > 0:
-            print 'batch >0'
-            labels = apclust_blk(dat, KS=KS, damp=damp, chk=10**8*2)
+        if bch > 10**7:
+            #print 'batch >0'
+            labels = apclust_blk(dat, KS=KS, damp=damp, chk=bch)
         else:
-            print 'batch =0'
+            #print 'batch =0'
             labels = apclust(dat, KS=KS, damp=damp)
 
         G = nx.Graph()
