@@ -90,7 +90,7 @@ def manual_print():
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'apc', '-t': '2'}
+args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'apc', '-t': '2', '-b': '0'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -111,7 +111,7 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, dmp, prf, ifl, alg, cpu = args['-i'], float(args['-d']), float(args['-p']), float(args['-I']), args['-a'].lower(), int(args['-t'])
+    qry, dmp, prf, ifl, alg, cpu, bch = args['-i'], float(args['-d']), float(args['-p']), float(args['-I']), args['-a'].lower(), int(args['-t']), int(args['-b'])
 
 except:
     manual_print()
@@ -1615,7 +1615,7 @@ def cnc(qry, alg='mcl', rnd=2, chk=10**7, output=''):
 
 
 # main function
-def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
+def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl', bch=0):
 
     if alg == 'mcl':
         #a = dat[:, 2].min()
@@ -1646,7 +1646,13 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl'):
 
 
     elif alg.startswith('ap'):
-        labels = apclust_blk(dat, KS=KS, damp=damp, chk=10**8*2)
+        if bch > 0:
+            print 'batch >0'
+            labels = apclust_blk(dat, KS=KS, damp=damp, chk=10**8*2)
+        else:
+            print 'batch =0'
+            labels = apclust(dat, KS=KS, damp=damp)
+
         G = nx.Graph()
         for i in xrange(len(labels)):
             j = labels[i]
@@ -1715,7 +1721,7 @@ if cc == 'jit':
     if alg == 'mcl':
         cnc(qry, alg=alg)
     else:
-        main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
+        main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg, bch=bch)
 #elif cc == 'jit' and alg.startswith('ap'):
 #    main(dat, n2l=n2l, I=ifl, KS=D, damp=dmp, alg=alg)
 
