@@ -408,7 +408,10 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
     #print 'K is', K, data.shape, data[:, :2].min()
     # 0:row max; 1: index, 2: 2nd row max; 3: index; 4: col sum; 5: diag of r
     diag = np.zeros((KS, 6))
+
     N, d = dat.shape
+    fname = dat.filename
+
     data = np.empty((chk, 5))
     for it in xrange(itr):
         #print 'iteration', it
@@ -416,6 +419,14 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
+
+            # reopen dat
+            dat.close()
+            del dat
+            gc.collect()
+            dat = np.memmap(fname, mode='r+', shape=(N, d), dtype='float32')
+
+
             data[:z, :] = dat[x:y, :]
             max_row(data, diag, ras, lab, z, damp, beta, mconv)
 
@@ -423,6 +434,14 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
+
+            # reopen dat
+            dat.close()
+            del dat
+            gc.collect()
+            dat = np.asarray(np.memmap(fname, mode='r+', shape=(N, d), dtype='float32'))
+
+
             data[:z, :] = dat[x:y, :]
             update_R(data, diag, ras, lab, z, damp, beta, mconv)
             if z == chk:
@@ -435,6 +454,15 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
+
+
+            # reopen dat
+            dat.close()
+            del dat
+            gc.collect()
+            dat = np.asarray(np.memmap(fname, mode='r+', shape=(N, d), dtype='float32'))
+
+
             data[:z, :] = dat[x:y, :]
             sum_col(data, diag, ras, lab, z, damp, beta, mconv)
 
@@ -442,6 +470,14 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
+
+            # reopen dat
+            dat.close()
+            del dat
+            gc.collect()
+            dat = np.asarray(np.memmap(fname, mode='r+', shape=(N, d), dtype='float32'))
+
+
             data[:z, :] = dat[x:y, :]
             update_A(data, diag, ras, lab, z, damp, beta, mconv)
             if z == chk:
@@ -455,6 +491,14 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
             z = y - x
+
+            # reopen dat
+            dat.close()
+            del dat
+            gc.collect()
+            dat = np.asarray(np.memmap(fname, mode='r+', shape=(N, d), dtype='float32'))
+
+
             data[:z, :] = dat[x:y, :]
             get_change(data, diag, ras, lab, z, damp, beta, mconv, change)
 
