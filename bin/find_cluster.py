@@ -414,7 +414,7 @@ def apclust_blk(dat, KS=-1, damp=.5, convit=15, itr=100, chk=10**8):
 
     data = np.empty((chk, 5))
     for it in xrange(itr):
-        #print 'iteration', it
+        #print 'iteration', it, N, chk
         # get max of row
         for x in xrange(0, N, chk):
             y = min(x+chk, N)
@@ -1688,7 +1688,7 @@ def main(dat, n2l = None, I=1.5, damp=.62, KS=-1, alg='mcl', bch=0):
 
 
     elif alg.startswith('ap'):
-        if bch > 10**7:
+        if bch > 0:
             ##print 'batch >0'
             labels = apclust_blk(dat, KS=KS, damp=damp, chk=bch)
         else:
