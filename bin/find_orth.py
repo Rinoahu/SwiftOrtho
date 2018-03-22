@@ -686,5 +686,6 @@ f.close()
 if tmpdir == 'n':
     os.system('rm -rf %s_tmp/'%qry)
 
-os.system('rm -rf %s'%tmpsrt)
+if tmpsrt != '/tmp/' or tmpsrt != '/tmp':
+    os.system('rm -rf %s'%tmpsrt)
 
