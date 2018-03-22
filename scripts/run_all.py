@@ -50,7 +50,7 @@ def manual_print():
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-r': '', '-p': '', '-s':'111111', '-c':'.5', '-y':'50', '-n':'no', '-l':'.05', '-u':'.95', '-a':'4', '-A':'mcl', '-I':'1.5'}
+args = {'-i': '', '-r': '', '-p': '', '-s':'111111', '-c':'.5', '-y':'50', '-n':'no', '-l':'.05', '-u':'.95', '-a':'4', '-A':'apc', '-I':'1.5'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -146,7 +146,7 @@ while id2n:
 
 del id2n
 
-_o = open('%s_results/%s.mcl'%(fas, sfx), 'w')
+_o = open('%s_results/%s.clsr'%(fas, sfx), 'w')
 f = open('%s_results/%s.grp'%(fas, sfx), 'r')
 for i in f:
     j = i[:-1].split('\t')
@@ -161,15 +161,17 @@ _o.close()
 # remove grp file
 os.system('rm %s_results/%s.grp'%(fas, sfx))
 
-print 'use mcl to group protein family time:', time() - start
+#print 'use mcl to group protein family time:', time() - start
+print 'use %s to group protein family time:'%alg, time() - start
+
 
 #######################################################################################
 # statistics of pan-genome
 #######################################################################################
 start = time()
 
-#cmd = 'python %s/pangenome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'
-cmd = '%s %s/pan_genome.py -i %s -g %s_results/%s.mcl > %s_results/%s.pan'%(pyc, here, fas, fas, sfx, fas, sfx)
+#cmd = 'python %s/pangenome.py -i %s -g %s_results/%s.clsr > %s_results/%s.pan'
+cmd = '%s %s/pan_genome.py -i %s -g %s_results/%s.clsr > %s_results/%s.pan'%(pyc, here, fas, fas, sfx, fas, sfx)
 os.system(cmd)
 
 print 'pan-genome analysis time:', time() - start
@@ -198,14 +200,14 @@ print 'species tree construction time:', time() - start
 if os.path.isfile(operon):
     start = time()
     sfxo = operon.split(os.sep)[-1]
-    cmd = '%s %s/operon_cluster.py -g %s_results/%s.mcl -p %s > %s_results/%s.xyz'%(pyc, here, fas, sfx, operon, fas, sfxo)
+    cmd = '%s %s/operon_cluster.py -g %s_results/%s.clsr -p %s > %s_results/%s.xyz'%(pyc, here, fas, sfx, operon, fas, sfxo)
     #print operon
     #print cmd
     os.system(cmd)
 
     # use mcl to cluster operon
-    #cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.mcl -te %s'%(fas, sfxo, fas, sfxo, np)
-    cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.mcl'%(pyc, here, fas, sfxo, alg, ifl, fas, sfxo)
+    #cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.clsr -te %s'%(fas, sfxo, fas, sfxo, np)
+    cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.clsr'%(pyc, here, fas, sfxo, alg, ifl, fas, sfxo)
     print 'operon clustering time:', time() - start
     os.system(cmd)
 

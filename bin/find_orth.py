@@ -28,11 +28,13 @@ def manual_print():
     print '  -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
     print '  -a: cpu number for sorting. Default: 1'
     print '  -t: keep tmpdir[y|n]. Default: n'
+    print '  -T: tmpdir for sort command. Default: /tmp/'
+
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4'}
+args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4', '-T': '/tmp/'}
 
 N = len(argv)
 for i in xrange(1, N):
@@ -53,10 +55,15 @@ if args['-i']=='':
     raise SystemExit()
 
 try:
-    qry, coverage, identity, norm, tmpdir, cpu = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a'])
+    qry, coverage, identity, norm, tmpdir, cpu, tmpsrt = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a']), args['-T']
 except:
     manual_print()
     raise SystemExit()
+
+
+# make tmp dir for sort command
+if tmpsrt != '/tmp/' or tmpsrt != '/tmp':
+    os.system('mkdir -p %s'%tmpsrt)
 
 
 #qry = sys.argv[1]
@@ -419,7 +426,7 @@ def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
 inots = set()
 # sort qots
 qotsrt = qot + '.srt'
-os.system('export LC_ALL=C && sort --parallel=%s %s -o %s && rm %s'%(cpu, qot, qotsrt, qot))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qot, qotsrt, qot))
 
 ots = qry + '.OTs.txt'
 _oots = open(ots, 'w')
@@ -442,7 +449,7 @@ os.system('rm %s'%qotsrt)
 # get IPs
 ###############################################################################
 qipsrt = qip + '.srt'
-os.system('export LC_ALL=C && sort --parallel=%s %s -o %s && rm %s'%(cpu, qip, qipsrt, qip))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qip, qipsrt, qip))
 
 ipqa = {}
 IPqA = {}
@@ -486,7 +493,7 @@ for k in IPqA:
 # get COs
 ###############################################################################
 qcosrt = qco + '.srt'
-os.system('export LC_ALL=C && sort --parallel=%s %s -o %s && rm %s'%(cpu, qco, qcosrt, qco))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qco, qcosrt, qco))
 
 
 cos = qry + '.COs.txt'
@@ -678,4 +685,6 @@ f.close()
 
 if tmpdir == 'n':
     os.system('rm -rf %s_tmp/'%qry)
+
+os.system('rm -rf %s'%tmpsrt)
 

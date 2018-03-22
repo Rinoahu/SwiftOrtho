@@ -92,7 +92,7 @@ def manual_print():
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'apc', '-t': '2', '-b': '0'}
+args = {'-i': '', '-d': '0.5', '-p': '-10000', '-I': '1.5', '-a': 'apc', '-t': '2', '-b': '25000000'}
 
 N = len(argv)
 for i in xrange(1, N):
