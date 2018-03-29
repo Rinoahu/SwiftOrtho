@@ -1207,7 +1207,7 @@ def ungap_kswat_st(s0, s1, starts, score_mat, trace_mat, dropX=30):
 
 
 # index fasta file, record the position of >
-def index(f):
+def index0(f):
     fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
     N = fasta.size
     idx = []
@@ -1217,6 +1217,18 @@ def index(f):
             if i == 0 or fasta.getitem(j) == '\n':
                 idx.append(i)
     return fasta, N, idx
+
+def index(f):
+    fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
+    N = fasta.size
+    idx = [0]
+    for i in xrange(N):
+        if fasta.getitem(i) == '>':
+            j = i - 1
+            if i > 0 or fasta.getitem(j) == '\n':
+                idx.append(i)
+    return fasta, N, idx
+
 
 
 # get fasta file by mmap and index
