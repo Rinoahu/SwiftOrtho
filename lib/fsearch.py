@@ -1225,8 +1225,9 @@ def index(f):
     for i in xrange(N):
         if fasta.getitem(i) == '>':
             j = i - 1
-            if i > 0 or fasta.getitem(j) == '\n':
+            if i > 0 and fasta.getitem(j) == '\n':
                 idx.append(i)
+
     return fasta, N, idx
 
 
@@ -2005,6 +2006,7 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
     f0 = open(qry, 'rb')
     seqs = Fasta(f0)
     N = len(seqs)
+
     f1 = open(ref, 'rb')
 
     DB = Fasta(f1)
@@ -2073,7 +2075,8 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
             nst, lhb = starts[j:j+2]
             string = array.getslice(nst, lhb)
             for k in xrange(0, lhb, 16):
-                a0, a1, a2, a3 = unpack('iiii', string[k:k+16])
+                #a0, a1, a2, a3 = unpack('iiii', string[k:k+16])
+                a0, a1, a2, a3 = unpack('IIII', string[k:k+16])
                 hits.append([a0, a1, a2, a3])
 
         qsort(hits, key=lambda x:-x[1])
