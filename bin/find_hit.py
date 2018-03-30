@@ -186,14 +186,14 @@ if __name__ == '__main__':
         if L_ref < max_chr:
             # add suffix to query file
             _o = open(qry, 'a')
-            _o.write('>x\nx')
+            _o.write('>x\nx\n')
             _o.close()
 
             blastp(start=start, end=end)
 
             # remove suffix to query file
             _o = open(qry, 'r+')
-            trc = os.path.getsize(qry) - 4
+            trc = os.path.getsize(qry) - 5
             _o.truncate(trc)
             _o.close()
 
@@ -219,14 +219,14 @@ if __name__ == '__main__':
 
                     # add suffix to query file
                     _o = open(qry, 'a')
-                    _o.write('>x\nx')
+                    _o.write('>x\nx\n')
                     _o.close()
 
                     blastp(start=start, end=end)
 
                     # remove suffix to query file
                     _o = open(qry, 'r+')
-                    trc = os.path.getsize(qry) - 4
+                    trc = os.path.getsize(qry) - 5
                     _o.truncate(trc)
                     _o.close()
 
