@@ -87,7 +87,8 @@ os.system('mkdir -p %s_results'%fas)
 #######################################################################################
 start = time()
 
-cmd = 'nohup %s %s/../bin/fast_search.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log'%(pyc, here, fas, fas, fas, sfx, seed, np, fas)
+#cmd = 'nohup %s %s/../bin/fast_search.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log'%(pyc, here, fas, fas, fas, sfx, seed, np, fas)
+cmd = 'nohup %s %s/../bin/find_hit.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log'%(pyc, here, fas, fas, fas, sfx, seed, np, fas)
 os.system(cmd)
 
 print 'all to all homologous searching time:', time() - start

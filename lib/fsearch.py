@@ -2240,7 +2240,9 @@ def entry_point(argv):
                 E = f2s(e)
                 #m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%d\t%d\t%f\t%d\t%d\t%d\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, i, j, li, lj, seed, bv, vl, thr)
                 #m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj)
-                m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%s\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj, desc)
+                #m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%s\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj, desc)
+                m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%d\t%s\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj, i, desc)
+
                 m8s.append(m8)
                 if outfile:
                     if len(m8s) >= 10000:

@@ -1207,7 +1207,7 @@ def ungap_kswat_st(s0, s1, starts, score_mat, trace_mat, dropX=30):
 
 
 # index fasta file, record the position of >
-def index(f):
+def index0(f):
     fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
     N = fasta.size
     idx = []
@@ -1217,6 +1217,18 @@ def index(f):
             if i == 0 or fasta.getitem(j) == '\n':
                 idx.append(i)
     return fasta, N, idx
+
+def index(f):
+    fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
+    N = fasta.size
+    idx = [0]
+    for i in xrange(N):
+        if fasta.getitem(i) == '>':
+            j = i - 1
+            if i > 0 or fasta.getitem(j) == '\n':
+                idx.append(i)
+    return fasta, N, idx
+
 
 
 # get fasta file by mmap and index
@@ -2085,7 +2097,8 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
                 idy, aln, mis, gap, qst, qed, sst, sed, bit = kswat_st(sqi, sqj, qst=qi, sst=qj, score=score_mat, trace=trace_mat, al0=aln0, al1=aln1)
                 e = bit2e(D, sqi, sqj, bit)
                 if e <= expect:
-                    m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold)
+                    #m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold)
+                    m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold), hdj
                     m8s.append(m8)
                     unmch = 0
                     bv += 1
@@ -2098,7 +2111,8 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
                     idy, aln, mis, gap, qst, qed, sst, sed, bit = m9
                     e = bit2e(D, sqi, sqj, bit)
                     if e <= expect:
-                        m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold)
+                        #m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold)
+                        m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold), hdj
                         m8s.append(m8)
 
                         flag = 0
@@ -2217,14 +2231,16 @@ def entry_point(argv):
         wrt = wrt in 'wa' and wrt or 'w'
         m8s = []
         for hit in blastp(qry, ref, expect=exp, v=bv, max_miss=miss, st=start, ed=end, rst=rstart, red=rend, thr=thr, flt=flt, ref_idx=ref_idx, ssd=ssd, nr=nr, step=step, ht=ht, chk=chk, tmpdir=tmpdir):
-            i, j, li, lj, hi, hj, idy, aln, mis, gap, qst, qed, sst, sed, e, bit, seed, bv, vl, thr = hit
+            #i, j, li, lj, hi, hj, idy, aln, mis, gap, qst, qed, sst, sed, e, bit, seed, bv, vl, thr = hit
+            i, j, li, lj, hi, hj, idy, aln, mis, gap, qst, qed, sst, sed, e, bit, seed, bv, vl, thr, desc = hit
             if e <= exp:
                 Idy = str(idy)
                 End = max(0, Idy.find('.')+3)
                 Idy = Idy[:End]
                 E = f2s(e)
                 #m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%d\t%d\t%f\t%d\t%d\t%d\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, i, j, li, lj, seed, bv, vl, thr)
-                m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj)
+                #m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj)
+                m8 = '%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%f\t%d\t%d\t%s\n'%(hi, hj, Idy, aln, mis, gap, qst, qed, sst, sed, E, bit, li, lj, desc)
                 m8s.append(m8)
                 if outfile:
                     if len(m8s) >= 10000:
