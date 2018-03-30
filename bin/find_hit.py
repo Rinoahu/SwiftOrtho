@@ -39,6 +39,7 @@ def blastp(start, end):
 
         pool = mp.Pool(ncpu)
         Step = max(min(10000, abs(End - Start) // ncpu), 1)
+
         sts = []
         tmp_name = outfile.split(os.sep)[-1]
         # check the tmpdir
@@ -46,6 +47,7 @@ def blastp(start, end):
 
         # for st in xrange(0, N, 10000):
         for st in xrange(Start, End, Step):
+
             ed = min(N, st + Step)
             start, end = map(str, [st, ed])
             cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o %s/%s.%012d -T %s' % (
@@ -179,9 +181,22 @@ if __name__ == '__main__':
 
     elif args['-p'] == 'blastp':
         L_ref = os.path.getsize(ref)
-        max_chr = 4200000000
+        #max_chr = 4200000000
+        max_chr = 1000000
         if L_ref < max_chr:
+            # add suffix to query file
+            _o = open(qry, 'a')
+            _o.write('>x\nx')
+            _o.close()
+
             blastp(start=start, end=end)
+
+            # remove suffix to query file
+            _o = open(qry, 'r+')
+            trc = os.path.getsize(qry) - 4
+            _o.truncate(trc)
+            _o.close()
+
         else:
             REF = ref
             OUTFILE = outfile
@@ -200,7 +215,22 @@ if __name__ == '__main__':
                 if flag_chr > max_chr:
                     _o.close()
                     outfile = '%s/%d.sc'%(ref_dir, flag_idx)
+                    #blastp(start=start, end=end)
+
+                    # add suffix to query file
+                    _o = open(qry, 'a')
+                    _o.write('>x\nx')
+                    _o.close()
+
                     blastp(start=start, end=end)
+
+                    # remove suffix to query file
+                    _o = open(qry, 'r+')
+                    trc = os.path.getsize(qry) - 4
+                    _o.truncate(trc)
+                    _o.close()
+
+
                     _o = open(ref, 'w')
                     flag_idx += 1
                     flag_chr = l_chr
@@ -216,8 +246,8 @@ if __name__ == '__main__':
             # merge all file
             os.system('sort -m -k15,15n -k12,12nr %s/*.sc > %s && rm -rf %s/'%(ref_dir, OUTFILE, ref_dir))
 
-        if not 'clean':
-        #if 'clean':
+        #if not 'clean':
+        if 'clean':
             os.system('rm -rf %s' % tmpdir)
     else:
         manual_print()
