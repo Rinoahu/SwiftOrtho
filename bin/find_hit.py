@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
     elif args['-p'] == 'blastp':
         L_ref = os.path.getsize(ref)
-        max_chr = 1000000
+        max_chr = 4200000000
         if L_ref < max_chr:
             blastp(start=start, end=end)
         else:
