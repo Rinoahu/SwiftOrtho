@@ -182,7 +182,7 @@ if __name__ == '__main__':
     elif args['-p'] == 'blastp':
         L_ref = os.path.getsize(ref)
         max_chr = 4200000000
-        #max_chr = 500000
+        #max_chr = 1000000
         if L_ref < max_chr:
             # add suffix to query file
             #_o = open(qry, 'a')
@@ -243,7 +243,8 @@ if __name__ == '__main__':
                 blastp(start=start, end=end)
 
             # merge all file
-            os.system('sort -m -k15,15n -k12,12nr %s/*.sc > %s && rm -rf %s/'%(ref_dir, OUTFILE, ref_dir))
+            #os.system('sort -m -k15,15n -k12,12nr %s/*.sc > %s && rm -rf %s/'%(ref_dir, OUTFILE, ref_dir))
+            os.system("sort -m -k15,15n -k12,12nr %s/*.sc | awk '{if(c[$1]<%s) print $0;c[$1]+=1}'  > %s && rm -rf %s/"%(ref_dir, bv, OUTFILE, ref_dir))
 
         #if not 'clean':
         if 'clean':
