@@ -182,20 +182,20 @@ if __name__ == '__main__':
     elif args['-p'] == 'blastp':
         L_ref = os.path.getsize(ref)
         #max_chr = 4200000000
-        max_chr = 1000000
+        max_chr = 500000
         if L_ref < max_chr:
             # add suffix to query file
-            _o = open(qry, 'a')
-            _o.write('>x\nx\n')
-            _o.close()
+            #_o = open(qry, 'a')
+            #_o.write('>x\nx\n')
+            #_o.close()
 
             blastp(start=start, end=end)
 
             # remove suffix to query file
-            _o = open(qry, 'r+')
-            trc = os.path.getsize(qry) - 5
-            _o.truncate(trc)
-            _o.close()
+            #_o = open(qry, 'r+')
+            #trc = os.path.getsize(qry) - 5
+            #_o.truncate(trc)
+            #_o.close()
 
         else:
             REF = ref
@@ -218,18 +218,17 @@ if __name__ == '__main__':
                     #blastp(start=start, end=end)
 
                     # add suffix to query file
-                    _o = open(qry, 'a')
-                    _o.write('>x\nx\n')
-                    _o.close()
+                    #_o = open(qry, 'a')
+                    #_o.write('>x\nx\n')
+                    #_o.close()
 
                     blastp(start=start, end=end)
 
                     # remove suffix to query file
-                    _o = open(qry, 'r+')
-                    trc = os.path.getsize(qry) - 5
-                    _o.truncate(trc)
-                    _o.close()
-
+                    #_o = open(qry, 'r+')
+                    #trc = os.path.getsize(qry) - 5
+                    #_o.truncate(trc)
+                    #_o.close()
 
                     _o = open(ref, 'w')
                     flag_idx += 1
