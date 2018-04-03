@@ -80,7 +80,7 @@ def mmap(addr=ffi.NULL, length=0, prot=PROT_NONE, flags=MAP_PRIVATE, fd=0, offse
 # print the manual
 def manual_print():
     print 'Usage:'
-    print '    python find_cluster.py -i foo.xyz -d 0.5'
+    print '    python %s -i foo.xyz -d 0.5'%sys.argv[0]
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 3 columns'
     print '  -d: damp'

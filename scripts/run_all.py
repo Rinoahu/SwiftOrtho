@@ -11,7 +11,9 @@ def manual_print():
     print 'Integrate pipeline can be used to identify orthologs, construct phylotree and get profile of pan-genomes'
     print 'If the operonic information supplied, this pipeline can also cluster the operon_cluster'
     print 'Usage:'
-    print '  python this.py -i foo.pep.fsa [-r taxonomy] [-p foo.operon] [...]'
+    #print '  python this.py -i foo.pep.fsa [-r taxonomy] [-p foo.operon] [...]'
+    print '  python %s -i foo.pep.fsa [-r taxonomy] [-p foo.operon] [...]'%sys.argv[0]
+
 
     print 'Input fasta file:'
     print ' -i: protein sequences in fasta formt. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'

@@ -20,7 +20,8 @@ import io
 # print the manual
 def manual_print():
     print 'Usage:'
-    print '    python find_orth.py -i foo.sc [-c .5] [-y 50] [-n no]'
+    #print '    python find_orth.py -i foo.sc [-c .5] [-y 50] [-n no]'
+    print '    python %s -i foo.sc [-c .5] [-y 50] [-n no]' % sys.argv[0]
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 14 columns'
     print '  -c: min coverage of sequence [0~1]'
