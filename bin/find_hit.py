@@ -77,9 +77,9 @@ def blastp(start, end):
 def manual_print():
     print 'Usage:'
     print '  make database:'
-    print '    python fast_search.py -p makedb -i db.fsa [-s 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]'
+    print '    python find_hit.py -p makedb -i db.fsa [-s 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]'
     print '  search:'
-    print '    python fast_search.py -p blastp -i qry.fsa -d db.fsa'
+    print '    python find_hit.py -p blastp -i qry.fsa -d db.fsa'
     print 'Parameters:'
     print '  -p: program'
     print '  -i: query sequences in fasta format'

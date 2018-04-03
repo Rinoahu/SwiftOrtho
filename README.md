@@ -31,7 +31,7 @@ Make sure that you have the following installed
 
 **1. All-to-all homologous search:**
 
-    $python SwiftOrtho/bin/fast_search.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
+    $python SwiftOrtho/bin/find_hit.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
 
 -i|-d: protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
