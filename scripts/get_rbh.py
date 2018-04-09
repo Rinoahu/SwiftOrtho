@@ -13,7 +13,8 @@ def blastparse(f):
     for i in f:
         j = i.split('\t')
         qid, sid = j[:2]
-        sco = int(j[11])
+        #sco = int(j[11])
+        sco = float(j[11])
         if qid != flag:
             if out:
                 yield out
