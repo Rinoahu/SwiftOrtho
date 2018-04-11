@@ -173,7 +173,9 @@ class Counter:
 
 MIN, MED, MAX = 7, 23, 41
 
-random = rrandom.Random(42).random
+Rand = rrandom.Random(42)
+#random = rrandom.Random(42).random
+random = Rand.random
 
 # swap 2 selected elem in a list
 def swap_u(x, i, j):
@@ -215,6 +217,7 @@ def partition_u(x, l, r, m, key=lambda x: x):
 
 # recursion version of quicksort
 def quicksort_u(x, l, r, key=lambda x: x):
+    Rand.init_genrand(42)
     if r <= l:
         return
     else:
@@ -280,6 +283,7 @@ def partition(x, l, r, m, key=lambda x: x):
 
 # recursion version of quicksort
 def quicksort(x, l, r, key=lambda x: x):
+    Rand.init_genrand(42)
     if r <= l:
         return
     else:
