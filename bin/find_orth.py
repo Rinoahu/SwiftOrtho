@@ -29,13 +29,13 @@ def manual_print():
     print '  -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
     print '  -a: cpu number for sorting. Default: 1'
     print '  -t: keep tmpdir[y|n]. Default: n'
-    print '  -T: tmpdir for sort command. Default: /tmp/'
+    print '  -T: tmpdir for sort command. Default: ./tmp/'
 
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4', '-T': '/tmp/'}
+args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4', '-T': './tmp/'}
 
 N = len(argv)
 for i in xrange(1, N):

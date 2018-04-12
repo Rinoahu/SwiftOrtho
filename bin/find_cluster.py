@@ -782,7 +782,16 @@ def fc2mat(qry, prefer=-10000, alg='mcl'):
             flag += 1
 
         X, Y = map(l2n.get, [x, y])
-        Z = float(z)
+
+        try:
+            Z = float(z)
+        except:
+            z = z.split('rm')[0]
+            try:
+                Z = float(z)
+            except:
+                continue
+
         _o.write(pack('fffff', X, Y, Z, 0, 0))
         _o.write(pack('fffff', Y, X, Z, 0, 0))
         N += 2
