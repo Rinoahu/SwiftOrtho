@@ -5,6 +5,9 @@ from collections import Counter
 import os
 from time import time
 
+from commands import getoutput
+
+
 # do the core gene find
 # python this_script.py -i foo.pep.fsa -g foo.ortholog [-r taxon]
 def manual_print():
@@ -188,7 +191,11 @@ start = time()
 cmd = '%s %s/rbh2phy.py -f %s -i %s_results/%s.sc > %s_results/%s.aln'
 os.system(cmd%(pyc, here, fas, fas, sfx, fas, sfx))
 # use trimal to remove weak alignment region.
-cmd = 'trimal -in %s_results/%s.aln -out %s_results/%s.aln.trim -automated1'
+if getoutput('which trimal'):
+    cmd = 'trimal -in %s_results/%s.aln -out %s_results/%s.aln.trim -automated1'
+else:
+    cmd = 'cp %s_results/%s.aln %s_results/%s.aln.trim'
+
 os.system(cmd%(fas, sfx, fas, sfx))
 # use fasttree to construct phylotree
 cmd = 'fasttree -quiet -wag -gamma -pseudo -spr 4 -mlacc 2 -slownni -no2nd -boot 1000 %s_results/%s.aln.trim > %s_results/%s.nwk'
