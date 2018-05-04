@@ -504,9 +504,7 @@ def mat_split3(qry, step=4, tmp_path=None):
     return q2n 
 
 
-
-
-def mat_split(qry, step=4, tmp_path=None):
+def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -533,7 +531,7 @@ def mat_split(qry, step=4, tmp_path=None):
     qid_set.sort()
     N = len(qid_set)
     shape = (N, N)
-    block = N // step + 1
+    block = min(N // step + 1, chunk)
 
     for i in xrange(N):
         qid = qid_set[i]
@@ -682,6 +680,205 @@ def mat_split(qry, step=4, tmp_path=None):
     # close the file
     for _o in _os.values():
         _o.close()
+
+    return q2n 
+
+
+
+
+
+# reorder the matrix
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7,):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    N = shape[0]
+    block = min(chunk, N//step+1)
+
+    # reorder the matrix
+    cs = None
+    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    #N = len(q2n)
+    #shape = (N, N)
+    for fn in fns:
+        #print 'loading', fns
+        g = load_matrix(fn, shape=shape, csr=csr)
+        ci = csgraph.connected_components(g)
+        if cs == None:
+            cs = ci
+        else:
+            cs = merge_connected(cs, ci)
+
+    idx = cs[1].argsort()
+    idx_r = np.empty(N, 'int')
+    idx_r[idx] = np.arange(N, dtype='int')
+    idx = idx_r
+    for i in q2n:
+        j = q2n[i]
+        q2n[i] = idx[j]
+
+
+    # write reorder matrix
+    eye = [0] * N
+    _os = {}
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = float(score)
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x,y,z])
+        xi, yi = x // block, y // block
+
+        try:
+            _ox = _os[(xi, yi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _os[(xi, yi)] = _o
+            _ox = _os[(xi, yi)]
+
+        _ox.write(out)
+
+        # sym
+        out = pack('fff', *[y, x, z])
+        try:
+            _oy = _os[(yi, xi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _os[(yi, xi)] = _o
+            _oy = _os[(yi, xi)]
+
+        _oy.write(out)
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i,i,z])
+        j = i // block
+        try:
+            _o = _os[(j, j)]
+        except:
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _o = _os[(j, j)]
+
+        _o.write(out)
+
+    # close the file
+    for _o in _os.values():
+        _o.close()
+
+    return q2n 
+
+
+
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('mkdir -p %s'%tmp_path)
+    q2n = {}
+    qid_set = set()
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        if qid not in qid_set:
+            qid_set.add(qid)
+
+        if sid not in qid_set:
+            qid_set.add(sid)
+
+    f.close()
+
+    qid_set = list(qid_set)
+    qid_set.sort()
+    N = len(qid_set)
+    shape = (N, N)
+    block = min(N // step + 1, chunk)
+
+    for i in xrange(N):
+        qid = qid_set[i]
+        q2n[qid] = i
+
+    del qid_set
+    gc.collect()
+
+    eye = [0] * N
+    _os = {}
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = float(score)
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x,y,z])
+        xi, yi = x // block, y // block
+
+        try:
+            _ox = _os[(xi, yi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _os[(xi, yi)] = _o
+            _ox = _os[(xi, yi)]
+
+        _ox.write(out)
+
+        # sym
+        out = pack('fff', *[y, x, z])
+        try:
+            _oy = _os[(yi, xi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _os[(yi, xi)] = _o
+            _oy = _os[(yi, xi)]
+
+        _oy.write(out)
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i,i,z])
+        j = i // block
+        try:
+            _o = _os[(j, j)]
+        except:
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _o = _os[(j, j)]
+
+        _o.write(out)
+
+    # close the file
+    for _o in _os.values():
+        _o.close()
+
+
+    # reorder the matrix
+    print 'reorder the matrix'
+    q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
 
     return q2n 
 
