@@ -688,7 +688,7 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
 
 
 # reorder the matrix
-def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7,):
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -808,7 +808,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     qid_set.sort()
     N = len(qid_set)
     shape = (N, N)
-    block = min(N // step + 1, chunk)
+    block = min(N//step+1, chunk)
 
     for i in xrange(N):
         qid = qid_set[i]
