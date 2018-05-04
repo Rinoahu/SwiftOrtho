@@ -27,17 +27,21 @@ def mul_chk(m):
     Y = sparse.csr_matrix(y, shape=shape)
 
     st = time()
-    #print 'shape is', X[start: end].shape, Y.shape
+    # print 'shape is', X[start: end].shape, Y.shape
     Z = X[start: end] * Y
 
     return Z
 
 
-def Pmul(X, Y, chk=64, cache=10**8, ncpu=6):
+def Pmul(X, Y, chk=64, cache=10**8, cpu=6):
     N, d = X.shape
     D, M = Y.shape
     assert d == D
-    if X.nnz < cache and Y.nnz < cache:
+
+    if cpu == 1:
+        Z = X * Y
+
+    elif X.nnz < cache and Y.nnz < cache:
         Z = X * Y
 
     else:
@@ -69,12 +73,12 @@ def Pmul(X, Y, chk=64, cache=10**8, ncpu=6):
             loc.append([x, st, ed, y, (N, d)])
             if len(loc) >= 8:
                 st = time()
-                tmp = Parallel(n_jobs=ncpu)(delayed(mul_chk)(elem) for elem in loc)
+                tmp = Parallel(n_jobs=cpu)(delayed(mul_chk)(elem)
+                               for elem in loc)
                 Z.extend(tmp)
                 loc = []
                 del tmp
                 gc.collect()
-
 
         if len(loc) > 0:
             st = time()
@@ -88,19 +92,16 @@ def Pmul(X, Y, chk=64, cache=10**8, ncpu=6):
     return Z
 
 
-
-
-
 # given a pairwise relationship, this function will convert the qid, sid into numbers
 # and split these relationships into small file
-def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
+def mat_split0(qry, shape=10**7, step=2 * 10**5, tmp_path=None):
     #_os0 = [open('row_%d.bin'%elem, 'wb') for elem in xrange(6*10**6//step)]
     #_os1 = [open('col_%d.bin'%elem, 'wb') for elem in xrange(6*10**6//step)]
     # build the tmp dir
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
 
     flag = 0
     q2n = {}
@@ -121,7 +122,7 @@ def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
 
         x, y = map(q2n.get, [qid, sid])
 
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
 
         xi, yi = x // step, y // step
         try:
@@ -129,33 +130,32 @@ def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
             _ox.write(out)
 
         except:
-            _o = open(tmp_path + '/%d_row.bin'%xi, 'wb')
+            _o = open(tmp_path + '/%d_row.bin' % xi, 'wb')
             n, m = len(_oxs), xi + 1
             if n < m:
-                _oxs.extend([None]* (m - n))
+                _oxs.extend([None] * (m - n))
 
             _oxs[xi] = _o
             _ox = _oxs[xi]
-            #print 'xi is', _oxs[xi], _o
+            # print 'xi is', _oxs[xi], _o
             _ox.write(out)
 
         try:
             _oy = _oys[yi]
             _oy.write(out)
         except:
-            _o = open(tmp_path + '/%d_col.bin'%yi, 'wb')
+            _o = open(tmp_path + '/%d_col.bin' % yi, 'wb')
             n, m = len(_oys), yi + 1
             if n < m:
-                _oys.extend([None]* (m - n))
+                _oys.extend([None] * (m - n))
 
             _oys[yi] = _o
             _oy = _oys[yi]
             _oy.write(out)
 
-
         # sym
         x, y = y, x
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
         xi, yi = x // step, y // step
 
         try:
@@ -163,24 +163,24 @@ def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
             _ox.write(out)
 
         except:
-            _o = open(tmp_path + '/%d_row.bin'%xi, 'wb')
+            _o = open(tmp_path + '/%d_row.bin' % xi, 'wb')
             n, m = len(_oxs), xi + 1
             if n < m:
-                _oxs.extend([None]* (m - n))
+                _oxs.extend([None] * (m - n))
 
             _oxs[xi] = _o
             _ox = _oxs[xi]
-            #print 'xi is', _oxs[xi], _o
+            # print 'xi is', _oxs[xi], _o
             _ox.write(out)
 
         try:
             _oy = _oys[yi]
             _oy.write(out)
         except:
-            _o = open(tmp_path + '/%d_col.bin'%yi, 'wb')
+            _o = open(tmp_path + '/%d_col.bin' % yi, 'wb')
             n, m = len(_oys), yi + 1
             if n < m:
-                _oys.extend([None]* (m - n))
+                _oys.extend([None] * (m - n))
 
             _oys[yi] = _o
             _oy = _oys[yi]
@@ -193,16 +193,15 @@ def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
 
     # set eye of matrix:
     for i in xrange(0, len(q2n), step):
-        zs = q2n[i:i+step]
-        xyzs = [[x,x,z] for x, z in zip(xrange(i, i+step), zs)]
+        zs = q2n[i:i + step]
+        xyzs = [[x, x, z] for x, z in zip(xrange(i, i + step), zs)]
         xyzs = sum(xyzs, [])
-        out = pack('f'*len(xyzs), *xyzs)
+        out = pack('f' * len(xyzs), *xyzs)
         j = i // step
         _ox = _oxs[j]
         _ox.write(out)
         _oy = _oys[j]
         _oy.write(out)
-
 
     for _o in _oxs + _oys:
         try:
@@ -213,11 +212,11 @@ def mat_split0(qry, shape=10**7, step=2*10**5, tmp_path=None):
     return q2n
 
 
-def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
+def mat_split1(qry, shape=10**8, step=2 * 10**5, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
 
     flag = 0
     q2n = {}
@@ -237,7 +236,7 @@ def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
             flag += 1
 
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
 
         xi, yi = x // step, y // step
         kxy = (xi, yi)
@@ -246,7 +245,7 @@ def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
             _oxy = _os[kxy]
 
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[kxy] = _o
             _oxy = _os[kxy]
 
@@ -258,7 +257,7 @@ def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
         try:
             _oyx = _os[kyx]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[kyx] = _o
             _oyx = _os[kyx]
 
@@ -271,12 +270,12 @@ def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
 
     # set eye of matrix:
     for i in xrange(0, len(q2n), step):
-        zs = eye[i:i+step]
-        xyzs = [[x,x,z] for x, z in zip(xrange(i, i+step), zs)]
+        zs = eye[i:i + step]
+        xyzs = [[x, x, z] for x, z in zip(xrange(i, i + step), zs)]
         xyzs = sum(xyzs, [])
-        out = pack('f'*len(xyzs), *xyzs)
+        out = pack('f' * len(xyzs), *xyzs)
         j = i // step
-        _o = _os[(j,j)]
+        _o = _os[(j, j)]
         _o.write(out)
 
     xy = set()
@@ -288,12 +287,11 @@ def mat_split1(qry, shape=10**8, step=2*10**5, tmp_path=None):
     return q2n, xy
 
 
-
 def mat_split2(qry, step=16, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
     q2n = {}
     qid_set = set()
     f = open(qry, 'r')
@@ -305,10 +303,10 @@ def mat_split2(qry, step=16, tmp_path=None):
             qid, sid, score = j[1:4]
 
         if qid not in qid_set:
-            #q2n[qid] = None
+            # q2n[qid] = None
             qid_set.add(qid)
         if sid not in qid_set:
-            #q2n[sid] = None
+            # q2n[sid] = None
             qid_set.add(sid)
 
     f.close()
@@ -316,13 +314,13 @@ def mat_split2(qry, step=16, tmp_path=None):
     qid_set = list(qid_set)
     qid_set.sort()
 
-    #print qid_set[:10]
-    #print 'get all gene id'
+    # print qid_set[:10]
+    # print 'get all gene id'
     shape = len(qid_set)
     block = shape // step
 
-    #eye = range(shape)
-    #for i, j in zip(q2n, eye):
+    # eye = range(shape)
+    # for i, j in zip(q2n, eye):
     for i in xrange(shape):
         qid = qid_set[i]
         q2n[qid] = i
@@ -343,14 +341,14 @@ def mat_split2(qry, step=16, tmp_path=None):
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
-        #xi, yi = x % block, y % block
+        out = pack('fff', *[x, y, z])
+        # xi, yi = x % block, y % block
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[xi]
         except:
-            _o = open(tmp_path + '/%d.npz'%xi, 'wb')
+            _o = open(tmp_path + '/%d.npz' % xi, 'wb')
             _os[xi] = _o
             _ox = _os[xi]
 
@@ -361,7 +359,7 @@ def mat_split2(qry, step=16, tmp_path=None):
         try:
             _oy = _os[yi]
         except:
-            _o = open(tmp_path + '/%d.npz'%yi, 'wb')
+            _o = open(tmp_path + '/%d.npz' % yi, 'wb')
             _os[yi] = _o
             _oy = _os[yi]
 
@@ -375,11 +373,10 @@ def mat_split2(qry, step=16, tmp_path=None):
     # set eye of matrix:
     for i in xrange(shape):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         _o = _os[j]
         _o.write(out)
-
 
     '''
     # set eye of matrix:
@@ -394,8 +391,8 @@ def mat_split2(qry, step=16, tmp_path=None):
         _o.write(out)
     '''
 
-    #print 'finish', shape
-    #return q2n, xy
+    # print 'finish', shape
+    # return q2n, xy
     return q2n
 
 
@@ -403,7 +400,7 @@ def mat_split3(qry, step=4, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
     q2n = {}
     qid_set = set()
     f = open(qry, 'r')
@@ -415,10 +412,10 @@ def mat_split3(qry, step=4, tmp_path=None):
             qid, sid, score = j[1:4]
 
         if qid not in qid_set:
-            #q2n[qid] = None
+            # q2n[qid] = None
             qid_set.add(qid)
         if sid not in qid_set:
-            #q2n[sid] = None
+            # q2n[sid] = None
             qid_set.add(sid)
 
     f.close()
@@ -426,13 +423,13 @@ def mat_split3(qry, step=4, tmp_path=None):
     qid_set = list(qid_set)
     qid_set.sort()
 
-    #print qid_set[:10]
-    #print 'get all gene id'
+    # print qid_set[:10]
+    # print 'get all gene id'
     shape = len(qid_set)
     block = shape // step + 1
 
-    #eye = range(shape)
-    #for i, j in zip(q2n, eye):
+    # eye = range(shape)
+    # for i, j in zip(q2n, eye):
     for i in xrange(shape):
         qid = qid_set[i]
         q2n[qid] = i
@@ -453,14 +450,14 @@ def mat_split3(qry, step=4, tmp_path=None):
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
-        #xi, yi = x % block, y % block
+        out = pack('fff', *[x, y, z])
+        # xi, yi = x % block, y % block
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[(xi, yi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[(xi, yi)] = _o
             _ox = _os[(xi, yi)]
 
@@ -471,7 +468,7 @@ def mat_split3(qry, step=4, tmp_path=None):
         try:
             _oy = _os[(yi, xi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[(yi, xi)] = _o
             _oy = _os[(yi, xi)]
 
@@ -485,12 +482,12 @@ def mat_split3(qry, step=4, tmp_path=None):
     # set eye of matrix:
     for i in xrange(shape):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         try:
             _o = _os[(j, j)]
         except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
             _o = _os[(j, j)]
 
         _o.write(out)
@@ -499,16 +496,16 @@ def mat_split3(qry, step=4, tmp_path=None):
     for _o in _os.values():
         _o.close()
 
-    #print 'finish', shape
-    #return q2n, xy
-    return q2n 
+    # print 'finish', shape
+    # return q2n, xy
+    return q2n
 
 
-def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
+def mat_split4(qry, step=4, chunk=5 * 10**7, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
     q2n = {}
     qid_set = set()
     f = open(qry, 'r')
@@ -553,13 +550,13 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[(xi, yi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[(xi, yi)] = _o
             _ox = _os[(xi, yi)]
 
@@ -570,7 +567,7 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
         try:
             _oy = _os[(yi, xi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[(yi, xi)] = _o
             _oy = _os[(yi, xi)]
 
@@ -584,12 +581,12 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
     # set eye of matrix:
     for i in xrange(N):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         try:
             _o = _os[(j, j)]
         except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
             _o = _os[(j, j)]
 
         _o.write(out)
@@ -598,14 +595,14 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
     for _o in _os.values():
         _o.close()
 
-
     # reorder the matrix
     cs = None
-    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
-    #N = len(q2n)
-    #shape = (N, N)
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    # N = len(q2n)
+    # shape = (N, N)
     for fn in fns:
-        #print 'loading', fns
+        # print 'loading', fns
         g = load_matrix(fn, shape=shape, csr=False)
         ci = csgraph.connected_components(g)
         if cs == None:
@@ -621,7 +618,6 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
         j = q2n[i]
         q2n[i] = idx[j]
 
-
     # write reorder matrix
     eye = [0] * N
     _os = {}
@@ -636,13 +632,13 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[(xi, yi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[(xi, yi)] = _o
             _ox = _os[(xi, yi)]
 
@@ -653,7 +649,7 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
         try:
             _oy = _os[(yi, xi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[(yi, xi)] = _o
             _oy = _os[(yi, xi)]
 
@@ -667,12 +663,12 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
     # set eye of matrix:
     for i in xrange(N):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         try:
             _o = _os[(j, j)]
         except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
             _o = _os[(j, j)]
 
         _o.write(out)
@@ -681,27 +677,25 @@ def mat_split4(qry, step=4, chunk=5*10**7, tmp_path=None):
     for _o in _os.values():
         _o.close()
 
-    return q2n 
-
-
-
+    return q2n
 
 
 # reorder the matrix
-def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5 * 10**7):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
     N = shape[0]
-    block = min(chunk, N//step+1)
+    block = min(chunk, N // step + 1)
 
     # reorder the matrix
     cs = None
-    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
-    #N = len(q2n)
-    #shape = (N, N)
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    # N = len(q2n)
+    # shape = (N, N)
     for fn in fns:
-        #print 'loading', fns
+        # print 'loading', fns
         g = load_matrix(fn, shape=shape, csr=csr)
         ci = csgraph.connected_components(g)
         if cs == None:
@@ -717,7 +711,6 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
         j = q2n[i]
         q2n[i] = idx[j]
 
-
     # write reorder matrix
     eye = [0] * N
     _os = {}
@@ -732,13 +725,13 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[(xi, yi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[(xi, yi)] = _o
             _ox = _os[(xi, yi)]
 
@@ -749,7 +742,7 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
         try:
             _oy = _os[(yi, xi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[(yi, xi)] = _o
             _oy = _os[(yi, xi)]
 
@@ -763,12 +756,12 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     # set eye of matrix:
     for i in xrange(N):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         try:
             _o = _os[(j, j)]
         except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
             _o = _os[(j, j)]
 
         _o.write(out)
@@ -777,15 +770,14 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     for _o in _os.values():
         _o.close()
 
-    return q2n 
+    return q2n
 
 
-
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
+def mat_split(qry, step=4, chunk=5 * 10**7, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('mkdir -p %s'%tmp_path)
+    os.system('mkdir -p %s' % tmp_path)
     q2n = {}
     qid_set = set()
     f = open(qry, 'r')
@@ -808,7 +800,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     qid_set.sort()
     N = len(qid_set)
     shape = (N, N)
-    block = min(N//step+1, chunk)
+    block = min(N // step + 1, chunk)
 
     for i in xrange(N):
         qid = qid_set[i]
@@ -830,13 +822,13 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
 
         z = float(score)
         x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x,y,z])
+        out = pack('fff', *[x, y, z])
         xi, yi = x // block, y // block
 
         try:
             _ox = _os[(xi, yi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(xi, yi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
             _os[(xi, yi)] = _o
             _ox = _os[(xi, yi)]
 
@@ -847,7 +839,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
         try:
             _oy = _os[(yi, xi)]
         except:
-            _o = open(tmp_path + '/%d_%d.npz'%(yi, xi), 'wb')
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
             _os[(yi, xi)] = _o
             _oy = _os[(yi, xi)]
 
@@ -861,12 +853,12 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     # set eye of matrix:
     for i in xrange(N):
         z = eye[i]
-        out = pack('fff', *[i,i,z])
+        out = pack('fff', *[i, i, z])
         j = i // block
         try:
             _o = _os[(j, j)]
         except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz'%(j, j), 'wb')
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
             _o = _os[(j, j)]
 
         _o.write(out)
@@ -875,27 +867,25 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     for _o in _os.values():
         _o.close()
 
-
     # reorder the matrix
     print 'reorder the matrix'
     q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
 
-    return q2n 
-
+    return q2n
 
 
 # load sparse matrix from disk
 def load_matrix(qry, shape=(10**8, 10**8), csr=False):
     if csr == False:
         n = np.memmap(qry, mode='r+', dtype='float32').shape[0] / 3
-        dat =  np.memmap(qry, mode='r+', dtype='float32', shape=(n, 3))
+        dat = np.memmap(qry, mode='r+', dtype='float32', shape=(n, 3))
         x, y, z = dat[:, 0], dat[:, 1], dat[:, 2]
         x = sparse.csr_matrix((z, (x, y)), shape=shape, dtype='float32')
-        #print 'loading shape is', shape, qry, x.shape
+        # print 'loading shape is', shape, qry, x.shape
 
     else:
         x = sparse.load_npz(qry)
-        #print 'loading shape is', shape, qry, x.shape
+        # print 'loading shape is', shape, qry, x.shape
 
     return x
 
@@ -910,27 +900,29 @@ def preprocess(qry, tmp_path=None):
     cols = [elem for elem in fns if elem.endswith('_col.bin')]
 
     for i in rows:
-        xn = tmp_path+'/' + i
+        xn = tmp_path + '/' + i
         x = load_matrix(xn)
-        #x += x.transpose()
+        # x += x.transpose()
         for j in cols:
-            yn = tmp_path+'/'+j
+            yn = tmp_path + '/' + j
             y = load_matrix(yn)
-            #y += y.transpose()
+            # y += y.transpose()
             z = x * y
             xi = i.split(os.sep)[-1].split('_row')[0]
             yj = j.split(os.sep)[-1].split('_col')[0]
-            ij = xi +'_' + yj
-            sparse.save_npz(tmp_path+'/'+ij, z)
+            ij = xi + '_' + yj
+            sparse.save_npz(tmp_path + '/' + ij, z)
             del y, z
             gc.collect()
 
         # remove x
         del x
         gc.collect()
-        os.system('rm %s'%xn)
+        os.system('rm %s' % xn)
 
 # matrix mul on small blocks
+
+
 def mul0(qry, shape=(10**7, 10**7), tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
@@ -961,8 +953,7 @@ def mul0(qry, shape=(10**7, 10**7), tmp_path=None):
 
     # rename
     for i in xy:
-        os.system('mv %s_new %s'%(i, i))
-
+        os.system('mv %s_new %s' % (i, i))
 
 
 def mul1(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
@@ -971,9 +962,10 @@ def mul1(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
     fns = os.listdir(tmp_path)
     if not xy:
-        xy = [elem.split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
-        #xy = list(set(map(int, xy)))
-        #print xy
+        xy = [elem.split('.npz')[0].split('_')
+                         for elem in fns if elem.endswith('.npz')]
+        # xy = list(set(map(int, xy)))
+        # print xy
         xy = sum(xy, [])
         xy = list(set(xy))
         xy.sort(key=lambda x: int(x))
@@ -999,9 +991,8 @@ def mul1(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
     # rename
     for i in xy:
         for j in xy:
-            k = i +'_' + j
-            os.system('mv %s_new.npz %s.npz'%(k, k))
-
+            k = i + '_' + j
+            os.system('mv %s_new.npz %s.npz' % (k, k))
 
 
 def mul2(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
@@ -1010,9 +1001,10 @@ def mul2(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
     fns = os.listdir(tmp_path)
     if not xy:
-        xy = [elem.split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
-        #xy = list(set(map(int, xy)))
-        #print xy
+        xy = [elem.split('.npz')[0].split('_')
+                         for elem in fns if elem.endswith('.npz')]
+        # xy = list(set(map(int, xy)))
+        # print xy
         xy = sum(xy, [])
         xy = list(set(xy))
         xy.sort(key=lambda x: int(x))
@@ -1029,7 +1021,6 @@ def mul2(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
                 else:
                     y = x
 
-
                 zn = tmp_path + '/' + i + '_' + j + '_new'
                 try:
                     z = load_matrix(zn + '.npz', load=True)
@@ -1043,8 +1034,8 @@ def mul2(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
     # rename
     for i in xy:
         for j in xy:
-            k = i +'_' + j
-            os.system('mv %s_new.npz %s.npz'%(k, k))
+            k = i + '_' + j
+            os.system('mv %s_new.npz %s.npz' % (k, k))
 
 
 def mul3(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
@@ -1053,15 +1044,15 @@ def mul3(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
     fns = os.listdir(tmp_path)
     if not xy:
-        xy = [elem.split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
-        #xy = list(set(map(int, xy)))
-        #print xy
+        xy = [elem.split('.npz')[0].split('_')
+                         for elem in fns if elem.endswith('.npz')]
+        # xy = list(set(map(int, xy)))
+        # print xy
         xy = sum(xy, [])
         xy = list(set(xy))
         xy.sort(key=lambda x: int(x))
     else:
         xy = map(str, xy)
-
 
     for i in xy:
         # get row
@@ -1074,7 +1065,7 @@ def mul3(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
                 x = None
 
             print 'loading x', x.shape
-            #raise SystemExit()
+            # raise SystemExit()
             xs.append(x)
 
         for j in xy:
@@ -1097,7 +1088,7 @@ def mul3(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
             for X, Y in zip(xs, ys):
                 try:
-                    #Z += X * Y
+                    # Z += X * Y
 
                     start = time()
                     tmp = X * Y
@@ -1116,8 +1107,9 @@ def mul3(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
     # rename
     for i in xy:
         for j in xy:
-            k = tmp_path + '/' + i +'_' + j
-            os.system('mv %s_new.npz %s.npz'%(k, k))
+            k = tmp_path + '/' + i + '_' + j
+            os.system('mv %s_new.npz %s.npz' % (k, k))
+
 
 def mul4(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
     if tmp_path == None:
@@ -1125,15 +1117,15 @@ def mul4(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
     fns = os.listdir(tmp_path)
     if not xy:
-        xy = [elem.split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
-        #xy = list(set(map(int, xy)))
-        #print xy
+        xy = [elem.split('.npz')[0].split('_')
+                         for elem in fns if elem.endswith('.npz')]
+        # xy = list(set(map(int, xy)))
+        # print xy
         xy = sum(xy, [])
         xy = list(set(xy))
         xy.sort(key=lambda x: int(x))
     else:
         xy = map(str, xy)
-
 
     row_sum = np.zeros(shape[0], dtype='float32')
     for i in xy:
@@ -1147,7 +1139,7 @@ def mul4(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
                 x = None
 
             print 'loading x', x.shape
-            #raise SystemExit()
+            # raise SystemExit()
             xs.append(x)
 
         for j in xy:
@@ -1170,7 +1162,7 @@ def mul4(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
 
             for X, Y in zip(xs, ys):
                 try:
-                    #Z += X * Y
+                    # Z += X * Y
 
                     start = time()
                     tmp = X * Y
@@ -1190,8 +1182,8 @@ def mul4(qry, shape=(10**8, 10**8), tmp_path=None, xy=[], load=False):
     # rename
     for i in xy:
         for j in xy:
-            k = tmp_path + '/' + i +'_' + j
-            os.system('mv %s_new.npz %s.npz'%(k, k))
+            k = tmp_path + '/' + i + '_' + j
+            os.system('mv %s_new.npz %s.npz' % (k, k))
 
     return row_sum
 
@@ -1200,7 +1192,8 @@ def mul(qry, shape=(10**8, 10**8), tmp_path=None, csr=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     row_sum = np.zeros(shape[0], dtype='float32')
     for i in fns:
         # get row
@@ -1224,13 +1217,13 @@ def mul(qry, shape=(10**8, 10**8), tmp_path=None, csr=False):
             del tmp
             gc.collect()
 
-        sparse.save_npz(i+'_new', Z)
+        sparse.save_npz(i + '_new', Z)
         print 'saved', i
         row_sum += np.asarray(Z.sum(0))[0]
 
     # rename
     for i in fns:
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     return row_sum
 
@@ -1239,8 +1232,9 @@ def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    err = float('+inf') 
-    fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    err = float('+inf')
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     row_sum = np.zeros(shape[0], dtype='float32')
     for i in fns:
         # get row
@@ -1256,8 +1250,8 @@ def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
 
             print 'loading time', i.split('/')[-1], j.split('/')[-1], time() - start
             start = time()
-            #tmp = x * y
-            #tmp = np.dot(x, y)
+            # tmp = x * y
+            # tmp = np.dot(x, y)
             tmp = Pmul(x, y)
             Z += tmp
             print 'multiple time', time() - start
@@ -1270,15 +1264,15 @@ def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
         Z.eliminate_zeros()
 
         if check:
-            err = min((abs(Z-x)-rtol * abs(x)).max(), err)
+            err = min((abs(Z - x) - rtol * abs(x)).max(), err)
 
-        sparse.save_npz(i+'_new', Z)
+        sparse.save_npz(i + '_new', Z)
         print 'saved', i
         row_sum += np.asarray(Z.sum(0))[0]
 
     # rename
     for i in fns:
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     if check:
         print 'current error', err
@@ -1286,23 +1280,24 @@ def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns, cvg
 
 
-
 def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    err = None 
-    fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    err = None
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
 
-    num_set = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    num_set = [elem.split('.')[0].split('_')
+                          for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     num_set = list(set(sum(num_set, [])))
-    num_set.sort(key=lambda x:int(x))
+    num_set.sort(key=lambda x: int(x))
     print 'num set is', num_set
 
     row_sum = np.zeros(shape[0], dtype='float32')
     for i in fns:
         # get row
-        #Z = sparse.csr_matrix(shape, dtype='float32')
+        # Z = sparse.csr_matrix(shape, dtype='float32')
         Z_old = Z = None
         a, b = i.split(os.sep)[-1].split('.')[0].split('_')[:2]
         print 'current cell', a, b, num_set
@@ -1325,10 +1320,11 @@ def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
             else:
                 y = x
 
-            #print 'loading time', xn.split('/')[-1], yn.split('/')[-1], time() - start
+            # print 'loading time', xn.split('/')[-1], yn.split('/')[-1],
+            # time() - start
             start = time()
-            #tmp = x * y
-            #tmp = np.dot(x, y)
+            # tmp = x * y
+            # tmp = np.dot(x, y)
             # get old z
             if xn == i:
                 Z_old = x
@@ -1351,17 +1347,17 @@ def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
         Z.data[Z.data < prune] = 0
         Z.eliminate_zeros()
 
-        #if check:
+        # if check:
         #    err = max((abs(Z-Z_old)-rtol * abs(Z_old)).max(), err)
 
-        sparse.save_npz(i+'_new', Z)
+        sparse.save_npz(i + '_new', Z)
         print 'saved', i
         row_sum += np.asarray(Z.sum(0))[0]
 
     # rename
     for i in fns:
-        os.system('mv %s %s_old.npz'%(i, i))
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s %s_old.npz' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     if check:
         print 'current error', err
@@ -1374,25 +1370,27 @@ def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns, cvg
 
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5):
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    err = None 
-    fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    err = None
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
 
-    num_set = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    num_set = [elem.split('.')[0].split('_')
+                          for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     num_set = list(set(sum(num_set, [])))
-    num_set.sort(key=lambda x:int(x))
-    #print 'num set is', num_set
+    num_set.sort(key=lambda x: int(x))
+    # print 'num set is', num_set
 
     row_sum = np.zeros(shape[0], dtype='float32')
     for i in fns:
         # get row
-        #Z = sparse.csr_matrix(shape, dtype='float32')
+        # Z = sparse.csr_matrix(shape, dtype='float32')
         Z = None
         a, b = i.split(os.sep)[-1].split('.')[0].split('_')[:2]
-        #print 'current cell', a, b, num_set
+        # print 'current cell', a, b, num_set
         for j in num_set:
 
             start = time()
@@ -1401,29 +1399,30 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-
             try:
                 x = load_matrix(xn, shape=shape, csr=csr)
             except:
-                #print 'can\'t load x', xn
+                # print 'can\'t load x', xn
                 continue
             if xn != yn:
                 try:
                     y = load_matrix(yn, shape=shape, csr=csr)
                 except:
-                    #print 'can\'t load y', yn
+                    # print 'can\'t load y', yn
                     continue
             else:
                 y = x
 
-            #print 'loading time', xn.split('/')[-1], yn.split('/')[-1], time() - start
+            # print 'loading time', xn.split('/')[-1], yn.split('/')[-1],
+            # time() - start
             start = time()
-            #tmp = x * y
-            #tmp = np.dot(x, y)
+            # tmp = x * y
+            # tmp = np.dot(x, y)
             # get old z
 
-            tmp = Pmul(x, y)
+            tmp = Pmul(x, y, cpu=cpu)
             try:
                 Z += tmp
             except:
                 Z = tmp
-            #print 'multiple time', time() - start, a, j, j, b
+            # print 'multiple time', time() - start, a, j, j, b
             del tmp
             gc.collect()
 
@@ -1431,37 +1430,34 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-
         Z.data[Z.data < prune] = 0
         Z.eliminate_zeros()
 
-        sparse.save_npz(i+'_new', Z)
-        #print 'saved', i
+        sparse.save_npz(i + '_new', Z)
+        # print 'saved', i
         row_sum += np.asarray(Z.sum(0))[0]
 
     # rename
     for i in fns:
-        os.system('mv %s %s_old'%(i, i))
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s %s_old' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     return row_sum, fns
 
 
-
-
-
 # normalizatin
-def norm0(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None):
+def norm0(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
     fns = os.listdir(tmp_path)
     if not xy:
-        xy = [elem.split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
-        #xy = list(set(map(int, xy)))
-        #print xy
+        xy = [elem.split('.npz')[0].split('_')
+                         for elem in fns if elem.endswith('.npz')]
+        # xy = list(set(map(int, xy)))
+        # print xy
         xy = sum(xy, [])
         xy = list(set(xy))
         xy.sort(key=lambda x: int(x))
     else:
         xy = map(str, xy)
-
 
     if row_sum == None:
         row_sum = np.zeros(shape[0], dtype='float32')
@@ -1488,11 +1484,12 @@ def norm0(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None):
                 continue
 
 
-def norm1(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False):
+def norm1(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
 
     if isinstance(row_sum, type(None)):
         row_sum = np.zeros(shape[0], dtype='float32')
@@ -1508,21 +1505,22 @@ def norm1(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False):
         try:
             x = load_matrix(i, shape=shape, csr=csr)
             x.data /= row_sum.take(x.indices, mode='clip')
-            sparse.save_npz(i+'_new', x)
+            sparse.save_npz(i + '_new', x)
         except:
             continue
 
     for i in fns:
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     return fns
 
 
-def norm2(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False):
+def norm2(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
 
     if isinstance(row_sum, type(None)):
         row_sum = np.zeros(shape[0], dtype='float32')
@@ -1538,21 +1536,22 @@ def norm2(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False):
         try:
             x = load_matrix(i, shape=shape, csr=csr)
             x.data /= row_sum.take(x.indices, mode='clip')
-            sparse.save_npz(i+'_new', x)
+            sparse.save_npz(i + '_new', x)
         except:
             continue
 
     for i in fns:
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     return fns
 
 
-def norm(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
+def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     if isinstance(row_sum, type(None)):
         row_sum = np.zeros(shape[0], dtype='float32')
         for i in fns:
@@ -1562,7 +1561,6 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False, rtol=
                 row_sum += x
             except:
                 continue
-
 
     err = None
     for i in fns:
@@ -1573,23 +1571,22 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False, rtol=
         try:
             x.data /= row_sum.take(x.indices, mode='clip')
         except:
-            #print 'start norm3', check, x.data, row_sum.max()
+            # print 'start norm3', check, x.data, row_sum.max()
             break
 
         if check:
-            #print 'start norm4'
-            x_old = load_matrix(i+'_old', shape=shape, csr=csr)
-            #print 'start norm4 x x_old', abs(x - x_old).shape
+            # print 'start norm4'
+            x_old = load_matrix(i + '_old', shape=shape, csr=csr)
+            # print 'start norm4 x x_old', abs(x - x_old).shape
 
             gap = abs(x - x_old) - abs(rtol * x_old)
             err = max(err, gap.max())
-            #print 'check err is', err, i, i+'_old'
+            # print 'check err is', err, i, i+'_old'
 
-        sparse.save_npz(i+'_new', x)
-
+        sparse.save_npz(i + '_new', x)
 
     for i in fns:
-        os.system('mv %s_new.npz %s'%(i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
 
     if err != None and err <= atol:
         cvg = True
@@ -1597,7 +1594,6 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None,row_sum=None, csr=False, rtol=
         cvg = False
 
     return fns, cvg
-
 
 
 # mcl algorithm
@@ -1630,8 +1626,6 @@ def mcl0(qry, tmp_path=None, xy=[], I=1.5, prune=1e-5, itr=100, rtol=1e-5, atol=
             break
 
 
-
-
 # merge two connected components array
 @jit
 def merge_connected(c0, c1):
@@ -1647,7 +1641,7 @@ def merge_connected(c0, c1):
         ht[i] += 1
 
     for i in xrange(1, n1):
-        ht[i] += ht[i-1]
+        ht[i] += ht[i - 1]
 
     htc = ht.copy()
     s1 = np.empty(l1, dtype='int')
@@ -1667,7 +1661,7 @@ def merge_connected(c0, c1):
         if i <= 0:
             st, ed = 0, ht[i]
         else:
-            st, ed = ht[i-1], ht[i]
+            st, ed = ht[i - 1], ht[i]
 
         total += ed - st
         # check current components has been visited
@@ -1688,39 +1682,40 @@ def merge_connected(c0, c1):
             visit[a0[idx]] = flag
             flag += 1
 
-           
         else:
             continue
-
 
     return flag, a0_n
 
 
-
-def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5):
+def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('rm -rf %s'%tmp_path)
+    os.system('rm -rf %s' % tmp_path)
 
-    q2n = mat_split(qry)
+    q2n = mat_split(qry, chunk=chunk)
     N = len(q2n)
-    prune = min(prune, 1e2/N)
+    prune = min(prune, 1e2 / N)
     shape = (N, N)
     # norm
     fns, cvg = norm(qry, shape, tmp_path, csr=False)
-    #print 'finish norm', cvg
+    # print 'finish norm', cvg
     # expension
     for i in xrange(itr):
         print '#iteration', i
-        row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune)
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+
         if i > 0 and i % check == 0:
-            fns, cvg = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True)
+            fns, cvg = norm(qry, shape, tmp_path,
+                            row_sum=row_sum, csr=True, check=True)
         else:
             fns, cvg = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
 
         if cvg:
-            #print 'yes, convergency'
+            # print 'yes, convergency'
             break
 
     # get connect components
@@ -1734,7 +1729,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     del g
     gc.collect()
 
-    #print 'find components', cs
+    # print 'find components', cs
     groups = {}
     for k, v in q2n.iteritems():
         c = cs[1][v]
@@ -1749,31 +1744,63 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         print '\t'.join(v)
 
 
-
-
-
+# print the manual
+def manual_print():
+    print 'Usage:'
+    print '    python %s -i foo.xyz -d 0.5' % sys.argv[0]
+    print 'Parameters:'
+    print '  -i: tab-delimited file which contain 3 columns'
+    print '  -I: inflation parameter for mcl'
+    print '  -a: cpu number'
+    print '  -b: chunk size. default value is 50000000'
 
 if __name__ == '__main__':
 
-    if len(sys.argv[1:]) < 1:
-        print 'python this.py foo.abc|foo.abcd'
+    argv = sys.argv
+    # recommand parameter:
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '50000000'}
 
-    qry = sys.argv[1]
+    N = len(argv)
+    for i in xrange(1, N):
+        k = argv[i]
+        if k in args:
+            try:
+                v = argv[i + 1]
+            except:
+                break
+            args[k] = v
+
+        elif k[:2] in args and len(k) > 2:
+            args[k[:2]] = k[2:]
+
+        else:
+            continue
+
+    if args['-i'] == '':
+        manual_print()
+        raise SystemExit()
+
+    try:
+        qry, ifl, cpu, bch = args['-i'], float(args['-I']), int(args['-t']), int(args['-b'])
+
+    except:
+        manual_print()
+        raise SystemExit()
 
     # convert the relationship into numeric and split into small matrix
-    #q2n, xy = mat_split(qry)
-    #mul(qry, xy=xy, load=False)
-    #mul(qry, load=False)
-    #mul(qry, load=True)
-    #q2n = mat_split(qry)
-    #mul(qry, csr=False)
-    mcl(qry)
+    # q2n, xy = mat_split(qry)
+    # mul(qry, xy=xy, load=False)
+    # mul(qry, load=False)
+    # mul(qry, load=True)
+    # q2n = mat_split(qry)
+    # mul(qry, csr=False)
+    mcl(qry, I=I, cpu=cpu, chunk=5*10**7)
 
-    #preprocess(qry)
+    # preprocess(qry)
     raise SystemExit()
 
-    #qry = sys.argv[1]
-    #refs = sys.argv[2:]
+    # qry = sys.argv[1]
+    # refs = sys.argv[2:]
     mats = [elem for elem in os.listdir('./') if elem.endswith('.bin')]
     for i in mats:
         x = load_matrix(i)
@@ -1801,7 +1828,7 @@ if __name__ == '__main__':
 
         for ref in refs[1:]:
             start = time()
-            #y = load_matrix(ref)
+            # y = load_matrix(ref)
             y = sparse.load_npz(ref)
             print 'loading', time() - start
 
