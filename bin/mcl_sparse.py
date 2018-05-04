@@ -1747,7 +1747,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 # print the manual
 def manual_print():
     print 'Usage:'
-    print '    python %s -i foo.xyz -d 0.5' % sys.argv[0]
+    print '    python %s -i foo.xyz -I 0.5 -a 8' % sys.argv[0]
     print 'Parameters:'
     print '  -i: tab-delimited file which contain 3 columns'
     print '  -I: inflation parameter for mcl'
@@ -1781,7 +1781,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch = args['-i'], float(args['-I']), int(args['-t']), int(args['-b'])
+        qry, ifl, cpu, bch = args['-i'], float(args['-I']), int(args['-a']), int(args['-b'])
 
     except:
         manual_print()
@@ -1794,7 +1794,7 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    mcl(qry, I=I, cpu=cpu, chunk=5*10**7)
+    mcl(qry, I=ifl, cpu=cpu, chunk=5*10**7)
 
     # preprocess(qry)
     raise SystemExit()
