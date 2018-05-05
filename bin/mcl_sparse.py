@@ -822,11 +822,12 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
         tstep = min(max(tstep, 1), 990)
         #print 'break point', step, tstep, lines * 3, chunk
         #block = min(N//step+1, int(N//tstep)+1)
-        block = max(int(N//tstep) + 1, chunk)
+        block = max(int(N//tstep) + 1, int(chunk**.5)+1)
         #block = N // step + 1
-        print 'split block', block, N // block
+        print 'split block cpu=N', block, N // block
     else:
-        block = chunk
+        block = N
+        print 'split block cpu=1', block, N // block
         cpu = 1
 
 
