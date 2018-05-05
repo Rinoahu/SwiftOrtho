@@ -690,8 +690,8 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     #tstep = tsize // (chunk*12)
     tstep = max(tsize // (chunk*12), 1)
     #block = min(chunk, N // step + 1)
-    block = min(N//step+1, int((N//tstep)**.5)+1)
-    print 'reorder block', block
+    block = min(N//step+1, N//tstep+1)
+    #print 'reorder block', block
 
 
     # reorder the matrix
@@ -811,8 +811,8 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     tsize = os.path.getsize(qry)
     tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
-    block = min(N//step+1, int((N//tstep)**.5)+1)
-    print 'reorder block', block
+    block = min(N//step+1, N//tstep+1)
+    #print 'reorder block', block
 
 
     for i in xrange(N):
