@@ -781,7 +781,7 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     return q2n
 
 
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -815,10 +815,13 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     #tsize = os.path.getsize(qry)
     #tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
-    tstep = (lines*3//chunk) ** .5
-    block = min(N//step+1, int(N//tstep)+1)
+    tstep = max((lines * 3 // chunk) ** .5, 1) * cpu ** .5
+    #print 'break point', step, tstep, lines * 3, chunk
+    #block = min(N//step+1, int(N//tstep)+1)
+    block = max(N/tstep, N/cpu)
+    block = int(block) + 1
     #block = N // step + 1
-    #print 'reorder block', block
+    print 'split block', block, N // block
 
 
     for i in xrange(N):
@@ -1389,7 +1392,7 @@ def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns, cvg
 
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
+def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1445,6 +1448,74 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-
             del tmp
             gc.collect()
 
+        Z.data **= I
+        Z.data[Z.data < prune] = 0
+        Z.eliminate_zeros()
+
+        sparse.save_npz(i + '_new', Z)
+        # print 'saved', i
+        row_sum += np.asarray(Z.sum(0))[0]
+
+    # rename
+    for i in fns:
+        os.system('mv %s %s_old' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    return row_sum, fns
+
+def sdot(x):
+    a,b = x
+    return a * b
+
+
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+
+    num_set = [elem.split('.')[0].split('_')
+                          for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    num_set = list(set(sum(num_set, [])))
+    num_set.sort(key=lambda x: int(x))
+    # print 'num set is', num_set
+
+    row_sum = np.zeros(shape[0], dtype='float32')
+    for i in fns:
+        # get row
+        a, b = i.split(os.sep)[-1].split('.')[0].split('_')[:2]
+        xys = []
+        for j in num_set:
+
+            start = time()
+            xn = tmp_path + '/' + a + '_' + j + '.npz'
+            yn = tmp_path + '/' + j + '_' + b + '.npz'
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                continue
+            if xn != yn:
+                try:
+                    y = load_matrix(yn, shape=shape, csr=csr)
+                except:
+                    continue
+            else:
+                y = x
+
+            xys.append([x, y])
+
+        if len(xys) > 1:
+            print 'parallel', len(xys)
+            Z = Parallel(n_jobs=cpu)(delayed(sdot)(elem) for elem in xys)
+        elif len(xys) == 1:
+            print 'single dot', len(xys)
+            Z = [sdot(xys[0])]
+        else:
+            continue
+
+        Z = np.sum(Z)
         Z.data **= I
         Z.data[Z.data < prune] = 0
         Z.eliminate_zeros()
@@ -1713,7 +1784,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
     os.system('rm -rf %s' % tmp_path)
 
-    q2n = mat_split(qry, chunk=chunk)
+    q2n = mat_split(qry, chunk=chunk, cpu=cpu)
     N = len(q2n)
     prune = min(prune, 1e2 / N)
     shape = (N, N)
