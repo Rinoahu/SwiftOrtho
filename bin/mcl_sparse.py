@@ -1464,11 +1464,26 @@ def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns
 
 def sdot(x):
-    a,b = x
-    return a * b
+    xn, yn, shape, csr = x
+    try:
+        x = load_matrix(xn, shape=shape, csr=csr)
+    except:
+        return None
+    if xn != yn:
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+        except:
+            return None 
+    else:
+        y = x
+
+    z = x * y
+    name = xn + '_tmp.npz'
+    sparse.save_npz(name, z)
+    return name
 
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1492,36 +1507,30 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-
             start = time()
             xn = tmp_path + '/' + a + '_' + j + '.npz'
             yn = tmp_path + '/' + j + '_' + b + '.npz'
-            try:
-                x = load_matrix(xn, shape=shape, csr=csr)
-            except:
-                continue
-            if xn != yn:
-                try:
-                    y = load_matrix(yn, shape=shape, csr=csr)
-                except:
-                    continue
-            else:
-                y = x
-
-            xys.append([x, y])
+            xys.append([xn, yn, shape, csr])
 
         if len(xys) > 1:
-            print 'parallel', len(xys)
-            Z = Parallel(n_jobs=cpu)(delayed(sdot)(elem) for elem in xys)
+            zns = Parallel(n_jobs=cpu)(delayed(sdot)(elem) for elem in xys)
         elif len(xys) == 1:
-            print 'single dot', len(xys)
-            Z = [sdot(xys[0])]
+            zns = [sdot(xys[0])]
         else:
             continue
 
-        Z = np.sum(Z)
+        Z = None
+        for zn in zns:
+            if zn:
+                tmp = load_matrix(zn, shape, csr)
+                os.system('rm %s'%zn)
+                try:
+                    Z += tmp
+                except:
+                    Z = tmp
+
         Z.data **= I
         Z.data[Z.data < prune] = 0
         Z.eliminate_zeros()
 
         sparse.save_npz(i + '_new', Z)
-        # print 'saved', i
         row_sum += np.asarray(Z.sum(0))[0]
 
     # rename
