@@ -687,7 +687,8 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
 
     N = shape[0]
     tsize = os.path.getsize(qry)
-    tstep = tsize // (chunk*12)
+    #tstep = tsize // (chunk*12)
+    tstep = max(tsize // (chunk*12), 1)
     #block = min(chunk, N // step + 1)
     block = min(N//step+1, int((N//tstep)**.5)+1)
 
@@ -807,7 +808,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
 
     # get the size of input file
     tsize = os.path.getsize(qry)
-    tstep = tsize // (chunk*12)
+    tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
     block = min(N//step+1, int((N//tstep)**.5)+1)
 
