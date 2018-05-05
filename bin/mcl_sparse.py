@@ -8,6 +8,7 @@ from time import time
 import os
 import gc
 from struct import pack, unpack
+from math import sqrt
 
 from sklearn.externals.joblib import Parallel, delayed
 import sharedmem as sm
@@ -815,11 +816,12 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     #tsize = os.path.getsize(qry)
     #tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
-    tstep = max((lines * 3 // chunk) ** .5, 1) * cpu ** .5
+    tstep = max(lines*3//chunk*cpu**.5, cpu)
+    print 'tstep is', tstep
+    tstep = min(max(tstep, 1), 990)
     #print 'break point', step, tstep, lines * 3, chunk
     #block = min(N//step+1, int(N//tstep)+1)
-    block = max(N/tstep, N/cpu)
-    block = int(block) + 1
+    block = int(N//tstep) + 1
     #block = N // step + 1
     print 'split block', block, N // block
 
