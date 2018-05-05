@@ -817,9 +817,11 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     #tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
     if lines*3 > chunk:
-        tstep = max(lines*3//chunk*cpu**.5, cpu)
+        #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
+        tstep = sqrt(lines*3//chunk)
         print 'tstep is', tstep
         tstep = min(max(tstep, 1), 30)
+        print 'tstep 2 is', tstep
         #print 'break point', step, tstep, lines * 3, chunk
         #block = min(N//step+1, int(N//tstep)+1)
         block = max(int(N//tstep) + 1, int(chunk**.5)+1)
@@ -1887,7 +1889,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch = args['-i'], float(args['-I']), int(args['-a']), int(args['-b'])
+        qry, ifl, cpu, bch = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b']))
 
     except:
         manual_print()
