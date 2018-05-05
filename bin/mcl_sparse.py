@@ -773,7 +773,7 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     return q2n
 
 
-def mat_split(qry, step=4, chunk=5 * 10**7, tmp_path=None):
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -800,7 +800,11 @@ def mat_split(qry, step=4, chunk=5 * 10**7, tmp_path=None):
     qid_set.sort()
     N = len(qid_set)
     shape = (N, N)
-    block = min(N // step + 1, chunk)
+
+    # get the size of input file
+    tsize = os.path.getsize(qry)
+    tstep = tsize // (chunk*12)
+    block = min(N//step+1, N//tstep+1 )
 
     for i in xrange(N):
         qid = qid_set[i]
