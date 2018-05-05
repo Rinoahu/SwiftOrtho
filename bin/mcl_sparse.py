@@ -788,8 +788,10 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     os.system('mkdir -p %s' % tmp_path)
     q2n = {}
     qid_set = set()
+    lines = 0
     f = open(qry, 'r')
     for i in f:
+        lines += 1
         j = i[:-1].split('\t')
         if len(j) == 3:
             qid, sid, score = j[:3]
@@ -813,8 +815,9 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None):
     #tsize = os.path.getsize(qry)
     #tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
-    #block = min(N//step+1, N//tstep+1)
-    block = N // step + 1
+    tstep = (lines*3//chunk) ** .5
+    block = min(N//step+1, int(N//tstep)+1)
+    #block = N // step + 1
     #print 'reorder block', block
 
 
