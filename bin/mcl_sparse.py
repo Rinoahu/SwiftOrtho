@@ -808,7 +808,8 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     f.close()
 
     qid_set = list(qid_set)
-    qid_set.sort()
+    #qid_set.sort()
+    np.random.shuffle(qid_set)
     N = len(qid_set)
     shape = (N, N)
 
