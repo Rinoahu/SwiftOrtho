@@ -818,13 +818,13 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     #block = min(N//step+1, N//tstep+1 )
     if lines*3 > chunk:
         #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
-        tstep = sqrt(lines*3//chunk)
+        tstep = sqrt(lines*3//chunk) * sqrt(cpu)
         print 'tstep is', tstep
         tstep = min(max(tstep, 1), 30)
         print 'tstep 2 is', tstep
         #print 'break point', step, tstep, lines * 3, chunk
         #block = min(N//step+1, int(N//tstep)+1)
-        block = max(int(N//tstep) + 1, int(chunk**.5)+1)
+        block = min(int(N/tstep) + 1, int(N/cpu)+1)
         #block = N // step + 1
         print 'split block cpu=N', block, N // block
     else:
