@@ -1474,6 +1474,75 @@ def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
 
     return row_sum, fns
 
+# merge submatrix
+def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    print 'merged names', names
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            if len(rows) == len(cols) == 1:
+                r, c = rows[0], cols[0]
+                R, C = map(str, [r, c])
+                rc = tmp_path + os.sep + R + '_' + C + '.npz'
+                if os.path.isfile(rc):
+                    print 'single block', r, c, rows, i, names[i:i+2]
+                    print 'single block new', rc, out
+                    os.system('mv %s %s'%(rc, out))
+                    os.system('mv %s_old %s_old'%(rc, out))
+
+                continue
+            z = z_old = None
+            for r in rows:
+                for c in cols:
+                    R, C = map(str, [r, c])
+                    rc = tmp_path + os.sep + R + '_' + C + '.npz'
+                    try:
+                        tmp = load_matrix(rc, shape, csr=csr)
+                        print 'rm old file', rc
+                        os.system('rm %s'%rc)
+                        print 'rmed old file', rc
+
+                        tmp_old = load_matrix(rc + '_old', shape, csr=csr)
+                        print 'rm prev old file', rc + '_old'
+                        os.system('rm %s_old'%rc)
+                        print 'rmed prev old file', rc + '_old'
+
+                    except:
+                        continue
+                    try:
+                        z += tmp
+                        z_old += tmp_old
+                    except:
+                        z = tmp
+                        z_old = tmp_old
+
+
+            if type(z) != type(None):
+                sparse.save_npz(out, z)
+                sparse.save_npz(out+'_old', z_old)
+                os.system('mv %s_old.npz %s_old'%(out, out))
+                fns_new.append(out)
+                nnz = max(nnz, z.nnz)
+                merged = True
+    print 'before merged', fns 
+    print 'after merged', fns_new 
+    return row_sum, fns_new, nnz, merged
+
+
 def sdot(x, nnz=25000000):
     xn, yn, shape, csr = x
     try:
@@ -1497,7 +1566,7 @@ def sdot(x, nnz=25000000):
         return z
 
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expend4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1547,7 +1616,6 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
         Z.data **= I
         Z.data[Z.data < prune] = 0
         Z.eliminate_zeros()
-
         sparse.save_npz(i + '_new', Z)
         row_sum += np.asarray(Z.sum(0))[0]
 
@@ -1557,6 +1625,70 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
         os.system('mv %s_new.npz %s' % (i, i))
 
     return row_sum, fns
+
+
+
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+
+    num_set = [elem.split('.')[0].split('_')
+                          for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    num_set = list(set(sum(num_set, [])))
+    num_set.sort(key=lambda x: int(x))
+    # print 'num set is', num_set
+
+    row_sum = np.zeros(shape[0], dtype='float32')
+    nnz = 0
+    for i in fns:
+        # get row
+        a, b = i.split(os.sep)[-1].split('.')[0].split('_')[:2]
+        xys = []
+        for j in num_set:
+
+            start = time()
+            xn = tmp_path + '/' + a + '_' + j + '.npz'
+            yn = tmp_path + '/' + j + '_' + b + '.npz'
+            xys.append([xn, yn, shape, csr])
+
+        if len(xys) > 1:
+            zns = Parallel(n_jobs=cpu)(delayed(sdot)(elem) for elem in xys)
+        elif len(xys) == 1:
+            zns = [sdot(xys[0])]
+        else:
+            continue
+
+        Z = None
+        for zn in zns:
+            if type(zn) == type(None):
+                continue
+            elif type(zn) == str:
+                tmp = load_matrix(zn, shape, csr)
+                os.system('rm %s'%zn)
+            else:
+                tmp = zn
+            try:
+                Z += tmp
+            except:
+                Z = tmp
+
+        Z.data **= I
+        Z.data[Z.data < prune] = 0
+        Z.eliminate_zeros()
+        nnz = max(nnz, Z.nnz)
+        sparse.save_npz(i + '_new', Z)
+        row_sum += np.asarray(Z.sum(0))[0]
+
+    # rename
+    for i in fns:
+        os.system('mv %s %s_old' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    return row_sum, fns, nnz
 
 
 # normalizatin
@@ -1663,7 +1795,7 @@ def norm2(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False):
     return fns
 
 
-def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
+def norm3(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1711,6 +1843,58 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         cvg = False
 
     return fns, cvg
+
+
+def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    nnz = 0
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    if isinstance(row_sum, type(None)):
+        row_sum = np.zeros(shape[0], dtype='float32')
+        for i in fns:
+            try:
+                x = load_matrix(i, shape=shape, csr=csr)
+                x = np.asarray(x.sum(0))[0]
+                row_sum += x
+                nnz = max(nnz, x.nnz)
+            except:
+                continue
+
+    err = None
+    for i in fns:
+        try:
+            x = load_matrix(i, shape=shape, csr=csr)
+        except:
+            continue
+        try:
+            x.data /= row_sum.take(x.indices, mode='clip')
+        except:
+            # print 'start norm3', check, x.data, row_sum.max()
+            break
+
+        if check:
+            # print 'start norm4'
+            x_old = load_matrix(i + '_old', shape=shape, csr=csr)
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            gap = abs(x - x_old) - abs(rtol * x_old)
+            err = max(err, gap.max())
+            # print 'check err is', err, i, i+'_old'
+
+        sparse.save_npz(i + '_new', x)
+
+    for i in fns:
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    if err != None and err <= atol:
+        cvg = True
+    else:
+        cvg = False
+
+    return fns, cvg, nnz
 
 
 # mcl algorithm
@@ -1805,7 +1989,7 @@ def merge_connected(c0, c1):
     return flag, a0_n
 
 
-def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7):
+def mcl1(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1861,6 +2045,86 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         print '\t'.join(v)
 
 
+
+def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    q2n = mat_split(qry, chunk=chunk, cpu=cpu)
+    N = len(q2n)
+    prune = min(prune, 1e2 / N)
+    shape = (N, N)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        row_sum, fns, nnz = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        if i > 0 and i % check == 0:
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True)
+        else:
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
+
+        if nnz < chunk / 2:
+            print 'we try to merge 4 block into one', chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+
+
+
+    # get connect components
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
 # print the manual
 def manual_print():
     print 'Usage:'
@@ -1870,12 +2134,13 @@ def manual_print():
     print '  -I: inflation parameter for mcl'
     print '  -a: cpu number'
     print '  -b: chunk size. default value is 50000000'
+    print '  -o: name of output file'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '50000000'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o':None}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -1898,7 +2163,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b']))
+        qry, ifl, cpu, bch, ofn = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'] 
 
     except:
         manual_print()
@@ -1911,7 +2176,7 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    mcl(qry, I=ifl, cpu=cpu, chunk=bch)
+    mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn)
 
     # preprocess(qry)
     raise SystemExit()
