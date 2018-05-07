@@ -1474,7 +1474,7 @@ def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
 
     return row_sum, fns
 
-def sdot(x):
+def sdot(x, nnz=25000000):
     xn, yn, shape, csr = x
     try:
         x = load_matrix(xn, shape=shape, csr=csr)
@@ -1489,9 +1489,12 @@ def sdot(x):
         y = x
 
     z = x * y
-    name = xn + '_tmp.npz'
-    sparse.save_npz(name, z)
-    return name
+    if z.nnz > nnz:
+        name = xn + '_tmp.npz'
+        sparse.save_npz(name, z)
+        return name
+    else:
+        return z
 
 
 def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
@@ -1529,13 +1532,17 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
 
         Z = None
         for zn in zns:
-            if zn:
+            if type(zn) == type(None):
+                continue
+            elif type(zn) == str:
                 tmp = load_matrix(zn, shape, csr)
                 os.system('rm %s'%zn)
-                try:
-                    Z += tmp
-                except:
-                    Z = tmp
+            else:
+                tmp = zn
+            try:
+                Z += tmp
+            except:
+                Z = tmp
 
         Z.data **= I
         Z.data[Z.data < prune] = 0
