@@ -11,7 +11,8 @@ from struct import pack, unpack
 from math import sqrt
 import mimetypes
 import gzip
-import bzip2
+import bz2 as bzip2
+import bz2
 
 from sklearn.externals.joblib import Parallel, delayed
 import sharedmem as sm
