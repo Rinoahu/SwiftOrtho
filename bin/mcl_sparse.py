@@ -9,6 +9,9 @@ import os
 import gc
 from struct import pack, unpack
 from math import sqrt
+import mimetypes
+import gzip
+import bzip2
 
 from sklearn.externals.joblib import Parallel, delayed
 import sharedmem as sm
@@ -781,8 +784,7 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
 
     return q2n
 
-
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
+def mat_split5(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -877,6 +879,146 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
             _oy = _os[(yi, xi)]
 
         _oy.write(out)
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i, i, z])
+        j = i // block
+        try:
+            _o = _os[(j, j)]
+        except:
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
+            _o = _os[(j, j)]
+
+        _o.write(out)
+
+    # close the file
+    for _o in _os.values():
+        _o.close()
+
+    # reorder the matrix
+    print 'reorder the matrix'
+    #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
+
+    return q2n
+
+
+
+
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('mkdir -p %s' % tmp_path)
+    q2n = {}
+    qid_set = set()
+    lines = 0
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    for i in f:
+        lines += 1
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        if qid not in qid_set:
+            qid_set.add(qid)
+
+        if sid not in qid_set:
+            qid_set.add(sid)
+
+    f.close()
+
+    qid_set = list(qid_set)
+    #qid_set.sort()
+    np.random.shuffle(qid_set)
+    N = len(qid_set)
+    shape = (N, N)
+
+    # get the size of input file
+    #tsize = os.path.getsize(qry)
+    #tstep = max(tsize // (chunk*12), 1)
+    #block = min(N//step+1, N//tstep+1 )
+    if lines*3 > chunk:
+        #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
+        tstep = max(sqrt(lines*3//chunk) * sqrt(cpu), cpu)
+        print 'tstep is', tstep
+        tstep = min(max(tstep, 1), 30)
+        print 'tstep 2 is', tstep
+        #print 'break point', step, tstep, lines * 3, chunk
+        #block = min(N//step+1, int(N//tstep)+1)
+        #block = min(int(N/tstep)+ 1, int(N/cpu)+1)
+        #block = N // step + 1
+        block = N // tstep
+        print 'split block cpu=N', block, N // block
+    else:
+        block = N
+        print 'split block cpu=1', block, N // block, lines*3, chunk
+        cpu = 1
+
+
+    for i in xrange(N):
+        qid = qid_set[i]
+        q2n[qid] = i
+
+    del qid_set
+    gc.collect()
+
+    eye = [0] * N
+    _os = {}
+
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = float(score)
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x, y, z])
+        xi, yi = x // block, y // block
+
+        try:
+            _ox = _os[(xi, yi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
+            _os[(xi, yi)] = _o
+            _ox = _os[(xi, yi)]
+
+        _ox.write(out)
+
+        # sym
+        out = pack('fff', *[y, x, z])
+        try:
+            _oy = _os[(yi, xi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
+            _os[(yi, xi)] = _o
+            _oy = _os[(yi, xi)]
+
+        if sym == False:
+            _oy.write(out)
 
         if eye[x] < z:
             eye[x] = z
@@ -1538,8 +1680,8 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False):
                 fns_new.append(out)
                 nnz = max(nnz, z.nnz)
                 merged = True
-    print 'before merged', fns 
-    print 'after merged', fns_new 
+    print 'before merged', fns
+    print 'after merged', fns_new
     return row_sum, fns_new, nnz, merged
 
 
@@ -1553,7 +1695,7 @@ def sdot(x, nnz=25000000):
         try:
             y = load_matrix(yn, shape=shape, csr=csr)
         except:
-            return None 
+            return None
     else:
         y = x
 
@@ -2044,9 +2186,7 @@ def mcl1(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=
     for v in groups.itervalues():
         print '\t'.join(v)
 
-
-
-def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None):
+def mcl2(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2081,14 +2221,83 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         else:
             print 'current max nnz is', nnz, chunk, chunk/4
 
-
-
         if cvg:
             # print 'yes, convergency'
             break
 
+    # get connect components
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
 
 
+
+def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    q2n = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+    N = len(q2n)
+    prune = min(prune, 1e2 / N)
+    shape = (N, N)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        row_sum, fns, nnz = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        if i > 0 and i % check == 0:
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True)
+        else:
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
+
+        if nnz < chunk / 2:
+            print 'we try to merge 4 block into one', chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
 
     # get connect components
     g = load_matrix(fns[0], shape, True)
@@ -2130,17 +2339,18 @@ def manual_print():
     print 'Usage:'
     print '    python %s -i foo.xyz -I 0.5 -a 8' % sys.argv[0]
     print 'Parameters:'
-    print '  -i: tab-delimited file which contain 3 columns'
+    print '  -i: similarity matrix. A tab-delimited file which contain 3, 4, 12 or 14 columns'
     print '  -I: inflation parameter for mcl'
     print '  -a: cpu number'
-    print '  -b: chunk size. default value is 50000000'
+    print '  -b: chunk size. default value is 20000000'
     print '  -o: name of output file'
+    print '  -s: True|False. whether the input similarity matrix is symmetric.'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o':None}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': False}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -2163,7 +2373,11 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'] 
+        qry, ifl, cpu, bch, ofn, sym = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s']
+        if sym.lower() == 'false':
+            sym = False
+        else:
+            sym = True
 
     except:
         manual_print()
@@ -2176,7 +2390,7 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn)
+    mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
 
     # preprocess(qry)
     raise SystemExit()
