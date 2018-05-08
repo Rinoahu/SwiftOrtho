@@ -97,6 +97,251 @@ def Pmul(X, Y, chk=64, cache=10**8, cpu=6):
     return Z
 
 
+
+# reorder the matrix
+def mat_reorder0(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    N = shape[0]
+    #tsize = os.path.getsize(qry)
+    #tstep = tsize // (chunk*12)
+    #tstep = max(tsize // (chunk*12), 1)
+    #block = min(chunk, N // step + 1)
+    #block = min(N//step+1, N//tstep+1)
+    block = N // step + 1
+
+    #print 'reorder block', block
+
+
+    # reorder the matrix
+    cs = None
+    fns = [tmp_path + '/' +
+        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    # N = len(q2n)
+    # shape = (N, N)
+    for fn in fns:
+        # print 'loading', fns
+        g = load_matrix(fn, shape=shape, csr=csr)
+        ci = csgraph.connected_components(g)
+        if cs == None:
+            cs = ci
+        else:
+            cs = merge_connected(cs, ci)
+
+    idx = cs[1].argsort()
+    idx_r = np.empty(N, 'int')
+    idx_r[idx] = np.arange(N, dtype='int')
+    idx = idx_r
+    for i in q2n:
+        j = q2n[i]
+        q2n[i] = idx[j]
+
+    # write reorder matrix
+    eye = [0] * N
+    _os = {}
+
+    f = open(qry, 'r')
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = float(score)
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x, y, z])
+        xi, yi = x // block, y // block
+
+        try:
+            _ox = _os[(xi, yi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
+            _os[(xi, yi)] = _o
+            _ox = _os[(xi, yi)]
+
+        _ox.write(out)
+
+        # sym
+        out = pack('fff', *[y, x, z])
+        try:
+            _oy = _os[(yi, xi)]
+        except:
+            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
+            _os[(yi, xi)] = _o
+            _oy = _os[(yi, xi)]
+
+        _oy.write(out)
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i, i, z])
+        j = i // block
+        try:
+            _o = _os[(j, j)]
+        except:
+            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
+            _o = _os[(j, j)]
+
+        _o.write(out)
+
+    # close the file
+    for _o in _os.values():
+        _o.close()
+
+    return q2n
+
+
+
+# reorder the matrix, put the nodes into diag
+def mat_reorder1(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    N = shape[0]
+    NNZ = 0
+    # reorder the matrix
+    cs = None
+    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    for fn in fns:
+        g = load_matrix(fn, shape=shape, csr=csr)
+        ci = csgraph.connected_components(g)
+        if cs == None:
+            cs = ci
+        else:
+            cs = merge_connected(cs, ci)
+        NNZ += g.nnz
+
+    NNZ = max(1, NNZ)
+    block = N * chunk // NNZ + 1
+
+    idx = cs[1].argsort()
+    idx_r = np.empty(N, 'int')
+    idx_r[idx] = np.arange(N, dtype='int')
+    idx = idx_r
+    for i in q2n:
+        j = q2n[i]
+        q2n[i] = idx[j]
+
+    # write reorder matrix
+    _os = {}
+    for fn in fns:
+        g = load_matrix(fn, shape=shape, csr=csr)
+        xs, ys = g.nonzero()
+        zs = g.data
+        for i in xrange(xs.shape[0]):
+            xo, yo, z = xs[i], ys[i], zs[i]
+            x, y = idx[xo], idx[yo]
+            out = pack('fff', *[x, y, z])
+            xi, yi = x // block, y // block
+            key = tmp_path + '/%d_%d.npz' % (xi, yi)
+            try:
+                _ox = _os[key]
+            except:
+                _o = open(key + '_reorder', 'wb')
+                _os[key] = _o
+                _ox = _os[key]
+
+            _ox.write(out)
+
+        # del the old block
+        os.system('rm %s'%fn)
+
+    # close the block file
+    for _o in _os.values():
+        _o.close()
+
+    # convert the new block to csr and get row sum
+    row_sum = None
+    nnz = 0
+    for fn in _os:
+        g = load_matrix(fn+'_reorder', shape=shape, csr=False)
+        nnz = g.nnz
+        tmp = g.sum(0)
+        try:
+            row_sum += tmp
+        except:
+            row_sum = tmp
+
+        sparse.save_npz(fn, g)
+
+    return q2n, row_sum, fn, nnz 
+
+
+# reorder the matrix, put the nodes into diag
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    N = shape[0]
+    NNZ = 0
+    # reorder the matrix
+    cs = None
+    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    for fn in fns:
+        g = load_matrix(fn, shape=shape, csr=csr)
+        ci = csgraph.connected_components(g)
+        if cs == None:
+            cs = ci
+        else:
+            cs = merge_connected(cs, ci)
+        NNZ += g.nnz
+
+    NNZ = max(1, NNZ)
+    block = N * chunk // NNZ + 1
+
+    idx = cs[1].argsort()
+    idx_r = np.empty(N, 'int')
+    idx_r[idx] = np.arange(N, dtype='int')
+    idx = idx_r
+    for i in q2n:
+        j = q2n[i]
+        q2n[i] = idx[j]
+
+    # write reorder matrix
+    _os = {}
+    for fn in fns:
+        g = load_matrix(fn, shape=shape, csr=csr)
+        xs, ys = g.nonzero()
+        zs = g.data
+        for i in xrange(xs.shape[0]):
+            xo, yo, z = xs[i], ys[i], zs[i]
+            x, y = idx[xo], idx[yo]
+            out = pack('fff', *[x, y, z])
+            xi, yi = x // block, y // block
+            key = tmp_path + '/%d_%d.npz' % (xi, yi)
+            try:
+                _ox = _os[key]
+            except:
+                _o = open(key + '_reorder', 'wb')
+                _os[key] = _o
+                _ox = _os[key]
+
+            _ox.write(out)
+
+        # del the old block
+        os.system('rm %s'%fn)
+
+    # close the block file
+    for _o in _os.values():
+        _o.close()
+
+    # convert the new block to csr and get row sum
+    for fn in _os:
+        g = load_matrix(fn+'_reorder', shape=shape, csr=False)
+        sparse.save_npz(fn, g)
+
+    fns = _os.keys()
+    return q2n, fns
+
+
 # given a pairwise relationship, this function will convert the qid, sid into numbers
 # and split these relationships into small file
 def mat_split0(qry, shape=10**7, step=2 * 10**5, tmp_path=None):
@@ -685,105 +930,6 @@ def mat_split4(qry, step=4, chunk=5 * 10**7, tmp_path=None):
     return q2n
 
 
-# reorder the matrix
-def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7):
-    if tmp_path == None:
-        tmp_path = qry + '_tmpdir'
-
-    N = shape[0]
-    #tsize = os.path.getsize(qry)
-    #tstep = tsize // (chunk*12)
-    #tstep = max(tsize // (chunk*12), 1)
-    #block = min(chunk, N // step + 1)
-    #block = min(N//step+1, N//tstep+1)
-    block = N // step + 1
-
-    #print 'reorder block', block
-
-
-    # reorder the matrix
-    cs = None
-    fns = [tmp_path + '/' +
-        elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
-    # N = len(q2n)
-    # shape = (N, N)
-    for fn in fns:
-        # print 'loading', fns
-        g = load_matrix(fn, shape=shape, csr=csr)
-        ci = csgraph.connected_components(g)
-        if cs == None:
-            cs = ci
-        else:
-            cs = merge_connected(cs, ci)
-
-    idx = cs[1].argsort()
-    idx_r = np.empty(N, 'int')
-    idx_r[idx] = np.arange(N, dtype='int')
-    idx = idx_r
-    for i in q2n:
-        j = q2n[i]
-        q2n[i] = idx[j]
-
-    # write reorder matrix
-    eye = [0] * N
-    _os = {}
-
-    f = open(qry, 'r')
-    for i in f:
-        j = i[:-1].split('\t')
-        if len(j) == 3:
-            qid, sid, score = j[:3]
-        else:
-            qid, sid, score = j[1:4]
-
-        z = float(score)
-        x, y = map(q2n.get, [qid, sid])
-        out = pack('fff', *[x, y, z])
-        xi, yi = x // block, y // block
-
-        try:
-            _ox = _os[(xi, yi)]
-        except:
-            _o = open(tmp_path + '/%d_%d.npz' % (xi, yi), 'wb')
-            _os[(xi, yi)] = _o
-            _ox = _os[(xi, yi)]
-
-        _ox.write(out)
-
-        # sym
-        out = pack('fff', *[y, x, z])
-        try:
-            _oy = _os[(yi, xi)]
-        except:
-            _o = open(tmp_path + '/%d_%d.npz' % (yi, xi), 'wb')
-            _os[(yi, xi)] = _o
-            _oy = _os[(yi, xi)]
-
-        _oy.write(out)
-
-        if eye[x] < z:
-            eye[x] = z
-        if eye[y] < z:
-            eye[y] = z
-
-    # set eye of matrix:
-    for i in xrange(N):
-        z = eye[i]
-        out = pack('fff', *[i, i, z])
-        j = i // block
-        try:
-            _o = _os[(j, j)]
-        except:
-            _os[(j, j)] = open(tmp_path + '/%d_%d.npz' % (j, j), 'wb')
-            _o = _os[(j, j)]
-
-        _o.write(out)
-
-    # close the file
-    for _o in _os.values():
-        _o.close()
-
-    return q2n
 
 def mat_split5(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4):
     if tmp_path == None:
@@ -1044,7 +1190,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
         _o.close()
 
     # reorder the matrix
-    print 'reorder the matrix'
+    #print 'reorder the matrix'
     #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
 
     return q2n
@@ -2280,8 +2426,13 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
         # cpu=cpu)
         #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        if i > 0 and i % check == 0:
+            #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+            q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
         row_sum, fns, nnz = expend(qry, shape, tmp_path, True, I, prune, cpu)
         if i > 0 and i % check == 0:
+            print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True)
         else:
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
@@ -2345,13 +2496,13 @@ def manual_print():
     print '  -a: cpu number'
     print '  -b: chunk size. default value is 20000000'
     print '  -o: name of output file'
-    print '  -s: True|False. whether the input similarity matrix is symmetric.'
+    print '  -s: T|F. whether the input similarity matrix is symmetric.'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'false'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -2375,10 +2526,13 @@ if __name__ == '__main__':
 
     try:
         qry, ifl, cpu, bch, ofn, sym = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s']
-        if sym.lower() == 'false':
+        if sym.lower().startswith('f'):
             sym = False
-        else:
+        elif sym.lower().startswith('t'):
             sym = True
+        else:
+            manual_print()
+            raise SystemExit()
 
     except:
         manual_print()
