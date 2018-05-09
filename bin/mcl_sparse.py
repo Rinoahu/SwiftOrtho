@@ -333,7 +333,14 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     for _o in _os.values():
         _o.close()
 
+    # clean the old file
+    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if not elem.endswith('_reorder')]
+    for fn in fns:
+        os.system('rm %s'%fn)
+
+
     # convert the new block to csr and get row sum
+    print 'after reorder', _os.keys()
     for fn in _os:
         g = load_matrix(fn+'_reorder', shape=shape, csr=False)
         sparse.save_npz(fn, g)
@@ -1764,7 +1771,7 @@ def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns
 
 # merge submatrix
-def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+def merge_submat0(fns, shape=(10**7, 10**7), csr=False):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -1830,6 +1837,96 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False):
     print 'before merged', fns
     print 'after merged', fns_new
     return row_sum, fns_new, nnz, merged
+
+
+
+def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    print 'merged names', names
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            if len(rows) == len(cols) == 1:
+                r, c = rows[0], cols[0]
+                R, C = map(str, [r, c])
+                rc = tmp_path + os.sep + R + '_' + C + '.npz'
+                if os.path.isfile(rc):
+                    print 'single block', r, c, rows, i, names[i:i+2]
+                    print 'single block new', rc, out
+                    os.system('mv %s %s'%(rc, out))
+                    os.system('mv %s_old %s_old'%(rc, out))
+
+                continue
+            z = None
+            for r in rows:
+                for c in cols:
+                    R, C = map(str, [r, c])
+                    rc = tmp_path + os.sep + R + '_' + C + '.npz'
+                    try:
+                        tmp = load_matrix(rc, shape, csr=csr)
+                        print 'rm old file', rc
+                        os.system('rm %s'%rc)
+                        print 'rmed old file', rc
+
+                    except:
+                        continue
+                    try:
+                        z += tmp
+                    except:
+                        z = tmp
+
+
+            if type(z) != type(None):
+                sparse.save_npz(out, z)
+                fns_new.append(out)
+                nnz = max(nnz, z.nnz)
+                merged = True
+                del z
+                gc.collect()
+
+
+            z_old = None
+            for r in rows:
+                for c in cols:
+                    R, C = map(str, [r, c])
+                    rc = tmp_path + os.sep + R + '_' + C + '.npz'
+                    try:
+                        tmp_old = load_matrix(rc + '_old', shape, csr=csr)
+                        print 'rm prev old file', rc + '_old'
+                        os.system('rm %s_old'%rc)
+                        print 'rmed prev old file', rc + '_old'
+
+                    except:
+                        continue
+                    try:
+                        z_old += tmp_old
+                    except:
+                        z_old = tmp_old
+
+            if type(z_old) != type(None):
+                sparse.save_npz(out+'_old', z_old)
+                os.system('mv %s_old.npz %s_old'%(out, out))
+
+
+    print 'before merged', fns
+    print 'after merged', fns_new
+    return row_sum, fns_new, nnz, merged
+
+
+
 
 
 def sdot(x, nnz=25000000):
@@ -2227,7 +2324,7 @@ def norm3(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rto
     return fns, cvg
 
 
-def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
+def norm4(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2239,11 +2336,12 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         for i in fns:
             try:
                 x = load_matrix(i, shape=shape, csr=csr)
+                nnz = max(nnz, x.nnz)
                 x = np.asarray(x.sum(0))[0]
                 row_sum += x
-                nnz = max(nnz, x.nnz)
             except:
                 continue
+    print 'norm nnz is', nnz, i, fns
 
     err = None
     for i in fns:
@@ -2270,6 +2368,89 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
 
     for i in fns:
         os.system('mv %s_new.npz %s' % (i, i))
+
+    if err != None and err <= atol:
+        cvg = True
+    else:
+        cvg = False
+
+    return fns, cvg, nnz
+
+
+
+def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    fns = []
+    for i in xrange(d):
+        for j in xrange(d):
+            fn = tmp_path + '/' + str(i) + '_' + str(j) + '.npz'
+            fns.append(fn)
+
+    nnz = 0
+    #fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+
+    if isinstance(row_sum, type(None)):
+        row_sum = np.zeros(shape[0], dtype='float32')
+        for i in fns:
+            try:
+                x = load_matrix(i, shape=shape, csr=csr)
+                nnz = max(nnz, x.nnz)
+                x = np.asarray(x.sum(0))[0]
+                row_sum += x
+            except:
+                continue
+    print 'norm nnz is', nnz, i, fns
+
+    # normalize
+    for i in fns:
+        try:
+            x = load_matrix(i, shape=shape, csr=csr)
+            x.data /= row_sum.take(x.indices, mode='clip')
+        except:
+            # print 'start norm3', check, x.data, row_sum.max()
+            continue
+
+        sparse.save_npz(i + '_new', x)
+
+    for i in fns:
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    err = None
+    if check:
+        for i in fns:
+            try:
+                x = load_matrix(i, shape=shape, csr=csr)
+            except:
+                x = None
+
+            # print 'start norm4'
+            try:
+                x_old = load_matrix(i + '_old', shape=shape, csr=csr)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                continue
+        
+            print 'check err is', err, type(x), type(x_old)
+
+
 
     if err != None and err <= atol:
         cvg = True
@@ -2531,7 +2712,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
 
         if nnz < chunk / 2:
-            print 'we try to merge 4 block into one', chunk/4
+            print 'we try to merge 4 block into one', nnz, chunk/4
             row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
