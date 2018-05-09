@@ -2034,7 +2034,7 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
 
     err = None
     Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
-    N = max([max(map(int, elem)) for elem in Ns])+1
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
     d = N
     # print 'num set is', num_set
 
@@ -2047,10 +2047,10 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
 
     #zns = map(element_wrapper, xys)
     if cpu <= 1:
-        print 'cpu < 1', cpu
+        print 'cpu < 1', cpu, len(xys)
         zns = map(element_wrapper, xys)
     else:
-        print 'cpu > 1', cpu
+        print 'cpu > 1', cpu, len(xys)
         zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
 
     zs = [elem[0] for elem in zns if type(elem[0]) != type(None)]
