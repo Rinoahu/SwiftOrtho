@@ -1855,6 +1855,54 @@ def sdot(x, nnz=25000000):
         return z
 
 
+# calculate the element of matrix
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    z = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi
+        print 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+        except:
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+        except:
+            continue
+        tmp = x * y
+        try:
+            z += tmp
+        except:
+            z = tmp
+
+    if type(z) == type(None):
+        return None, None, None
+
+    z.data **= I
+    z.data[z.data < prune] = 0
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+    #row_sum += np.asarray(z.sum(0))[0]
+    #return row_sum
+    row_sum = z.sum(0)
+    #print 'row_sum is', type(row_sum)
+    return row_sum, xyn, nnz
+
+
+def element_wrapper(elem):
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    return element(x, y, d, qry, shape, tmp_path, csr, I, prune)
+
+
+
 def expend4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
@@ -1917,7 +1965,7 @@ def expend4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
 
 
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expend5(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1978,6 +2026,51 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
         os.system('mv %s_new.npz %s' % (i, i))
 
     return row_sum, fns, nnz
+
+
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns])+1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = []
+    for x in xrange(N):
+        for y in xrange(N):
+            xys.append([x, y, d, qry, shape, tmp_path, csr, I, prune])
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu
+        zns = map(element_wrapper, xys)
+    else:
+        print 'cpu > 1', cpu
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+
+    zs = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+
+    rows_sum = sum(zs)
+    #print 'rows_sum 0', rows_sum
+    rows_sum = np.asarray(rows_sum, 'float32')[0]
+    #print 'rows_sum 1', rows_sum
+
+    fns = [elem[1] for elem in zns if type(elem[1]) != type(None)]
+    nnz = max([elem[2] for elem in zns])
+
+    # rename
+    for i in fns:
+        os.system('mv %s %s_old' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    return row_sum, fns, nnz
+
+
 
 
 # normalizatin
