@@ -3385,7 +3385,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     prune = min(prune, 1e2 / N)
     shape = (N, N)
     # norm
-    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False)
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
     # print 'finish norm', cvg
     # expension
     for i in xrange(itr):
