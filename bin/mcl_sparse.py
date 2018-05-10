@@ -350,7 +350,7 @@ def mat_reorder3(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=
 
 
 
-def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7, block=None):
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7, block=None, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -371,8 +371,9 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     NNZ = max(1, NNZ)
     if block == None:
         block = N * chunk // NNZ + 1
-    else:
-        block = int(block) + 1
+
+
+    block = int(block // sqrt(cpu)) + 1
 
     idx = cs[1].argsort()
     idx_r = np.empty(N, 'int')
@@ -3235,7 +3236,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         if i > 0 and i % check == 0:
             print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True)
-            q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+            q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
 
         else:
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True)
