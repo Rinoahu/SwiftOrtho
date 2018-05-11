@@ -2097,7 +2097,7 @@ def merge_submat0(fns, shape=(10**7, 10**7), csr=False):
 
 
 
-def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+def merge_submat1(fns, shape=(10**7, 10**7), csr=False):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -2182,6 +2182,141 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False):
     print 'after merged', fns_new
     return row_sum, fns_new, nnz, merged
 
+
+# sub merge function
+def submerge(xys):
+    i, j, rows, cols, shape, tmp_path, csr = xys
+    I = str(i // 2)
+    J = str(j // 2)
+    out = tmp_path + os.sep + I + '_' + J + '.npz'
+    fns_new = None
+    row_sum_n = None
+    nnz = 0
+
+    '''
+    if len(rows) == len(cols) == 1:
+        r, c = rows[0], cols[0]
+        R, C = map(str, [r, c])
+        rc = tmp_path + os.sep + R + '_' + C + '.npz'
+        if os.path.isfile(rc):
+            print 'single block', r, c, rows, i, names[i:i+2]
+            print 'single block new', rc, out
+            os.system('mv %s %s'%(rc, out))
+            os.system('mv %s_old %s_old'%(rc, out))
+    '''
+
+    merged = False
+    z = None
+    for r in rows:
+        for c in cols:
+            R, C = map(str, [r, c])
+            rc = tmp_path + os.sep + R + '_' + C + '.npz'
+            #tmp = load_matrix(rc, shape, csr=csr)
+            try:
+                tmp = load_matrix(rc, shape, csr=csr)
+                print 'rm old file', rc
+                os.system('rm %s'%rc)
+                print 'rmed old file', rc
+
+            except:
+                continue
+            try:
+                z += tmp
+            except:
+                z = tmp
+
+
+    if type(z) != type(None):
+        sparse.save_npz(out, z)
+        fns_new = out
+        #row_sum = np.asarray(z.sum(0), 'float32')[0]
+        #row_sum_n = out + '_rowsum.npz'
+        #np.savez_compressed(row_sum_n, row_sum)
+
+        merged = True
+        nnz = max(nnz, z.nnz)
+        del z
+        gc.collect()
+
+    z_old = None
+    for r in rows:
+        for c in cols:
+            R, C = map(str, [r, c])
+            rc = tmp_path + os.sep + R + '_' + C + '.npz'
+            try:
+                tmp_old = load_matrix(rc + '_old', shape, csr=csr)
+                print 'rm prev old file', rc + '_old'
+                os.system('rm %s_old'%rc)
+                print 'rmed prev old file', rc + '_old'
+
+            except:
+                continue
+            try:
+                z_old += tmp_old
+            except:
+                z_old = tmp_old
+
+    if type(z_old) != type(None):
+        sparse.save_npz(out+'_old', z_old)
+        os.system('mv %s_old.npz %s_old'%(out, out))
+        del z_old
+        gc.collect()
+
+    return row_sum_n, fns_new, nnz, merged
+
+# parallel merge_submat
+def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    print 'merged names', names
+    xys = []
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            xys.append([i, j, rows, cols, shape, tmp_path, csr])
+
+    if len(xys) > 1:
+        zns = Parallel(n_jobs=cpu)(delayed(submerge)(elem) for elem in xys)
+    else:
+        zns = [submerge(xys[0])]
+
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    for i in zns:
+        row_sum_s, fns_s, nnz_s, merged_s = i
+        if fns_s == None:
+            continue
+        #try:
+        #    tmp = np.load(row_sum_s)
+        #    tmp = tmp.items()[0][1] 
+        #    tmp = np.asarray(tmp, 'float32')
+        #    os.system('rm %s'%row_sum_s)
+        #except:
+        #    continue
+        #try:
+        #    row_sum += tmp
+        #except:
+        #    row_sum = tmp
+
+        fns_new.append(fns_s)
+        nnz = max(nnz, nnz_s)
+        if merged_s:
+            merged = True
+
+
+    print 'before merged', fns, zns
+    print 'after merged', fns_new, zns
+    return row_sum, fns_new, nnz, merged
 
 
 
@@ -2852,11 +2987,11 @@ def sdiv(parameters):
                 gap = abs(x_old) - abs(rtol * x_old)
                 err = max(err, gap.max())
             else:
-                pass
+                err = 0
     except:
         pass
 
-    if err != None:
+    if check and err != None:
         return err
     else:
         return float('+inf')
@@ -2906,8 +3041,11 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         errs = Parallel(n_jobs=cpu)(delayed(sdiv)(elem) for elem in xys)
 
 
-    err = max(errs)
-    cvg = err < atol and True or False
+    if check:
+        err = max(errs)
+        cvg = err < atol and True or False
+    else:
+        cvg = False
 
     return fns, cvg, nnz
 
@@ -3423,6 +3561,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
             break
 
     # get connect components
+    print 'construct from graph', fns
     g = load_matrix(fns[0], shape, True)
     cs = csgraph.connected_components(g)
     for fn in fns[1:]:
