@@ -13,6 +13,7 @@ import mimetypes
 import gzip
 import bz2 as bzip2
 import bz2
+from itertools import izip
 
 from sklearn.externals.joblib import Parallel, delayed
 import sharedmem as sm
@@ -349,14 +350,15 @@ def mat_reorder3(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=
     return q2n, fns
 
 
-
-def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7, block=None, cpu=1):
+def mat_reorder4(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7, block=None, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
+
 
     N = shape[0]
     NNZ = 0
     # reorder the matrix
+
     cs = None
     fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     for fn in fns:
@@ -388,6 +390,114 @@ def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4
     pairs = {}
     for fn in fns:
         g = load_matrix(fn, shape=shape, csr=csr)
+        xs, ys = g.nonzero()
+        zs = g.data
+        for i in xrange(xs.shape[0]):
+            flag += 1
+            xo, yo, z = xs[i], ys[i], zs[i]
+            x, y = idx[xo], idx[yo]
+            out = pack('fff', *[x, y, z])
+            xi, yi = x // block, y // block
+            key = tmp_path + '/%d_%d.npz' % (xi, yi)
+            try:
+                pairs[key].append(out)
+            except:
+                pairs[key] = [out]
+
+            if flag % 5000000 == 0:
+                for key, vals in pairs.iteritems():
+                    _o = open(key+'_reorder', 'a+b')
+                    _o.writelines(vals)
+                    #for val in vals:
+                    #    _o.write(val)
+                    _o.close()
+                    pairs[key] = []
+
+        # del the old block
+        os.system('rm %s'%fn)
+
+
+    for key, vals in pairs.iteritems():
+        _o = open(key+'_reorder', 'a+b')
+        _o.writelines(vals)
+        #for val in vals:
+        #    _o.write(val)
+
+        _o.close()
+        pairs[key] = []
+
+
+    # clean the old file
+    fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if not elem.endswith('_reorder')]
+    for fn in fns:
+        os.system('rm %s'%fn)
+
+
+    # convert the new block to csr and get row sum
+    print 'after reorder', pairs.keys(), [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('_reorder')]
+
+    for fn in pairs:
+        g = load_matrix(fn+'_reorder', shape=shape, csr=False)
+        sparse.save_npz(fn, g)
+        os.system('rm %s_reorder'%fn)
+
+    fns = pairs.keys()
+    return q2n, fns
+
+
+def mat_reorder(qry, q2n, shape=(10**7, 10**7), csr=False, tmp_path=None, step=4, chunk=5*10**7, block=None, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+
+    N = shape[0]
+    NNZ = 0
+    # reorder the matrix
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    d = max([max(map(int, elem)) for elem in Ns]) + 1
+    fns = []
+    for i in xrange(d):
+        for j in xrange(d):
+            fn = tmp_path + os.sep + str(i) + '_' + str(j) + '.npz'
+            if os.path.isfile(fn):
+                fns.append(fn)
+
+    cs = None
+    for fn in fns:
+        try:
+            g = load_matrix(fn, shape=shape, csr=csr)
+        except:
+            continue
+        ci = csgraph.connected_components(g)
+        if cs == None:
+            cs = ci
+        else:
+            cs = merge_connected(cs, ci)
+        NNZ += g.nnz
+
+    NNZ = max(1, NNZ)
+    if block == None:
+        block = N * chunk // NNZ + 1
+
+
+    block = int(block // sqrt(cpu)) + 1
+
+    idx = cs[1].argsort()
+    idx_r = np.empty(N, 'int')
+    idx_r[idx] = np.arange(N, dtype='int')
+    idx = idx_r
+    for i in q2n:
+        j = q2n[i]
+        q2n[i] = idx[j]
+
+    # write reorder matrix
+    flag = 0
+    pairs = {}
+    for fn in fns:
+        try:
+            g = load_matrix(fn, shape=shape, csr=csr)
+        except:
+            continue
         xs, ys = g.nonzero()
         zs = g.data
         for i in xrange(xs.shape[0]):
@@ -1296,8 +1406,8 @@ def mat_split6(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
     return q2n
 
 
-# remove 1k file limitation
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
+
+def mat_split7(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1329,8 +1439,9 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
     f.close()
 
     qid_set = list(qid_set)
-    #qid_set.sort()
-    np.random.shuffle(qid_set)
+    qid_set.sort()
+    #np.random.seed(42)
+    #np.random.shuffle(qid_set)
     N = len(qid_set)
     shape = (N, N)
 
@@ -1458,6 +1569,179 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
     #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
 
     return q2n, block
+
+
+
+
+# remove 1k file limitation
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('mkdir -p %s' % tmp_path)
+    q2n = {}
+    lines = 0
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    for i in f:
+        lines += 1
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        if qid not in q2n:
+            q2n[qid] = None
+        if sid not in q2n:
+            q2n[sid] = None
+
+    f.close()
+
+    #np.random.seed(42)
+    #np.random.shuffle(qid_set)
+    N = len(q2n)
+    shape = (N, N)
+
+    # get the size of input file
+    #tsize = os.path.getsize(qry)
+    #tstep = max(tsize // (chunk*12), 1)
+    #block = min(N//step+1, N//tstep+1 )
+    if lines*3 > chunk:
+        #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
+        tstep = max(sqrt(lines*3//chunk) * sqrt(cpu), cpu)
+        print 'tstep is', tstep
+        #tstep = min(max(tstep, 1), 30)
+        tstep = max(tstep, 1)
+        print 'tstep 2 is', tstep
+        #print 'break point', step, tstep, lines * 3, chunk
+        #block = min(N//step+1, int(N//tstep)+1)
+        #block = min(int(N/tstep)+ 1, int(N/cpu)+1)
+        #block = N // step + 1
+        block = N // tstep
+        print 'split block cpu=N', block, N // block
+    else:
+        block = N
+        print 'split block cpu=1', block, N // block, lines*3, chunk
+        cpu = 1
+
+    #qn = q2n.keys()
+    #qn.sort()
+    #np.random.seed(42)
+    #np.random.shuffle(qn)
+    #flag = N - 1
+    flag = 0
+    for i in q2n:
+        q2n[i] = flag
+        flag += 1
+        #flag -= 1
+    #for qid, i in izip(q2n, idxs):
+    #    q2n[qid] = i
+    #del qn
+    gc.collect()
+
+    eye = [0] * N
+    _os = {}
+
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    pairs = {}
+    flag = 0
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = float(score)
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x, y, z])
+        xi, yi = x // block, y // block
+
+        try:
+            pairs[(xi, yi)].append(out)
+        except:
+            pairs[(xi, yi)] = [out]
+
+
+        if sym == False:
+            # sym
+            out = pack('fff', *[y, x, z])
+            try:
+                pairs[(yi, xi)].append(out)
+            except:
+                pairs[(yi, xi)] = [out]
+            flag += 1
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+        flag += 1
+        # write batch to disk
+        if flag % 5000000 == 0:
+            for key, val in pairs.iteritems():
+                if len(val) > 0:
+                    a, b = key
+                    _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+                    _o.writelines(val)
+                    _o.close()
+                    pairs[key] = []
+                else:
+                    continue
+
+    f.close()
+
+    for key, val in pairs.iteritems():
+        if len(val) > 0:
+            a, b = key
+            _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+            _o.writelines(val)
+            _o.close()
+            pairs[key] = []
+        else:
+            continue
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i, i, z])
+        j = i // block
+        try:
+            pairs[(j, j)].append(out)
+        except:
+            pairs[(j, j)] = [out]
+
+    for key, val in pairs.iteritems():
+        if len(val) > 0:
+            a, b = key
+            _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+            _o.writelines(val)
+            _o.close()
+            pairs[key] = []
+        else:
+            continue
+
+    # reorder the matrix
+    #print 'reorder the matrix'
+    #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
+
+    return q2n, block
+
+
+
 
 
 # load sparse matrix from disk
@@ -1814,7 +2098,7 @@ def mul(qry, shape=(10**8, 10**8), tmp_path=None, csr=False):
     return row_sum
 
 
-def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, rtol=1e-5, atol=1e-8, check=False):
+def expand0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1866,7 +2150,7 @@ def expend0(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns, cvg
 
 
-def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, rtol=1e-5, atol=1e-8, check=False):
+def expand2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, rtol=1e-5, atol=1e-8, check=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1956,7 +2240,7 @@ def expend2(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e
     return row_sum, fns, cvg
 
 
-def expend3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
+def expand3(qry, shape=(10**8, 10**8), tmp_path=None, csr=False, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2193,18 +2477,6 @@ def submerge(xys):
     row_sum_n = None
     nnz = 0
 
-    '''
-    if len(rows) == len(cols) == 1:
-        r, c = rows[0], cols[0]
-        R, C = map(str, [r, c])
-        rc = tmp_path + os.sep + R + '_' + C + '.npz'
-        if os.path.isfile(rc):
-            print 'single block', r, c, rows, i, names[i:i+2]
-            print 'single block new', rc, out
-            os.system('mv %s %s'%(rc, out))
-            os.system('mv %s_old %s_old'%(rc, out))
-    '''
-
     merged = False
     z = None
     for r in rows:
@@ -2265,7 +2537,7 @@ def submerge(xys):
     return row_sum_n, fns_new, nnz, merged
 
 # parallel merge_submat
-def merge_submat(fns, shape=(10**7, 10**7), csr=False):
+def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -2283,10 +2555,10 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False):
             cols = names[j:j+2]
             xys.append([i, j, rows, cols, shape, tmp_path, csr])
 
-    if len(xys) > 1:
-        zns = Parallel(n_jobs=cpu)(delayed(submerge)(elem) for elem in xys)
+    if cpu <= 1:
+        zns = map(submerge, xys)
     else:
-        zns = [submerge(xys[0])]
+        zns = Parallel(n_jobs=cpu)(delayed(submerge)(elem) for elem in xys)
 
     nnz = 0
     row_sum = None
@@ -2439,7 +2711,7 @@ def element_wrapper(elem):
 
 
 
-def expend4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expand4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2501,7 +2773,7 @@ def expend4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
 
 
 
-def expend5(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expand5(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2564,7 +2836,7 @@ def expend5(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
     return row_sum, fns, nnz
 
 
-def expend6(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expand6(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2607,7 +2879,7 @@ def expend6(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
     return row_sum, fns, nnz
 
 
-def expend7(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expand7(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2684,7 +2956,7 @@ def prsum(fns):
 
     return row_sum
 
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2697,8 +2969,8 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
     nnz = 0
     row_sum = None
     xys = []
-    for x in xrange(N):
-        for y in xrange(N):
+    for x in xrange(d):
+        for y in xrange(d):
             xys.append([x, y, d, qry, shape, tmp_path, csr, I, prune])
 
     #zns = map(element_wrapper, xys)
@@ -2715,8 +2987,9 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
     Nrs = len(row_sum_ns)
     for i in xrange(Nrs):
         #xys = row_sum_ns[idx:idx+cpu*4]
-        rfn = row_sum_ns.pop()
-        xys[i%cpu].append(rfn)
+        #rfn = row_sum_ns.pop()
+        #xys[i%cpu].append(rfn)
+        xys[i%cpu].append(row_sum_ns[i])
     if cpu <= 1:
         print 'row sum cpu < 1', cpu, len(xys)
         row_sums = map(prsum, xys)
@@ -2727,17 +3000,34 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
     rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
 
 
-    fns = [elem[1] for elem in zns if type(elem[1]) != type(None)]
     nnz = max([elem[2] for elem in zns])
 
+    #fns = [elem[1] for elem in zns if type(elem[1]) != type(None)]
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
     # rename
-    for i in fns:
-        os.system('mv %s %s_old' % (i, i))
-        os.system('mv %s_new.npz %s' % (i, i))
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
 
     return row_sum, fns, nnz
+    # rename
+    #for i in fns:
+    #    os.system('mv %s %s_old' % (i, i))
+    #    os.system('mv %s_new.npz %s' % (i, i))
 
-
+    #return row_sum, fns, nnz
 
 
 
@@ -3069,6 +3359,44 @@ def sdiv(parameters):
         return err
     else:
         return float('+inf')
+
+def sdiv0(parameters):
+    fn, shape, csr, check, rtol, tmp_path = parameters
+    row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
+
+    err = None
+    try:
+        x = load_matrix(fn, shape=shape, csr=csr)
+        x.data /= row_sum.take(x.indices, mode='clip')
+        sparse.save_npz(fn + '_new', x)
+        os.system('mv %s_new.npz %s' % (fn, fn))
+        if check:
+            try:
+                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
+                #os.system('rm %s_old'%fn)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                err = 0
+    except:
+        pass
+
+    if check and err != None:
+        return err
+    else:
+        return float('+inf')
+
 
 
 
@@ -3594,8 +3922,10 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
     N = len(q2n)
-    prune = min(prune, 1e2 / N)
+    prune = min(prune, 100. / N)
     shape = (N, N)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
     # norm
     fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
     # print 'finish norm', cvg
@@ -3611,13 +3941,14 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
 
 
-        row_sum, fns, nnz = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
         if i > 0 and i % check == 0:
             print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
             #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
 
         else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
         if nnz < chunk / 4:
