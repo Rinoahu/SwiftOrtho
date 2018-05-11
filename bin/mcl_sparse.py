@@ -2607,8 +2607,7 @@ def expend6(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
     return row_sum, fns, nnz
 
 
-
-def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+def expend7(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2651,6 +2650,81 @@ def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5
         except:
             rows_sum = tmp
 
+
+    fns = [elem[1] for elem in zns if type(elem[1]) != type(None)]
+    nnz = max([elem[2] for elem in zns])
+
+    # rename
+    for i in fns:
+        os.system('mv %s %s_old' % (i, i))
+        os.system('mv %s_new.npz %s' % (i, i))
+
+    return row_sum, fns, nnz
+
+# parallelize row sum
+def prsum(fns):
+    print 'parallel row sum', fns
+    row_sum = None
+    for fn in fns:
+        print 'parallel row sum fn', fn
+        #tmp = np.load(fn)
+        try:
+            tmp = np.load(fn)
+            tmp = tmp.items()[0][1] 
+            tmp = np.asarray(tmp, 'float32')
+            os.system('rm %s'%fn)
+            print 'del rowsum'
+        except:
+            continue
+
+        try:
+            row_sum += tmp
+        except:
+            row_sum = tmp
+
+    return row_sum
+
+def expend(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = []
+    for x in xrange(N):
+        for y in xrange(N):
+            xys.append([x, y, d, qry, shape, tmp_path, csr, I, prune])
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+
+    row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        #xys = row_sum_ns[idx:idx+cpu*4]
+        rfn = row_sum_ns.pop()
+        xys[i%cpu].append(rfn)
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
 
 
     fns = [elem[1] for elem in zns if type(elem[1]) != type(None)]
