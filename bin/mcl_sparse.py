@@ -2608,9 +2608,14 @@ def sdot(x, nnz=25000000):
         y = x
 
     z = x * y
+    del x
+    del y
+    gc.collect()
     if z.nnz > nnz:
         name = xn + '_tmp.npz'
         sparse.save_npz(name, z)
+        del z
+        gc.collect()
         return name
     else:
         return z
@@ -2677,6 +2682,9 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         except:
             continue
         tmp = x * y
+        del x
+        del y
+        gc.collect()
         try:
             z += tmp
         except:
@@ -2700,6 +2708,9 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     np.savez_compressed(row_sum_n, row_sum)
     #print 'row_sum is', type(row_sum)
     #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
     return row_sum_n, xyn, nnz
 
 
@@ -2953,6 +2964,9 @@ def prsum(fns):
             row_sum += tmp
         except:
             row_sum = tmp
+
+        del tmp
+        gc.collect()
 
     return row_sum
 
@@ -3352,8 +3366,18 @@ def sdiv(parameters):
                 err = max(err, gap.max())
             else:
                 err = 0
+
+            del x_old
+            gc.collect()
+
+        del x
+        gc.collect()
+
     except:
         pass
+
+    del row_sum
+    gc.collect()
 
     if check and err != None:
         return err
@@ -3441,7 +3465,6 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
     else:
         print 'norm cpu > 1', cpu, len(xys)
         errs = Parallel(n_jobs=cpu)(delayed(sdiv)(elem) for elem in xys)
-
 
     if check:
         err = max(errs)
@@ -3581,9 +3604,8 @@ def mcl1(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=
         g = load_matrix(fn, shape, True)
         ci = csgraph.connected_components(g)
         cs = merge_connected(cs, ci)
-
-    del g
-    gc.collect()
+        del g
+        gc.collect()
 
     # print 'find components', cs
     groups = {}
