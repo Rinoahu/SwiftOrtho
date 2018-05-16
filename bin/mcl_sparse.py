@@ -2536,8 +2536,19 @@ def submerge(xys):
 
     return row_sum_n, fns_new, nnz, merged
 
+
+# submerge on batch data
+def submerge_wrapper(elem):
+    out = []
+    for xys in elem:
+        tmp = submerge(xys)
+        out.append(tmp)
+
+    return out
+
+
 # parallel merge_submat
-def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+def merge_submat0(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -2585,6 +2596,54 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
         if merged_s:
             merged = True
 
+
+    print 'before merged', fns, zns
+    print 'after merged', fns_new, zns
+    return row_sum, fns_new, nnz, merged
+
+
+
+# parallel merge_submat
+def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    print 'merged names', names
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            xy = [i, j, rows, cols, shape, tmp_path, csr]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    if cpu <= 1:
+        zns = map(submerge_wrapper, xys)
+    else:
+        zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    for elem in zns:
+        for i in elem:
+            row_sum_s, fns_s, nnz_s, merged_s = i
+            if fns_s == None:
+                continue
+
+            fns_new.append(fns_s)
+            nnz = max(nnz, nnz_s)
+            if merged_s:
+                merged = True
 
     print 'before merged', fns, zns
     print 'after merged', fns_new, zns
@@ -2715,11 +2774,19 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     return row_sum_n, xyn, nnz
 
 
-
-
-def element_wrapper(elem):
+def element_wrapper0(elem):
     x, y, d, qry, shape, tmp_path, csr, I, prune = elem
     return element(x, y, d, qry, shape, tmp_path, csr, I, prune)
+
+def element_wrapper(elems):
+    outs = []
+    for elem in elems:
+        x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+        out = element(x, y, d, qry, shape, tmp_path, csr, I, prune)
+        outs.append(out)
+    return outs
+
+
 
 
 
@@ -2971,7 +3038,7 @@ def prsum(fns):
 
     return row_sum
 
-def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand8(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -3045,7 +3112,88 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
     #return row_sum, fns, nnz
 
 
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
 
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+
+    gc.collect()
+    #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+
+    #nnz = max([elem[2] for elem in zns])
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
+    # rename
+    #for i in fns:
+    #    os.system('mv %s %s_old' % (i, i))
+    #    os.system('mv %s_new.npz %s' % (i, i))
+
+    #return row_sum, fns, nnz
 
 
 
@@ -3089,6 +3237,8 @@ def norm0(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None):
 
             except:
                 continue
+
+
 
 
 def norm1(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False):
@@ -3339,6 +3489,45 @@ def norm5(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rto
     return fns, cvg, nnz
 
 # sub function of norm
+def sdiv0(parameters):
+    fn, shape, csr, check, rtol, tmp_path = parameters
+    row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
+
+    err = None
+    try:
+        x = load_matrix(fn, shape=shape, csr=csr)
+        x.data /= row_sum.take(x.indices, mode='clip')
+        sparse.save_npz(fn + '_new', x)
+        os.system('mv %s_new.npz %s' % (fn, fn))
+        if check:
+            try:
+                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
+                #os.system('rm %s_old'%fn)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                err = 0
+    except:
+        pass
+
+    if check and err != None:
+        return err
+    else:
+        return float('+inf')
+
+
+
 def sdiv(parameters):
     fn, shape, csr, check, rtol, tmp_path = parameters
     row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
@@ -3385,48 +3574,19 @@ def sdiv(parameters):
     else:
         return float('+inf')
 
-def sdiv0(parameters):
-    fn, shape, csr, check, rtol, tmp_path = parameters
-    row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
 
-    err = None
-    try:
-        x = load_matrix(fn, shape=shape, csr=csr)
-        x.data /= row_sum.take(x.indices, mode='clip')
-        sparse.save_npz(fn + '_new', x)
-        os.system('mv %s_new.npz %s' % (fn, fn))
-        if check:
-            try:
-                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
-                #os.system('rm %s_old'%fn)
-            except:
-                x_old = None
-            # print 'start norm4 x x_old', abs(x - x_old).shape
+# sdiv for batch input
+def sdiv_wrapper(elem):
+    out = []
+    for parameters in elem:
+        tmp = sdiv(parameters)
+        out.append(tmp)
 
-            if type(x) != type(None) and type(x_old) != type(None):
-                gap = abs(x - x_old) - abs(rtol * x_old)
-                err = max(err, gap.max())
-            elif type(x) != type(None) and type(x_old) == type(None):
-                gap = abs(x)
-                err = max(err, gap.max())
-            elif type(x) == type(None) and type(x_old) != type(None):
-                gap = abs(x_old) - abs(rtol * x_old)
-                err = max(err, gap.max())
-            else:
-                err = 0
-    except:
-        pass
-
-    if check and err != None:
-        return err
-    else:
-        return float('+inf')
-
-
+    return out
 
 
 # parallel norm step
-def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1):
+def norm6(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -3474,6 +3634,78 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         cvg = False
 
     return fns, cvg, nnz
+
+
+def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    fns = []
+    for i in xrange(d):
+        for j in xrange(d):
+            fn = tmp_path + '/' + str(i) + '_' + str(j) + '.npz'
+            fns.append(fn)
+
+    nnz = 0
+    #fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+
+    if isinstance(row_sum, type(None)):
+        row_sum = np.zeros(shape[0], dtype='float32')
+        for i in fns:
+            try:
+                x = load_matrix(i, shape=shape, csr=csr)
+                nnz = max(nnz, x.nnz)
+                x = np.asarray(x.sum(0))[0]
+                row_sum += x
+                del x
+                gc.collect()
+            except:
+                continue
+    #print 'norm nnz is', nnz, i, fns
+    # write row sum to disk
+    fp = np.memmap(tmp_path+'/row_sum_total.npy', mode='w+', dtype='float32', shape=row_sum.shape)
+    fp[:] = row_sum
+    fp.flush()
+    # normalize
+    #xys = [[elem, shape, csr, check, rtol, tmp_path] for elem in fns]
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for elem in fns:
+        #elem = fns[i]
+        xy = [elem, shape, csr, check, rtol, tmp_path] 
+        xys[flag%cpu].append(xy)
+        flag += 1
+
+
+    if cpu <= 1:
+        print 'norm cpu < 1', cpu, len(xys)
+        errs = map(sdiv_wrapper, xys)
+    else:
+        print 'norm cpu > 1', cpu, len(xys)
+        errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
+
+    gc.collect()
+
+    if check:
+        #err = max(errs)
+        err = 0
+        for i in errs:
+            for j in i:
+                err = max(err, j)
+
+        cvg = err < atol and True or False
+    else:
+        cvg = False
+
+    return fns, cvg, nnz
+
+
+
+
 
 
 # mcl algorithm
