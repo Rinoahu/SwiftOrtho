@@ -2671,15 +2671,16 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     for i in xrange(d):
         xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
         yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
-        print 'xi', xi
-        print 'yi', yi
+        print 'xi', xi, 'yi', yi
         try:
             x = load_matrix(xn, shape=shape, csr=csr)
         except:
+            print 'can not load x', xn
             continue
         try:
             y = load_matrix(yn, shape=shape, csr=csr)
         except:
+            print 'can not load y', yn
             continue
         tmp = x * y
         del x
