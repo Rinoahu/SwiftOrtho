@@ -3727,9 +3727,10 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
             try:
                 x = load_matrix(i, shape=shape, csr=csr)
                 nnz = max(nnz, x.nnz)
-                x = np.asarray(x.sum(0))[0]
-                row_sum += x
+                y = np.asarray(x.sum(0))[0]
+                row_sum += y
                 del x
+                del y
                 gc.collect()
             except:
                 continue
