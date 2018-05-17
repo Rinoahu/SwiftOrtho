@@ -16,7 +16,11 @@ import bz2
 from itertools import izip
 
 from sklearn.externals.joblib import Parallel, delayed
-import sharedmem as sm
+try:
+    import sharedmem as sm
+except:
+    sm = np
+
 import multiprocessing as mp
 from multiprocessing import Manager, Array
 
@@ -3526,9 +3530,7 @@ def sdiv0(parameters):
     else:
         return float('+inf')
 
-
-
-def sdiv(parameters):
+def sdiv1(parameters):
     fn, shape, csr, check, rtol, tmp_path = parameters
     row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
 
@@ -3566,6 +3568,7 @@ def sdiv(parameters):
     except:
         pass
 
+    row_sum._mmap.close()
     del row_sum
     gc.collect()
 
@@ -3575,14 +3578,79 @@ def sdiv(parameters):
         return float('+inf')
 
 
+def sdiv(parameters, row_sum=None):
+    fn, shape, csr, check, rtol, tmp_path = parameters
+    if type(row_sum) == type(None):
+        row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
+
+    err = None
+    try:
+        x = load_matrix(fn, shape=shape, csr=csr)
+        x.data /= row_sum.take(x.indices, mode='clip')
+        sparse.save_npz(fn + '_new', x)
+        os.system('mv %s_new.npz %s' % (fn, fn))
+        if check:
+            try:
+                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                err = 0
+
+            del x_old
+            gc.collect()
+
+        del x
+        gc.collect()
+
+    except:
+        pass
+
+    if check and err != None:
+        return err
+    else:
+        return float('+inf')
+
+
 # sdiv for batch input
-def sdiv_wrapper(elem):
+def sdiv_wrapper0(elem):
     out = []
     for parameters in elem:
         tmp = sdiv(parameters)
         out.append(tmp)
 
     return out
+
+def sdiv_wrapper(elem):
+    if len(elem) > 0:
+        tmp_path = elem[0][5]
+    else:
+        return []
+    fp = np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32')
+    row_sum = np.asarray(fp, 'float32')
+    out = []
+    for parameters in elem:
+        tmp = sdiv(parameters, row_sum)
+        out.append(tmp)
+
+    fp._mmap.close()
+    del fp
+    del row_sum
+    gc.collect()
+
+    return out
+
 
 
 # parallel norm step
