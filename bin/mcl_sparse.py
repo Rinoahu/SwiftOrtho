@@ -2920,7 +2920,11 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
+    xg = cp.sparse.csr_matrix(shape)
+    yg = cp.sparse.csr_matrix(shape)
+    #zg = cp.sparse.csr_matrix(shape)
     zg = None
+    #tmp = cp.sparse.csr_matrix(shape)
     for i in xrange(d):
         xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
         yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
@@ -2936,14 +2940,19 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
             print 'can not load y', yn
             continue
 
-        xg, yg = map(cp.sparse.csr_matrix, [x, y])
+        a, b, c = map(cp.asarray, [x.indices, x.indptr, x.data])
+        xg.indices, xg.indptr, xg.data = a, b, c
+
+        a, b, c = map(cp.asarray, [y.indices, y.indptr, y.data])
+        yg.indices, yg.indptr, yg.data = a, b, c
+
         tmp = cp.cusparse.csrgemm(xg, yg)
         try:
             zg += tmp
         except:
             zg = tmp
 
-        del x, y, xg, yg, tmp
+        del x, y, a, b, c
         gc.collect()
 
     if type(zg) == type(None):
@@ -2952,7 +2961,7 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
     zg.data **= I
     zg.data[zg.data < prune] = 0
     z = zg.get()
-    del zg
+    del zg, tmp
     gc.collect()
     z.eliminate_zeros()
     nnz = z.nnz
