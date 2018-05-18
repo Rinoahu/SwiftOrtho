@@ -21,6 +21,12 @@ try:
 except:
     sm = np
 
+
+try:
+    import cupy as cp
+except:
+    cp = np
+
 import multiprocessing as mp
 from multiprocessing import Manager, Array
 
@@ -2726,33 +2732,43 @@ def element0(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
     return row_sum, xyn, nnz
 
 
-def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+def element1(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    z = None
+    x = y = None
     for i in xrange(d):
         xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
         yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
         print 'xi', xi, 'yi', yi
         try:
-            x = load_matrix(xn, shape=shape, csr=csr)
+            xt = load_matrix(xn, shape=shape, csr=csr)
         except:
-            print 'can not load x', xn
-            continue
+            xt = None
+        if type(xt) != type(None):
+            try:
+                x += xt
+            except:
+                x = xt
+
         try:
-            y = load_matrix(yn, shape=shape, csr=csr)
+            yt = load_matrix(yn, shape=shape, csr=csr)
         except:
-            print 'can not load y', yn
-            continue
-        tmp = x * y
-        del x
-        del y
+            yt = None
+
+        if type(yt) != type(None):
+            try:
+                y += yt
+            except:
+                y = yt
+        del xt
+        del yt
         gc.collect()
-        try:
-            z += tmp
-        except:
-            z = tmp
+
+    try:
+        z = x * y
+    except:
+        z = None
 
     if type(z) == type(None):
         return None, None, None
@@ -2778,9 +2794,194 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     return row_sum_n, xyn, nnz
 
 
+
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    z = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+        except:
+            print 'can not load x', xn
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+        except:
+            print 'can not load y', yn
+            continue
+        tmp = x * y
+        try:
+            z += tmp
+        except:
+            z = tmp
+
+        del x, y, tmp
+        gc.collect()
+
+    if type(z) == type(None):
+        return None, None, None
+
+    z.data **= I
+    z.data[z.data < prune] = 0
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+
+    #return row_sum
+    #row_sum = z.sum(0)
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    #print 'row_sum is', type(row_sum)
+    #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+
+# use gpu to speed up
+def element_gpu0(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    x = y = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            xt = load_matrix(xn, shape=shape, csr=csr)
+        except:
+            xt = None
+        if type(xt) != type(None):
+            try:
+                x += xt
+            except:
+                x = xt
+
+        try:
+            yt = load_matrix(yn, shape=shape, csr=csr)
+        except:
+            yt = None
+
+        if type(yt) != type(None):
+            try:
+                y += yt
+            except:
+                y = yt
+        del xt, yt
+        gc.collect()
+
+    try:
+        xg, yg = map(cp.sparse.csr_matrix, [x, y])
+        zg = cp.cusparse.csrgemm(xg, yg)
+        zg.data **= I
+        zg.data[zg.data < prune] = 0
+        z = zg.get()
+        z.eliminate_zeros()
+
+    except:
+        z = None
+
+    del x, y, xg, yg, zg
+    gc.collect()
+
+    if type(z) == type(None):
+        return None, None, None
+
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+
+    #return row_sum
+    #row_sum = z.sum(0)
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    #print 'row_sum is', type(row_sum)
+    #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    zg = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+        except:
+            print 'can not load x', xn
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+        except:
+            print 'can not load y', yn
+            continue
+
+        xg, yg = map(cp.sparse.csr_matrix, [x, y])
+        tmp = cp.cusparse.csrgemm(xg, yg)
+        try:
+            zg += tmp
+        except:
+            zg = tmp
+
+        del x, y, xg, yg, tmp
+        gc.collect()
+
+    if type(zg) == type(None):
+        return None, None, None
+
+    zg.data **= I
+    zg.data[zg.data < prune] = 0
+    z = zg.get()
+    del zg
+    gc.collect()
+    z.eliminate_zeros()
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+
+    #return row_sum
+    #row_sum = z.sum(0)
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    #print 'row_sum is', type(row_sum)
+    #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+
+
+
+
+
+
 def element_wrapper0(elem):
     x, y, d, qry, shape, tmp_path, csr, I, prune = elem
     return element(x, y, d, qry, shape, tmp_path, csr, I, prune)
+
 
 def element_wrapper(elems):
     outs = []
@@ -2791,6 +2992,13 @@ def element_wrapper(elems):
     return outs
 
 
+def element_wrapper_gpu(elems):
+    outs = []
+    for elem in elems:
+        x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+        out = element_gpu(x, y, d, qry, shape, tmp_path, csr, I, prune)
+        outs.append(out)
+    return outs
 
 
 
@@ -3115,7 +3323,6 @@ def expand8(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
 
     #return row_sum, fns, nnz
 
-
 def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
@@ -3143,6 +3350,92 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
     else:
         print 'cpu > 1', cpu, len(xys)
         zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+
+    gc.collect()
+    #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+
+    #nnz = max([elem[2] for elem in zns])
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
+    # rename
+    #for i in fns:
+    #    os.system('mv %s %s_old' % (i, i))
+    #    os.system('mv %s_new.npz %s' % (i, i))
+
+    #return row_sum, fns, nnz
+
+
+
+
+def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper_gpu, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
 
     gc.collect()
     #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
@@ -4326,6 +4619,95 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
 
 
+def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+    N = len(q2n)
+    prune = min(prune, 100. / N)
+    shape = (N, N)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+
+        row_sum, fns, nnz = expand_gpu(qry, shape, tmp_path, True, I, prune, cpu)
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        if nnz < chunk / 4:
+            print 'we try to merge 4 block into one', nnz, chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
+
+
 
 
 
@@ -4340,12 +4722,13 @@ def manual_print():
     print '  -b: chunk size. default value is 20000000'
     print '  -o: name of output file'
     print '  -s: T|F. whether the input similarity matrix is symmetric.'
+    print '  -g: T|F. whether use gpu to speed up. Default is F'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F', '-g': 'F'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -4368,7 +4751,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s']
+        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s'], args['-g']
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
@@ -4388,7 +4771,10 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
+    if gpu.lower().startswith('t'):
+        mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
+    else:
+        mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
 
     # preprocess(qry)
     raise SystemExit()
