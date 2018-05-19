@@ -3011,6 +3011,8 @@ def element_wrapper_gpu0(elems):
 
 
 def element_wrapper_gpu(elems):
+    if len(elems) == 0:
+        return []
     elem = elems[0]
     x, y, d, qry, shape, tmp_path, csr, I, prune = elem
     outs = []
