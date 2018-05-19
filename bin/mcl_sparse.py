@@ -3001,13 +3001,98 @@ def element_wrapper(elems):
     return outs
 
 
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu0(elems):
     outs = []
     for elem in elems:
         x, y, d, qry, shape, tmp_path, csr, I, prune = elem
         out = element_gpu(x, y, d, qry, shape, tmp_path, csr, I, prune)
         outs.append(out)
     return outs
+
+
+def element_wrapper_gpu(elems):
+    elem = elems[0]
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xg = cp.sparse.csr_matrix(shape, dtype='float32')
+    yg = cp.sparse.csr_matrix(shape, dtype='float32')
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            #a, b, c = map(cp.asarray, [x.indices, x.indptr, x.data])
+            a = cp.asarray(x.indices, dtype=cp.int32)
+            b = cp.asarray(x.indptr, dtype=cp.int32)
+            c = cp.asarray(x.data, 'float32')
+            xg.indices, xg.indptr, xg.data = a, b, c
+
+            a, b, c = map(cp.asarray, [y.indices, y.indptr, y.data])
+            a = cp.asarray(y.indices, dtype=cp.int32)
+            b = cp.asarray(y.indptr, dtype=cp.int32)
+            c = cp.asarray(y.data, 'float32')
+            yg.indices, yg.indptr, yg.data = a, b, c
+
+            tmp = cp.cusparse.csrgemm(xg, yg)
+            try:
+                zg += tmp
+            except:
+                zg = tmp
+
+            del x, y, a, b, c
+            gc.collect()
+            cp.cuda.memory.gc.collect() 
+
+        if type(zg) == type(None):
+            return None, None, None
+
+        zg.data **= I
+        zg.data[zg.data < prune] = 0
+
+        z = zg.get()
+
+        del zg, tmp
+        gc.collect()
+        cp.cuda.memory.gc.collect()
+
+        z.eliminate_zeros()
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    return outs
+
+
 
 
 
