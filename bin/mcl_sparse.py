@@ -4716,7 +4716,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
 
 
-def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
+def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, gpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4743,7 +4743,7 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
 
 
-        row_sum, fns, nnz = expand_gpu(qry, shape, tmp_path, True, I, prune, cpu)
+        row_sum, fns, nnz = expand_gpu(qry, shape, tmp_path, True, I, prune, gpu)
         if i > 0 and i % check == 0:
             print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
@@ -4819,13 +4819,13 @@ def manual_print():
     print '  -b: chunk size. default value is 20000000'
     print '  -o: name of output file'
     print '  -s: T|F. whether the input similarity matrix is symmetric.'
-    print '  -g: T|F. whether use gpu to speed up. Default is F'
+    print '  -g: how many gpus to use for speedup. Default is 0'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F', '-g': 'F'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F', '-g': '0'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -4848,7 +4848,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s'], args['-g']
+        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s'], int(eval(args['-g']))
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
@@ -4868,8 +4868,8 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    if gpu.lower().startswith('t'):
-        mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
+    if gpu > 0:
+        mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
         mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
 
