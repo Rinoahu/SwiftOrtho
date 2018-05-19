@@ -3042,13 +3042,13 @@ def element_wrapper_gpu(elems):
             #a, b, c = map(cp.asarray, [x.indices, x.indptr, x.data])
             a = cp.asarray(x.indices, dtype=cp.int32)
             b = cp.asarray(x.indptr, dtype=cp.int32)
-            c = cp.asarray(x.data, 'float32')
+            c = cp.asarray(x.data, dtype=cp.float32)
             xg.indices, xg.indptr, xg.data = a, b, c
 
-            a, b, c = map(cp.asarray, [y.indices, y.indptr, y.data])
+            #a, b, c = map(cp.asarray, [y.indices, y.indptr, y.data])
             a = cp.asarray(y.indices, dtype=cp.int32)
             b = cp.asarray(y.indptr, dtype=cp.int32)
-            c = cp.asarray(y.data, 'float32')
+            c = cp.asarray(y.data, dtype=cp.float32)
             yg.indices, yg.indptr, yg.data = a, b, c
 
             tmp = cp.cusparse.csrgemm(xg, yg)
@@ -3057,7 +3057,7 @@ def element_wrapper_gpu(elems):
             except:
                 zg = tmp
 
-            del x, y, a, b, c
+            del x, y, a, b, c, tmp
             gc.collect()
             cp.cuda.memory.gc.collect() 
 
@@ -3069,7 +3069,8 @@ def element_wrapper_gpu(elems):
 
         z = zg.get()
 
-        del zg, tmp
+        #del zg, tmp
+        del zg
         gc.collect()
         cp.cuda.memory.gc.collect()
 
