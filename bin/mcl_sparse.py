@@ -24,8 +24,10 @@ except:
 
 try:
     import cupy as cp
+    has_gpu = True
 except:
     cp = np
+    has_gpu = False
 
 import multiprocessing as mp
 from multiprocessing import Manager, Array
@@ -4868,7 +4870,7 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
-    if gpu > 0:
+    if has_gpu and gpu > 0:
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
         mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
