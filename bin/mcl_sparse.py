@@ -31,7 +31,6 @@ except:
 
 try:
     import pyculib
-    clf = pyculib.sparse.Sparse()
     has_gpu = True
 except:
     clf = lambda x:x
@@ -68,6 +67,7 @@ if has_gpu:
         Calls XcsrgemmNnz and csrgemm
         """
         #tmpdescr = self.matdescr()
+        clf = pyculib.sparse.Sparse()
         tmpdescr = pyculib.sparse.Sparse().matdescr()
 
         descrA = descrA or tmpdescr
@@ -81,7 +81,7 @@ if has_gpu:
             raise ValueError("incompatible matrices")
         k = ka
 
-        indptrC = cuda.device_array(m + 1, dtype='int32')
+        indptrC = pyculib.cuda.device_array(m + 1, dtype='int32')
         nnz = clf.XcsrgeamNnz(m, n, descrA, matA.nnz,
                                matA.indptr, matA.indices, descrB, matB.nnz,
                                matB.indptr, matB.indices, descrC, indptrC)
@@ -89,8 +89,8 @@ if has_gpu:
         if nnz == 0:
             raise ValueError("result is entirely zero")
 
-        dataC = cuda.device_array(nnz, dtype=dtype)
-        indicesC = cuda.device_array(nnz, dtype='int32')
+        dataC = pyculib.cuda.device_array(nnz, dtype=dtype)
+        indicesC = pyculib.cuda.device_array(nnz, dtype='int32')
         clf.csrgeam(m, n, alpha, descrA, matA.nnz, matA.data,
                      matA.indptr, matA.indices, beta, descrB, matB.nnz, matB.data,
                      matB.indptr, matB.indices, descrC, dataC, indptrC,
@@ -3261,6 +3261,9 @@ def element_wrapper_gpu2(elems):
 
 # use pyculib instead of cupy
 def element_wrapper_gpu(elems):
+
+    clf = pyculib.sparse.Sparse()
+
     if len(elems) == 0:
         return []
     elem = elems[0]
@@ -3269,8 +3272,6 @@ def element_wrapper_gpu(elems):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    xg = cp.sparse.csr_matrix(shape, dtype='float32')
-    yg = cp.sparse.csr_matrix(shape, dtype='float32')
     #zg = cp.sparse.csr_matrix(shape)
     for elem in elems:
         xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
@@ -3292,6 +3293,7 @@ def element_wrapper_gpu(elems):
                 print 'can not load y', yn
                 continue
 
+            print 'running on gpu'
             tmp = clf.csrgemm_ez(x, y)
             if type(zg) != type(None):
                 #zg += tmp
@@ -3310,7 +3312,7 @@ def element_wrapper_gpu(elems):
                 zg = None
                 gc.collect()
 
-            del x, y, a, b, c, tmp
+            del x, y, tmp
             gc.collect()
 
         if type(zg) != type(None):
