@@ -53,7 +53,7 @@ except:
 # the sparse matrix add matrix on gpu
 if has_gpu:
     def csrgeam_ez(matA, matB, alpha=1, beta=1, transA='N', transB='N', descrA=None,
-                   descrB=None, descrC=None):
+                   descrB=None, descrC=None, clf=None):
         """
         Raises ValueError if the result is entirely zero.
 
@@ -67,9 +67,10 @@ if has_gpu:
         Calls XcsrgemmNnz and csrgemm
         """
         #tmpdescr = self.matdescr()
-        clf = pyculib.sparse.Sparse()
-        tmpdescr = pyculib.sparse.Sparse().matdescr()
+        if type(clf) == type(None):
+            clf = pyculib.sparse.Sparse()
 
+        tmpdescr = pyculib.sparse.Sparse().matdescr()
         descrA = descrA or tmpdescr
         descrB = descrB or tmpdescr
         descrC = descrC or tmpdescr
@@ -3297,7 +3298,7 @@ def element_wrapper_gpu(elems):
             tmp = clf.csrgemm_ez(x, y)
             if type(zg) != type(None):
                 #zg += tmp
-                zg = csrgeam_ez(zg, tmp)
+                zg = csrgeam_ez(zg, tmp, clf=clf)
             else:
                 zg = tmp
 
