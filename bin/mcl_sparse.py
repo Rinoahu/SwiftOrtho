@@ -29,6 +29,17 @@ except:
     cp = np
     has_gpu = False
 
+try:
+    import pyculib
+    clf = pyculib.sparse.Sparse()
+    has_gpu = True
+except:
+    clf = lambda x:x
+    has_gpu = False
+
+
+
+
 import multiprocessing as mp
 from multiprocessing import Manager, Array
 
@@ -36,6 +47,61 @@ try:
     from numba import jit
 except:
     jit = lambda x: x
+
+
+
+
+# the sparse matrix add matrix on gpu
+if has_gpu:
+    def csrgeam_ez(matA, matB, alpha=1, beta=1, transA='N', transB='N', descrA=None,
+                   descrB=None, descrC=None):
+        """
+        Raises ValueError if the result is entirely zero.
+
+        Returns
+        -------
+        CudaSparseMatrix
+            a csr matrix of the matrix product (matA * matB).
+
+        Notes
+        -----
+        Calls XcsrgemmNnz and csrgemm
+        """
+        #tmpdescr = self.matdescr()
+        tmpdescr = pyculib.sparse.Sparse().matdescr()
+
+        descrA = descrA or tmpdescr
+        descrB = descrB or tmpdescr
+        descrC = descrC or tmpdescr
+
+        dtype = matA.dtype
+        m, ka = matA.shape
+        kb, n = matB.shape
+        if ka != kb:
+            raise ValueError("incompatible matrices")
+        k = ka
+
+        indptrC = cuda.device_array(m + 1, dtype='int32')
+        nnz = clf.XcsrgeamNnz(m, n, descrA, matA.nnz,
+                               matA.indptr, matA.indices, descrB, matB.nnz,
+                               matB.indptr, matB.indices, descrC, indptrC)
+
+        if nnz == 0:
+            raise ValueError("result is entirely zero")
+
+        dataC = cuda.device_array(nnz, dtype=dtype)
+        indicesC = cuda.device_array(nnz, dtype='int32')
+        clf.csrgeam(m, n, alpha, descrA, matA.nnz, matA.data,
+                     matA.indptr, matA.indices, beta, descrB, matB.nnz, matB.data,
+                     matB.indptr, matB.indices, descrC, dataC, indptrC,
+                     indicesC)
+
+        return pyculib.sparse.CudaCSRMatrix().from_attributes(data=dataC, indices=indicesC,
+                                               indptr=indptrC, shape=(m, n),
+                                               dtype=dtype, nnz=nnz)
+else:
+    csrgemm_ez = lambda x,y: x+y
+
 
 
 # parallel matrix A * B
@@ -3098,9 +3164,7 @@ def element_wrapper_gpu1(elems):
     return outs
 
 
-
-
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu2(elems):
     if len(elems) == 0:
         return []
     elem = elems[0]
@@ -3150,7 +3214,7 @@ def element_wrapper_gpu(elems):
             else:
                 zg = tmp
 
-            if zg.nnz >= 5*10**8:
+            if zg.nnz >= 2*10**8:
                 if type(z) != type(None):
                     z += zg.get()
                 else:
@@ -3194,6 +3258,98 @@ def element_wrapper_gpu(elems):
 
     return outs
 
+
+# use pyculib instead of cupy
+def element_wrapper_gpu(elems):
+    if len(elems) == 0:
+        return []
+    elem = elems[0]
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xg = cp.sparse.csr_matrix(shape, dtype='float32')
+    yg = cp.sparse.csr_matrix(shape, dtype='float32')
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            tmp = clf.csrgemm_ez(x, y)
+            if type(zg) != type(None):
+                #zg += tmp
+                zg = csrgeam_ez(zg, tmp)
+            else:
+                zg = tmp
+
+            if zg.nnz >= 2*10**8:
+                if type(z) != type(None):
+                    #z += zg.get()
+                    z += zg.copy_to_host()
+                else:
+                    #z = zg.get()
+                    z = zg.copy_to_host()
+                del zg
+                zg = None
+                gc.collect()
+
+            del x, y, a, b, c, tmp
+            gc.collect()
+
+        if type(zg) != type(None):
+            if type(z) != type(None):
+                #z += zg.get()
+                z += zg.copy_to_host()
+            else:
+                #z = zg.get()
+                z = zg.copy_to_host()
+
+            del zg
+            zg = None
+            gc.collect()
+
+        if type(z) == type(None):
+            return None, None, None
+
+        z.eliminate_zeros()
+        z.data **= I
+        z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    return outs
 
 
 
