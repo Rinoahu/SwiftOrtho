@@ -2962,7 +2962,11 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
 
     zg.data **= I
     zg.data[zg.data < prune] = 0
+
+
     z = zg.get()
+    row_sum = np.asarray(zg.sum(0).get(), 'float32')[0]
+
     del zg, tmp
     gc.collect()
     z.eliminate_zeros()
@@ -2972,7 +2976,7 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
 
     #return row_sum
     #row_sum = z.sum(0)
-    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    #row_sum = np.asarray(z.sum(0), 'float32')[0]
     row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
     np.savez_compressed(row_sum_n, row_sum)
     #print 'row_sum is', type(row_sum)
@@ -2981,11 +2985,6 @@ def element_gpu(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I
     gc.collect()
 
     return row_sum_n, xyn, nnz
-
-
-
-
-
 
 
 
@@ -3012,7 +3011,7 @@ def element_wrapper_gpu0(elems):
     return outs
 
 
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu1(elems):
     if len(elems) == 0:
         return []
     elem = elems[0]
@@ -3072,6 +3071,7 @@ def element_wrapper_gpu(elems):
         zg.data[zg.data < prune] = 0
 
         z = zg.get()
+        row_sum = np.asarray(zg.sum(0).get(), 'float32')[0]
 
         #del zg, tmp
         del zg
@@ -3079,6 +3079,103 @@ def element_wrapper_gpu(elems):
         cp.cuda.memory.gc.collect()
 
         z.eliminate_zeros()
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        #row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    return outs
+
+
+
+
+def element_wrapper_gpu(elems):
+    if len(elems) == 0:
+        return []
+    elem = elems[0]
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xg = cp.sparse.csr_matrix(shape, dtype='float32')
+    yg = cp.sparse.csr_matrix(shape, dtype='float32')
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            #a, b, c = map(cp.asarray, [x.indices, x.indptr, x.data])
+            a = cp.asarray(x.indices, dtype=cp.int32)
+            b = cp.asarray(x.indptr, dtype=cp.int32)
+            c = cp.asarray(x.data, dtype=cp.float32)
+            xg.indices, xg.indptr, xg.data = a, b, c
+
+            #a, b, c = map(cp.asarray, [y.indices, y.indptr, y.data])
+            a = cp.asarray(y.indices, dtype=cp.int32)
+            b = cp.asarray(y.indptr, dtype=cp.int32)
+            c = cp.asarray(y.data, dtype=cp.float32)
+            yg.indices, yg.indptr, yg.data = a, b, c
+
+            tmp = cp.cusparse.csrgemm(xg, yg)
+            if type(zg) != type(None):
+                zg += tmp
+            else:
+                zg = tmp
+
+            if zg.nnz >= 5*10**8:
+                if type(z) != type(None):
+                    z += zg.get()
+                else:
+                    z = zg.get()
+                zg = None
+
+            del x, y, a, b, c, tmp
+            gc.collect()
+            cp.cuda.memory.gc.collect() 
+
+        if type(zg) != type(None):
+            if type(z) != type(None):
+                z += zg.get()
+            else:
+                z = zg.get()
+            zg = None
+
+        if type(z) == type(None):
+            return None, None, None
+
+
+        z.data **= I
+        z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
         nnz = z.nnz
         xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
         sparse.save_npz(xyn + '_new', z)
