@@ -3171,7 +3171,7 @@ def element_wrapper_gpu(elems):
         if type(z) == type(None):
             return None, None, None
 
-
+        z.eliminate_zeros()
         z.data **= I
         z.data[z.data < prune] = 0
         z.eliminate_zeros()
