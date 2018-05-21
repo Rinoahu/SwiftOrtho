@@ -3765,8 +3765,7 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
 
 
 
-
-def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand_gpu0(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -3813,6 +3812,107 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
     else:
         print 'row sum cpu > 1', cpu, len(xys)
         row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+
+    #nnz = max([elem[2] for elem in zns])
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
+    # rename
+    #for i in fns:
+    #    os.system('mv %s %s_old' % (i, i))
+    #    os.system('mv %s_new.npz %s' % (i, i))
+
+    #return row_sum, fns, nnz
+
+
+
+
+def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper_gpu, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        zns = pool.map(element_wrapper_gpu, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+
+
+    gc.collect()
+    #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        #row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        row_sums = pool.map(prsum, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
 
     gc.collect()
     rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
