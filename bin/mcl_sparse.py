@@ -3302,7 +3302,9 @@ def element_wrapper_gpu(elems):
             else:
                 zg = tmp
 
-            if zg.nnz >= 2*10**8:
+            if zg.nnz >= 5*10**7:
+            #if zg.nnz >= 10**5:
+                print 'copy to host', i, zg.nnz
                 if type(z) != type(None):
                     #z += zg.get()
                     z += zg.copy_to_host()
