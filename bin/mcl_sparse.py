@@ -3261,7 +3261,7 @@ def element_wrapper_gpu2(elems):
 
 
 # use pyculib instead of cupy
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu3(elems):
 
     clf = pyculib.sparse.Sparse()
 
@@ -3302,7 +3302,7 @@ def element_wrapper_gpu(elems):
             else:
                 zg = tmp
 
-            if zg.nnz >= 5*10**7:
+            if zg.nnz >= 2.5e7:
             #if zg.nnz >= 10**5:
                 print 'copy to host', i, zg.nnz
                 if type(z) != type(None):
@@ -3355,6 +3355,139 @@ def element_wrapper_gpu(elems):
         outs.append([row_sum_n, xyn, nnz])
 
     return outs
+
+
+# correct out of video memory error when using gpu
+def element_wrapper_gpu(elems):
+
+    clf = pyculib.sparse.Sparse()
+
+    if len(elems) == 0:
+        return []
+    elem = elems[0]
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            print 'running on gpu'
+            try:
+                tmp = clf.csrgemm_ez(x, y)
+                gpu = 1
+            except:
+                gpu = 0
+
+            if gpu == 1:
+                if type(zg) != type(None):
+                    #zg += tmp
+                    try:
+                        zg = csrgeam_ez(zg, tmp, clf=clf)
+                    except:
+                        gpu = 0
+                else:
+                    zg = tmp
+
+                if gpu == 1:
+                    if zg.nnz >= 2.5e7:
+                    #if zg.nnz >= 10**5:
+                        print 'copy to host', i, zg.nnz
+                        if type(z) != type(None):
+                            #z += zg.get()
+                            z+= zg.copy_to_host()
+                        else:
+                            #z = zg.get()
+                            z = zg.copy_to_host()
+
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                else:
+                    if type(z) != type(None):
+                        z += zg.copy_to_host()
+                    else:
+                        z = zg.copy_to_host()
+                    z = tmp.copy_to_host()
+                    del zg
+                    zg = None
+                    gc.collect()
+
+                del x, y, tmp
+
+            else:
+                if type(z) != type(None):
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                    z += x * y
+                else:
+                    z = x * y
+
+                del x, y
+
+        gc.collect()
+        if type(zg) != type(None):
+            if type(z) != type(None):
+                #z += zg.get()
+                z += zg.copy_to_host()
+            else:
+                #z = zg.get()
+                z = zg.copy_to_host()
+
+            del zg
+            zg = None
+            gc.collect()
+
+        if type(z) == type(None):
+            return None, None, None
+
+        z.eliminate_zeros()
+        z.data **= I
+        z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    return outs
+
 
 
 
