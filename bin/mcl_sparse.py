@@ -3358,7 +3358,7 @@ def element_wrapper_gpu3(elems):
 
 
 # correct out of video memory error when using gpu
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu4(elems):
 
     clf = pyculib.sparse.Sparse()
 
@@ -3372,6 +3372,150 @@ def element_wrapper_gpu(elems):
 
     #zg = cp.sparse.csr_matrix(shape)
     for elem in elems:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            print 'running on gpu'
+            try:
+                tmp = clf.csrgemm_ez(x, y)
+                gpu = 1
+            except:
+                gpu = 0
+
+            if gpu == 1:
+                if type(zg) != type(None):
+                    #zg += tmp
+                    try:
+                        zg = csrgeam_ez(zg, tmp, clf=clf)
+                    except:
+                        gpu = 0
+                else:
+                    zg = tmp
+
+                if gpu == 1:
+                    if zg.nnz >= 2.5e7:
+                    #if zg.nnz >= 10**5:
+                        print 'copy to host', i, zg.nnz
+                        if type(z) != type(None):
+                            #z += zg.get()
+                            z+= zg.copy_to_host()
+                        else:
+                            #z = zg.get()
+                            z = zg.copy_to_host()
+
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                else:
+                    if type(z) != type(None):
+                        z += zg.copy_to_host()
+                    else:
+                        z = zg.copy_to_host()
+                    z = tmp.copy_to_host()
+                    del zg
+                    zg = None
+                    gc.collect()
+
+                del x, y, tmp
+
+            else:
+                if type(z) != type(None):
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                    z += x * y
+                else:
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+                        z += x * y
+                    else:
+                        z = x * y
+
+                del x, y
+
+        gc.collect()
+        if type(zg) != type(None):
+            if type(z) != type(None):
+                #z += zg.get()
+                z += zg.copy_to_host()
+            else:
+                #z = zg.get()
+                z = zg.copy_to_host()
+
+            del zg
+            zg = None
+            gc.collect()
+
+        if type(z) == type(None):
+            return None, None, None
+
+        z.eliminate_zeros()
+        z.data **= I
+        z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    return outs
+
+
+# add multiple gpu support
+def element_wrapper_gpu(elems):
+
+
+    if len(elems) <= 1:
+        return []
+
+    # init gpu
+    gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
+    pyculib.cuda.close()
+    cuda.select_device(gid)
+    clf = pyculib.sparse.Sparse()
+
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems[1:]:
         xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
         zg = None
         z = None
@@ -3988,10 +4132,7 @@ def expand_gpu0(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune
 
     #return row_sum, fns, nnz
 
-
-
-
-def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand_gpu1(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4004,6 +4145,106 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
     nnz = 0
     row_sum = None
     xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper_gpu, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        zns = pool.map(element_wrapper_gpu, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+
+
+    gc.collect()
+    #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        #row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        row_sums = pool.map(prsum, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+
+    #nnz = max([elem[2] for elem in zns])
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
+    # rename
+    #for i in fns:
+    #    os.system('mv %s %s_old' % (i, i))
+    #    os.system('mv %s_new.npz %s' % (i, i))
+
+    #return row_sum, fns, nnz
+
+
+# add multiple gpu support
+def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    # print 'num set is', num_set
+
+    nnz = 0
+    row_sum = None
+    xys = [[elem] for elem in xrange(cpu)]
     flag = 0
     for x in xrange(d):
         for y in xrange(d):
