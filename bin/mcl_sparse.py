@@ -3509,7 +3509,7 @@ def element_wrapper_gpu(elems):
     pyculib.cuda.select_device(gid)
     clf = pyculib.sparse.Sparse()
 
-    #x, y, d, qry, shape, tmp_path, csr, I, prune = elem
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
     outs = []
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
