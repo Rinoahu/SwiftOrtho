@@ -3506,7 +3506,7 @@ def element_wrapper_gpu(elems):
     # init gpu
     gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
     pyculib.cuda.close()
-    cuda.select_device(gid)
+    pyculib.cuda.select_device(gid)
     clf = pyculib.sparse.Sparse()
 
     x, y, d, qry, shape, tmp_path, csr, I, prune = elem
