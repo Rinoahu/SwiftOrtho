@@ -3445,7 +3445,14 @@ def element_wrapper_gpu(elems):
 
                     z += x * y
                 else:
-                    z = x * y
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+                        z += x * y
+                    else:
+                        z = x * y
 
                 del x, y
 
