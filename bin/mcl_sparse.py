@@ -3637,10 +3637,9 @@ def element_wrapper_gpu(elems):
         cp.cuda.memory.gc.collect() 
         outs.append([row_sum_n, xyn, nnz])
 
+
+    pyculib.cuda.close()
     return outs
-
-
-
 
 
 def expand4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
