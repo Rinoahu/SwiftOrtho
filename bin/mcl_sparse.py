@@ -5609,6 +5609,8 @@ if __name__ == '__main__':
     # mul(qry, load=True)
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
+    gpu = min(cpu, gpu)
+
     if has_gpu and gpu > 0:
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
