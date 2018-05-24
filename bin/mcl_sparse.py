@@ -1653,7 +1653,7 @@ def mat_split7(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
 
 
 # remove 1k file limitation
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float16'):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1818,6 +1818,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
     #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
 
     return q2n, block
+
 
 
 
@@ -4708,7 +4709,7 @@ def sdiv1(parameters):
         return float('+inf')
 
 
-def sdiv(parameters, row_sum=None):
+def sdiv2(parameters, row_sum=None):
     fn, shape, csr, check, rtol, tmp_path = parameters
     if type(row_sum) == type(None):
         row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
@@ -4717,6 +4718,55 @@ def sdiv(parameters, row_sum=None):
     try:
         x = load_matrix(fn, shape=shape, csr=csr)
         x.data /= row_sum.take(x.indices, mode='clip')
+        sparse.save_npz(fn + '_new', x)
+        os.system('mv %s_new.npz %s' % (fn, fn))
+        if check:
+            try:
+                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                err = 0
+
+            del x_old
+            gc.collect()
+
+        del x
+        gc.collect()
+
+    except:
+        pass
+
+    if check and err != None:
+        return err
+    else:
+        return float('+inf')
+
+
+
+# add 16 bit float support
+def sdiv(parameters, row_sum=None, dtype='float16'):
+    fn, shape, csr, check, rtol, tmp_path = parameters
+    if type(row_sum) == type(None):
+        row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
+
+    err = None
+    try:
+        x = load_matrix(fn, shape=shape, csr=csr)
+        x.data /= row_sum.take(x.indices, mode='clip')
+        # convert entries to 16 bit float
+        #x.data = np.asarray(x.data, dtype=dtype)
         sparse.save_npz(fn + '_new', x)
         os.system('mv %s_new.npz %s' % (fn, fn))
         if check:
@@ -4901,8 +4951,6 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         cvg = False
 
     return fns, cvg, nnz
-
-
 
 
 
