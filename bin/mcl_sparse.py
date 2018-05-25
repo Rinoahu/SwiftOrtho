@@ -2684,7 +2684,7 @@ def merge_submat0(fns, shape=(10**7, 10**7), csr=False, cpu=1):
 
 
 # parallel merge_submat
-def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+def merge_submat1(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -2709,6 +2709,54 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
         zns = map(submerge_wrapper, xys)
     else:
         zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    for elem in zns:
+        for i in elem:
+            row_sum_s, fns_s, nnz_s, merged_s = i
+            if fns_s == None:
+                continue
+
+            fns_new.append(fns_s)
+            nnz = max(nnz, nnz_s)
+            if merged_s:
+                merged = True
+
+    print 'before merged', fns, zns
+    print 'after merged', fns_new, zns
+    return row_sum, fns_new, nnz, merged
+
+
+def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    print 'merged names', names
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            xy = [i, j, rows, cols, shape, tmp_path, csr]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    if cpu <= 1:
+        zns = map(submerge_wrapper, xys)
+    else:
+        pool = mp.Pool(cpu)
+        #zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+        zns = pool.map(submerge_wrapper, xys)
 
     nnz = 0
     row_sum = None
@@ -5455,7 +5503,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4
-            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
             else:
@@ -5543,7 +5591,7 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4
-            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
             else:
