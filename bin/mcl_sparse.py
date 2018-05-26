@@ -33,7 +33,6 @@ try:
     import pyculib
     has_gpu = True
 except:
-    clf = lambda x:x
     has_gpu = False
 
 
@@ -101,7 +100,7 @@ if has_gpu:
                                                indptr=indptrC, shape=(m, n),
                                                dtype=dtype, nnz=nnz)
 else:
-    csrgemm_ez = lambda x,y: x+y
+    csrgemm_ez = lambda x, y, clf: x+y
 
 
 
@@ -2730,7 +2729,8 @@ def merge_submat1(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     return row_sum, fns_new, nnz, merged
 
 
-def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+
+def merge_submat2(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
     tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
     names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz')]
@@ -2757,6 +2757,63 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
         pool = mp.Pool(cpu)
         #zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
         zns = pool.map(submerge_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+    nnz = 0
+    row_sum = None
+    merged = False
+    fns_new = []
+    for elem in zns:
+        for i in elem:
+            row_sum_s, fns_s, nnz_s, merged_s = i
+            if fns_s == None:
+                continue
+
+            fns_new.append(fns_s)
+            nnz = max(nnz, nnz_s)
+            if merged_s:
+                merged = True
+
+    print 'before merged', fns, zns
+    print 'after merged', fns_new, zns
+    return row_sum, fns_new, nnz, merged
+
+
+
+def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
+    #fns = [tmp_path+'/'+elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    tmp_path = os.sep.join(fns[0].split(os.sep)[:-1])
+    names = [elem.split(os.sep)[-1].split('.npz')[0].split('_') for elem in fns if elem.endswith('.npz') or elem.endswith('.npz_old')]
+    names = map(int, sum(names, []))
+    N = max(names) + 1
+    names = range(N)
+    print 'merged names', names
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for i in xrange(0, N, 2):
+        for j in xrange(0, N, 2):
+            I = str(i // 2)
+            J = str(j // 2)
+            out = tmp_path + os.sep + I + '_' + J + '.npz'
+            rows = names[i:i+2]
+            cols = names[j:j+2]
+            xy = [i, j, rows, cols, shape, tmp_path, csr]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    if cpu <= 1:
+        zns = map(submerge_wrapper, xys)
+    else:
+        pool = mp.Pool(cpu)
+        #zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+        zns = pool.map(submerge_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
 
     nnz = 0
     row_sum = None
@@ -3548,7 +3605,6 @@ def element_wrapper_gpu4(elems):
 # add multiple gpu support
 def element_wrapper_gpu(elems):
 
-
     if len(elems) <= 1:
         return []
 
@@ -3663,7 +3719,10 @@ def element_wrapper_gpu(elems):
             gc.collect()
 
         if type(z) == type(None):
-            return None, None, None
+            #print 'z is none, wtf'
+            #return None, None, None
+            #outs.append([None, None, None])
+            continue
 
         z.eliminate_zeros()
         z.data **= I
@@ -3689,6 +3748,163 @@ def element_wrapper_gpu(elems):
 
     pyculib.cuda.close()
     return outs
+
+
+
+def element_wrapper_gpu5(elems):
+
+    if len(elems) <= 1:
+        return []
+
+    # init gpu
+    try:
+        gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
+        pyculib.cuda.close()
+        pyculib.cuda.select_device(gid)
+        clf = pyculib.sparse.Sparse()
+    except:
+        clf = None
+
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems[1:]:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y', yn
+                continue
+
+            print 'running on gpu'
+            try:
+                tmp = clf.csrgemm_ez(x, y)
+                gpu = 1
+            except:
+                gpu = 0
+
+            if gpu == 1:
+                if type(zg) != type(None):
+                    #zg += tmp
+                    try:
+                        zg = csrgeam_ez(zg, tmp, clf=clf)
+                    except:
+                        gpu = 0
+                else:
+                    zg = tmp
+
+                if gpu == 1:
+                    if zg.nnz >= 2.5e7:
+                    #if zg.nnz >= 10**5:
+                        print 'copy to host', i, zg.nnz
+                        if type(z) != type(None):
+                            #z += zg.get()
+                            z+= zg.copy_to_host()
+                        else:
+                            #z = zg.get()
+                            z = zg.copy_to_host()
+
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                else:
+                    if type(z) != type(None):
+                        z += zg.copy_to_host()
+                    else:
+                        z = zg.copy_to_host()
+                    z = tmp.copy_to_host()
+                    del zg
+                    zg = None
+                    gc.collect()
+
+                del x, y, tmp
+
+            else:
+                if type(z) != type(None):
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                    z += x * y
+                else:
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+                        z += x * y
+                    else:
+                        z = x * y
+
+                del x, y
+
+        gc.collect()
+        if type(zg) != type(None):
+            if type(z) != type(None):
+                #z += zg.get()
+                z += zg.copy_to_host()
+            else:
+                #z = zg.get()
+                z = zg.copy_to_host()
+
+            del zg
+            zg = None
+            gc.collect()
+
+        if type(z) == type(None):
+            #return None, None, None
+            #continue
+            #outs.append([None, None, None])
+            continue
+
+        z.eliminate_zeros()
+        z.data **= I
+        z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    try:
+        pyculib.cuda.close()
+    except:
+        pass
+    return outs
+
+
+
+
 
 
 def expand4(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-5, cpu=1):
@@ -4038,7 +4254,14 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
         zns = map(element_wrapper, xys)
     else:
         print 'cpu > 1', cpu, len(xys)
-        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        zns = pool.map(element_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
 
     gc.collect()
     #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
@@ -4313,7 +4536,6 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
         pool.close()
         del pool
         gc.collect()
-
 
 
     gc.collect()
@@ -4967,6 +5189,7 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
     fp = np.memmap(tmp_path+'/row_sum_total.npy', mode='w+', dtype='float32', shape=row_sum.shape)
     fp[:] = row_sum
     fp.flush()
+    fp._mmap.close()
     # normalize
     #xys = [[elem, shape, csr, check, rtol, tmp_path] for elem in fns]
     xys = [[] for elem in xrange(cpu)]
@@ -4983,7 +5206,13 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         errs = map(sdiv_wrapper, xys)
     else:
         print 'norm cpu > 1', cpu, len(xys)
-        errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
+        #errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        errs = poo.map(sdiv_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
 
     gc.collect()
 
@@ -5503,6 +5732,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
@@ -5560,7 +5790,7 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
     N = len(q2n)
-    prune = min(prune, 100. / N)
+    prune = min(prune, .05 / N)
     shape = (N, N)
     # reorder matrix
     #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
@@ -5589,9 +5819,11 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             #os.system('rm %s/*.npz_old'%tmp_path)
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
+        #if nnz < chunk / 4 and len(fns) > cpu:
         if nnz < chunk / 4:
-            print 'we try to merge 4 block into one', nnz, chunk/4
-            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
             else:
@@ -5608,7 +5840,10 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
     g = load_matrix(fns[0], shape, True)
     cs = csgraph.connected_components(g)
     for fn in fns[1:]:
-        g = load_matrix(fn, shape, True)
+        try:
+            g = load_matrix(fn, shape, True)
+        except:
+            continue
         ci = csgraph.connected_components(g)
         cs = merge_connected(cs, ci)
 
@@ -5649,19 +5884,19 @@ def manual_print():
     print 'Usage:'
     print '    python %s -i foo.xyz -I 0.5 -a 8' % sys.argv[0]
     print 'Parameters:'
-    print '  -i: similarity matrix. A tab-delimited file which contain 3, 4, 12 or 14 columns'
-    print '  -I: inflation parameter for mcl'
-    print '  -a: cpu number'
-    print '  -b: chunk size. default value is 20000000'
-    print '  -o: name of output file'
-    print '  -s: T|F. whether the input similarity matrix is symmetric.'
-    print '  -g: how many gpus to use for speedup. Default is 0'
+    print '  -i: adjacency matrix. A tab-delimited file which contain 3, 4, 12 or 14 columns'
+    print '  -I: float. inflation parameter for mcl'
+    print '  -a: int. cpu number'
+    print '  -b: int. chunk size. default value is 20000000'
+    print '  -o: string. name of output file'
+    print '  -d: T|F. is the graph directed? Default is False'
+    print '  -g: int. how many gpus to use for speedup. Default is 0'
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-s': 'F', '-g': '0'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-d': 'F', '-g': '0'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -5684,7 +5919,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-s'], int(eval(args['-g']))
+        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g']))
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
