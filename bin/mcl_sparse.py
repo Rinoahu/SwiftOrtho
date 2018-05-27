@@ -1717,8 +1717,8 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
     #np.random.shuffle(qn)
     #flag = N - 1
     flag = 0
-    #for i in q2n:
-    for i in qn:
+    for i in q2n:
+    #for i in qn:
         q2n[i] = flag
         flag += 1
         #flag -= 1
