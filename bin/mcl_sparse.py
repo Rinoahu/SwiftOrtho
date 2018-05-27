@@ -1711,17 +1711,17 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
         print 'split block cpu=1', block, N // block, lines*3, chunk
         cpu = 1
 
-    qn = q2n.keys()
+    #qn = q2n.keys()
     #qn.sort()
     #np.random.seed(42)
-    np.random.shuffle(qn)
-    flag = N - 1
-    #flag = 0
+    #np.random.shuffle(qn)
+    #flag = N - 1
+    flag = 0
     #for i in q2n:
     for i in qn:
         q2n[i] = flag
-        #flag += 1
-        flag -= 1
+        flag += 1
+        #flag -= 1
     #for qid, i in izip(q2n, idxs):
     #    q2n[qid] = i
     #del qn
