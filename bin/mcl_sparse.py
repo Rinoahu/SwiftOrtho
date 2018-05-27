@@ -99,8 +99,11 @@ if has_gpu:
         return pyculib.sparse.CudaCSRMatrix().from_attributes(data=dataC, indices=indicesC,
                                                indptr=indptrC, shape=(m, n),
                                                dtype=dtype, nnz=nnz)
+
+    csrgemm_ez = pyculib.sparse.Sparse.csrgemm_ez
 else:
-    csrgemm_ez = lambda x, y, clf: x+y
+    csrgeam_ez = lambda x, y, clf: x+y
+    csrgemm_ez = lambda x, y: x*y
 
 
 
@@ -2754,13 +2757,13 @@ def merge_submat2(fns, shape=(10**7, 10**7), csr=False, cpu=1):
     if cpu <= 1:
         zns = map(submerge_wrapper, xys)
     else:
-        pool = mp.Pool(cpu)
-        #zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
-        zns = pool.map(submerge_wrapper, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(submerge_wrapper, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
     nnz = 0
     row_sum = None
@@ -2805,15 +2808,16 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
             flag += 1
 
     if cpu <= 1:
+    #if 1:
         zns = map(submerge_wrapper, xys)
     else:
-        pool = mp.Pool(cpu)
-        #zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
-        zns = pool.map(submerge_wrapper, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(submerge_wrapper, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
     nnz = 0
     row_sum = None
@@ -3603,7 +3607,7 @@ def element_wrapper_gpu4(elems):
 
 
 # add multiple gpu support
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu5(elems):
 
     if len(elems) <= 1:
         return []
@@ -3642,7 +3646,8 @@ def element_wrapper_gpu(elems):
 
             print 'running on gpu'
             try:
-                tmp = clf.csrgemm_ez(x, y)
+                #tmp = clf.csrgemm_ez(x, y)
+                tmp = csrgemm_ez(x, y)
                 gpu = 1
             except:
                 gpu = 0
@@ -3751,7 +3756,7 @@ def element_wrapper_gpu(elems):
 
 
 
-def element_wrapper_gpu5(elems):
+def element_wrapper_gpu(elems):
 
     if len(elems) <= 1:
         return []
@@ -3762,8 +3767,11 @@ def element_wrapper_gpu5(elems):
         pyculib.cuda.close()
         pyculib.cuda.select_device(gid)
         clf = pyculib.sparse.Sparse()
+        flag_gpu = 1
     except:
         clf = None
+        flag_gpu = 0
+
 
     x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
     outs = []
@@ -3792,10 +3800,14 @@ def element_wrapper_gpu5(elems):
                 continue
 
             print 'running on gpu'
-            try:
-                tmp = clf.csrgemm_ez(x, y)
-                gpu = 1
-            except:
+            if flag_gpu == 1:
+                try:
+                    #tmp = clf.csrgemm_ez(x, y)
+                    tmp = csrgemm_ez(x, y)
+                    gpu = 1
+                except:
+                    gpu = 0
+            else:
                 gpu = 0
 
             if gpu == 1:
@@ -4254,13 +4266,13 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
         zns = map(element_wrapper, xys)
     else:
         print 'cpu > 1', cpu, len(xys)
-        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        zns = pool.map(element_wrapper, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(element_wrapper, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
 
     gc.collect()
@@ -4429,13 +4441,13 @@ def expand_gpu1(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune
         zns = map(element_wrapper_gpu, xys)
     else:
         print 'cpu > 1', cpu, len(xys)
-        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        zns = pool.map(element_wrapper_gpu, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(element_wrapper_gpu, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
 
 
@@ -4457,13 +4469,13 @@ def expand_gpu1(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune
         row_sums = map(prsum, xys)
     else:
         print 'row sum cpu > 1', cpu, len(xys)
-        #row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        row_sums = pool.map(prsum, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #row_sums = pool.map(prsum, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
 
     gc.collect()
@@ -4529,14 +4541,13 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
         zns = map(element_wrapper_gpu, xys)
     else:
         print 'cpu > 1', cpu, len(xys)
-        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        zns = pool.map(element_wrapper_gpu, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
-
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper_gpu)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(element_wrapper_gpu, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
     gc.collect()
     #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
@@ -4556,13 +4567,13 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
         row_sums = map(prsum, xys)
     else:
         print 'row sum cpu > 1', cpu, len(xys)
-        #row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        row_sums = pool.map(prsum, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #row_sums = pool.map(prsum, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
 
     gc.collect()
@@ -5206,13 +5217,13 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
         errs = map(sdiv_wrapper, xys)
     else:
         print 'norm cpu > 1', cpu, len(xys)
-        #errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        errs = poo.map(sdiv_wrapper, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #errs = pool.map(sdiv_wrapper, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
     gc.collect()
 
@@ -5732,8 +5743,8 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4
-            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
             else:
@@ -5822,8 +5833,8 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
         #if nnz < chunk / 4 and len(fns) > cpu:
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
-            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
-            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
             else:
