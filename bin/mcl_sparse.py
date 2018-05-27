@@ -1655,7 +1655,7 @@ def mat_split7(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
 
 
 # remove 1k file limitation
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float16'):
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32'):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -1711,16 +1711,17 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
         print 'split block cpu=1', block, N // block, lines*3, chunk
         cpu = 1
 
-    #qn = q2n.keys()
+    qn = q2n.keys()
     #qn.sort()
     #np.random.seed(42)
-    #np.random.shuffle(qn)
-    #flag = N - 1
-    flag = 0
-    for i in q2n:
+    np.random.shuffle(qn)
+    flag = N - 1
+    #flag = 0
+    #for i in q2n:
+    for i in qn:
         q2n[i] = flag
-        flag += 1
-        #flag -= 1
+        #flag += 1
+        flag -= 1
     #for qid, i in izip(q2n, idxs):
     #    q2n[qid] = i
     #del qn
@@ -2807,8 +2808,8 @@ def merge_submat(fns, shape=(10**7, 10**7), csr=False, cpu=1):
             xys[flag%cpu].append(xy)
             flag += 1
 
-    if cpu <= 1:
-    #if 1:
+    #if cpu <= 1:
+    if 1:
         zns = map(submerge_wrapper, xys)
     else:
         zns = Parallel(n_jobs=cpu)(delayed(submerge_wrapper)(elem) for elem in xys)
