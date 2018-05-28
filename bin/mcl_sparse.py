@@ -3117,11 +3117,16 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         print 'xi', xi, 'yi', yi
         try:
             x = load_matrix(xn, shape=shape, csr=csr)
+            x.data[x.data<prune] = 0
+            x.eliminate_zeros()
         except:
             print 'can not load x', xn
             continue
         try:
             y = load_matrix(yn, shape=shape, csr=csr)
+            y.data[y.data<prune] = 0
+            y.eliminate_zeros()
+
         except:
             print 'can not load y', yn
             continue
@@ -3138,7 +3143,7 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         return None, None, None
 
     z.data **= I
-    z.data[z.data < prune] = 0
+    #z.data[z.data < prune] = 0
     z.eliminate_zeros()
 
     nnz = z.nnz
@@ -3887,7 +3892,7 @@ def element_wrapper_gpu5(elems):
     return outs
 
 
-
+# adjust prune step
 def element_wrapper_gpu(elems):
 
     if len(elems) <= 1:
@@ -3922,11 +3927,15 @@ def element_wrapper_gpu(elems):
             print 'xi', xi, 'yi', yi
             try:
                 x = load_matrix(xn, shape=shape, csr=csr)
+                x.data[x.data<prune] = 0
+                x.eliminate_zeros()
             except:
                 print 'can not load x', xn
                 continue
             try:
                 y = load_matrix(yn, shape=shape, csr=csr)
+                y.data[y.data<prune] = 0 
+                y.eliminate_zeros()
             except:
                 print 'can not load y', yn
                 continue
@@ -4021,7 +4030,7 @@ def element_wrapper_gpu(elems):
 
         z.eliminate_zeros()
         z.data **= I
-        z.data[z.data < prune] = 0
+        #z.data[z.data < prune] = 0
         z.eliminate_zeros()
 
         nnz = z.nnz
