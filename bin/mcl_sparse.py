@@ -3117,6 +3117,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         print 'xi', xi, 'yi', yi
         try:
             x = load_matrix(xn, shape=shape, csr=csr)
+            #x_i, x_j = x.nonzero()
+            #x.data[x_i==x_j] = 1
             x.data[x.data<prune] = 0
             x.eliminate_zeros()
         except:
@@ -3124,6 +3126,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             continue
         try:
             y = load_matrix(yn, shape=shape, csr=csr)
+            #y_i, y_j = y.nonzero()
+            #y.data[y_i==y_j] = 1
             y.data[y.data<prune] = 0
             y.eliminate_zeros()
 
@@ -3927,6 +3931,8 @@ def element_wrapper_gpu(elems):
             print 'xi', xi, 'yi', yi
             try:
                 x = load_matrix(xn, shape=shape, csr=csr)
+                #x_i, x_j = x.nonzero()
+                #x.data[x_i==x_j] = 1
                 x.data[x.data<prune] = 0
                 x.eliminate_zeros()
             except:
@@ -3934,6 +3940,8 @@ def element_wrapper_gpu(elems):
                 continue
             try:
                 y = load_matrix(yn, shape=shape, csr=csr)
+                #y_i, y_j = y.nonzero()
+                #y.data[y_i==y_j] = 1
                 y.data[y.data<prune] = 0 
                 y.eliminate_zeros()
             except:
