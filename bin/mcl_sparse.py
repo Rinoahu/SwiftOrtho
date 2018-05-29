@@ -98,13 +98,12 @@ if has_gpu:
                                                indptr=indptrC, shape=(m, n),
                                                dtype=dtype, nnz=nnz)
 
-    csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
+    #csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
 else:
 
     def csrgeam_ez(x, y, clf=None):
         return x+y
 
-    csrgemm_ez = lambda x, y: x*y
 
 
 
@@ -3908,14 +3907,15 @@ def element_wrapper_gpu(elems):
         gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
         pyculib.cuda.close()
         pyculib.cuda.select_device(gid)
+        csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
         clf = pyculib.sparse.Sparse()
         flag_gpu = 1
     except:
         clf = None
         flag_gpu = 0
+        csrgemm_ez = lambda x, y: x*y
 
-        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst)
-
+        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst), pyculib.sparse.Sparse()
 
     x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
     outs = []
@@ -3952,7 +3952,8 @@ def element_wrapper_gpu(elems):
                 continue
 
             if flag_gpu == 1:
-                print 'running on gpu', csrgemm_ez, csrgemm_ez(x, y).shape
+                #print 'running on gpu', csrgemm_ez, csrgemm_ez(x, y).shape
+                print 'running on gpu', csrgemm_ez
                 try:
                     #tmp = clf.csrgemm_ez(x, y)
                     tmp = csrgemm_ez(x, y)
