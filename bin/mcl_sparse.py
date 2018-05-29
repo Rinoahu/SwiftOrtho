@@ -36,8 +36,6 @@ except:
     has_gpu = False
 
 
-
-
 import multiprocessing as mp
 from multiprocessing import Manager, Array
 
@@ -100,7 +98,7 @@ if has_gpu:
                                                indptr=indptrC, shape=(m, n),
                                                dtype=dtype, nnz=nnz)
 
-    csrgemm_ez = pyculib.sparse.Sparse.csrgemm_ez
+    csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
 else:
 
     def csrgeam_ez(x, y, clf=None):
@@ -3916,6 +3914,8 @@ def element_wrapper_gpu(elems):
         clf = None
         flag_gpu = 0
 
+        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst)
+
 
     x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
     outs = []
@@ -3952,7 +3952,7 @@ def element_wrapper_gpu(elems):
                 continue
 
             if flag_gpu == 1:
-                print 'running on gpu'
+                print 'running on gpu', csrgemm_ez, csrgemm_ez(x, y).shape
                 try:
                     #tmp = clf.csrgemm_ez(x, y)
                     tmp = csrgemm_ez(x, y)
@@ -4022,6 +4022,7 @@ def element_wrapper_gpu(elems):
 
         gc.collect()
         if type(zg) != type(None):
+            print 'copy from device to host'
             if type(z) != type(None):
                 #z += zg.get()
                 z += zg.copy_to_host()
