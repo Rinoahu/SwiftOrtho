@@ -102,7 +102,10 @@ if has_gpu:
 
     csrgemm_ez = pyculib.sparse.Sparse.csrgemm_ez
 else:
-    csrgeam_ez = lambda x, y, clf: x+y
+
+    def csrgeam_ez(x, y, clf=None):
+        return x+y
+
     csrgemm_ez = lambda x, y: x*y
 
 
@@ -3948,8 +3951,8 @@ def element_wrapper_gpu(elems):
                 print 'can not load y', yn
                 continue
 
-            print 'running on gpu'
             if flag_gpu == 1:
+                print 'running on gpu'
                 try:
                     #tmp = clf.csrgemm_ez(x, y)
                     tmp = csrgemm_ez(x, y)
