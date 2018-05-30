@@ -3119,8 +3119,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             x = load_matrix(xn, shape=shape, csr=csr)
             #x_i, x_j = x.nonzero()
             #x.data[x_i==x_j] = 1
-            x.data[x.data<prune] = 0
-            x.eliminate_zeros()
+            #x.data[x.data<prune] = 0
+            #x.eliminate_zeros()
         except:
             print 'can not load x', xn
             continue
@@ -3128,8 +3128,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             y = load_matrix(yn, shape=shape, csr=csr)
             #y_i, y_j = y.nonzero()
             #y.data[y_i==y_j] = 1
-            y.data[y.data<prune] = 0
-            y.eliminate_zeros()
+            #y.data[y.data<prune] = 0
+            #y.eliminate_zeros()
 
         except:
             print 'can not load y', yn
@@ -3936,8 +3936,11 @@ def element_wrapper_gpu(elems):
                 x = load_matrix(xn, shape=shape, csr=csr)
                 #x_i, x_j = x.nonzero()
                 #x.data[x_i==x_j] = 1
-                x.data[x.data<prune] = 0
-                x.eliminate_zeros()
+                print 'before pruning x nnz', x.nnz
+                #x.data[x.data<prune] = 0
+                #x.eliminate_zeros()
+                print 'after pruning x nnz', x.nnz
+
             except:
                 print 'can not load x', xn
                 continue
@@ -3945,8 +3948,11 @@ def element_wrapper_gpu(elems):
                 y = load_matrix(yn, shape=shape, csr=csr)
                 #y_i, y_j = y.nonzero()
                 #y.data[y_i==y_j] = 1
-                y.data[y.data<prune] = 0 
-                y.eliminate_zeros()
+                print 'before pruning y nnz', y.nnz
+                #y.data[y.data<prune] = 0 
+                #y.eliminate_zeros()
+                print 'after pruning y nnz', y.nnz
+
             except:
                 print 'can not load y', yn
                 continue
@@ -5190,7 +5196,7 @@ def sdiv2(parameters, row_sum=None):
 
 
 # add 16 bit float support
-def sdiv(parameters, row_sum=None, dtype='float16'):
+def sdiv3(parameters, row_sum=None, dtype='float32'):
     fn, shape, csr, check, rtol, tmp_path = parameters
     if type(row_sum) == type(None):
         row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
@@ -5237,6 +5243,58 @@ def sdiv(parameters, row_sum=None, dtype='float16'):
         return float('+inf')
 
 
+# prune element < threshold
+def sdiv(parameters, row_sum=None, dtype='float32'):
+    fn, shape, csr, check, rtol, tmp_path, prune = parameters
+    if type(row_sum) == type(None):
+        row_sum = np.asarray(np.memmap(tmp_path+'/row_sum_total.npy', mode='r', dtype='float32'))
+
+    err = None
+    try:
+        x = load_matrix(fn, shape=shape, csr=csr)
+        x.data /= row_sum.take(x.indices, mode='clip')
+        # convert entries to 16 bit float
+        #x.data = np.asarray(x.data, dtype=dtype)
+        x.data[x.data < prune] = 0
+        x.eliminate_zeros()
+        sparse.save_npz(fn + '_new', x)
+        os.system('mv %s_new.npz %s' % (fn, fn))
+        if check:
+            try:
+                x_old = load_matrix(fn + '_old', shape=shape, csr=csr)
+            except:
+                x_old = None
+            # print 'start norm4 x x_old', abs(x - x_old).shape
+
+            if type(x) != type(None) and type(x_old) != type(None):
+                gap = abs(x - x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            elif type(x) != type(None) and type(x_old) == type(None):
+                gap = abs(x)
+                err = max(err, gap.max())
+            elif type(x) == type(None) and type(x_old) != type(None):
+                gap = abs(x_old) - abs(rtol * x_old)
+                err = max(err, gap.max())
+            else:
+                err = 0
+
+            del x_old
+            gc.collect()
+
+        del x
+        gc.collect()
+
+    except:
+        pass
+
+    if check and err != None:
+        return err
+    else:
+        return float('+inf')
+
+
+
+
 # sdiv for batch input
 def sdiv_wrapper0(elem):
     out = []
@@ -5245,6 +5303,8 @@ def sdiv_wrapper0(elem):
         out.append(tmp)
 
     return out
+
+
 
 def sdiv_wrapper(elem):
     if len(elem) > 0:
@@ -5318,7 +5378,7 @@ def norm6(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rto
     return fns, cvg, nnz
 
 
-def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1):
+def norm7(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -5361,6 +5421,86 @@ def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol
     for elem in fns:
         #elem = fns[i]
         xy = [elem, shape, csr, check, rtol, tmp_path] 
+        xys[flag%cpu].append(xy)
+        flag += 1
+
+
+    if cpu <= 1:
+        print 'norm cpu < 1', cpu, len(xys)
+        errs = map(sdiv_wrapper, xys)
+    else:
+        print 'norm cpu > 1', cpu, len(xys)
+        #errs = Parallel(n_jobs=cpu)(delayed(sdiv_wrapper)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        errs = pool.map(sdiv_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+    gc.collect()
+
+    if check:
+        #err = max(errs)
+        err = 0
+        for i in errs:
+            for j in i:
+                err = max(err, j)
+
+        cvg = err < atol and True or False
+    else:
+        cvg = False
+
+    return fns, cvg, nnz
+
+
+
+# remove element < prune
+def norm(qry, shape=(10**8, 10**8), tmp_path=None, row_sum=None, csr=False, rtol=1e-5, atol=1e-8, check=False, cpu=1, prune=None):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    if prune == None:
+        prune = .05 / shape[0]
+
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+    fns = []
+    for i in xrange(d):
+        for j in xrange(d):
+            fn = tmp_path + '/' + str(i) + '_' + str(j) + '.npz'
+            fns.append(fn)
+
+    nnz = 0
+    #fns = [tmp_path + '/' + elem for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+
+    if isinstance(row_sum, type(None)):
+        row_sum = np.zeros(shape[0], dtype='float32')
+        for i in fns:
+            try:
+                x = load_matrix(i, shape=shape, csr=csr)
+                nnz = max(nnz, x.nnz)
+                y = np.asarray(x.sum(0))[0]
+                row_sum += y
+                del x
+                del y
+                gc.collect()
+            except:
+                continue
+    #print 'norm nnz is', nnz, i, fns
+    # write row sum to disk
+    fp = np.memmap(tmp_path+'/row_sum_total.npy', mode='w+', dtype='float32', shape=row_sum.shape)
+    fp[:] = row_sum
+    fp.flush()
+    fp._mmap.close()
+    # normalize
+    #xys = [[elem, shape, csr, check, rtol, tmp_path] for elem in fns]
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for elem in fns:
+        #elem = fns[i]
+        xy = [elem, shape, csr, check, rtol, tmp_path, prune] 
         xys[flag%cpu].append(xy)
         flag += 1
 
@@ -5954,7 +6094,7 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
     N = len(q2n)
-    prune = min(prune, .05 / N)
+    prune = min(prune, 100. / N)
     shape = (N, N)
     # reorder matrix
     #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
