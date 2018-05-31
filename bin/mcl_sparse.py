@@ -3150,13 +3150,22 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     #z.data[z.data < prune] = 0
     z.eliminate_zeros()
 
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+
+
     nnz = z.nnz
     xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
     sparse.save_npz(xyn + '_new', z)
 
     #return row_sum
     #row_sum = z.sum(0)
-    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    #row_sum = np.asarray(z.sum(0), 'float32')[0]
     row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
     np.savez_compressed(row_sum_n, row_sum)
     #print 'row_sum is', type(row_sum)
@@ -3897,7 +3906,7 @@ def element_wrapper_gpu5(elems):
 
 
 # adjust prune step
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu6(elems):
 
     if len(elems) <= 1:
         return []
@@ -3980,7 +3989,7 @@ def element_wrapper_gpu(elems):
                     zg = tmp
 
                 if gpu == 1:
-                    if zg.nnz >= 2.5e7:
+                    if zg.nnz >= 1.5e8:
                     #if zg.nnz >= 10**5:
                         print 'copy to host', i, zg.nnz
                         if type(z) != type(None):
@@ -4073,6 +4082,194 @@ def element_wrapper_gpu(elems):
     except:
         pass
     return outs
+
+
+# adjust prune
+def element_wrapper_gpu(elems):
+
+    if len(elems) <= 1:
+        return []
+
+    # init gpu
+    try:
+        gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
+        pyculib.cuda.close()
+        pyculib.cuda.select_device(gid)
+        csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
+        clf = pyculib.sparse.Sparse()
+        flag_gpu = 1
+    except:
+        clf = None
+        flag_gpu = 0
+        csrgemm_ez = lambda x, y: x*y
+
+        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst), pyculib.sparse.Sparse()
+
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems[1:]:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = None
+        z = None
+        #tmp = cp.sparse.csr_matrix(shape)
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+                #x_i, x_j = x.nonzero()
+                #x.data[x_i==x_j] = 1
+                #print 'before pruning x nnz', x.nnz
+                #x.data[x.data<prune] = 0
+                #x.eliminate_zeros()
+                #print 'after pruning x nnz', x.nnz
+
+            except:
+                print 'can not load x', xn
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+                #y_i, y_j = y.nonzero()
+                #y.data[y_i==y_j] = 1
+                #print 'before pruning y nnz', y.nnz
+                #y.data[y.data<prune] = 0 
+                #y.eliminate_zeros()
+                #print 'after pruning y nnz', y.nnz
+
+            except:
+                print 'can not load y', yn
+                continue
+
+            if flag_gpu == 1:
+                #print 'running on gpu', csrgemm_ez, csrgemm_ez(x, y).shape
+                print 'running on gpu', csrgemm_ez
+                try:
+                    #tmp = clf.csrgemm_ez(x, y)
+                    tmp = csrgemm_ez(x, y)
+                    gpu = 1
+                except:
+                    gpu = 0
+            else:
+                gpu = 0
+
+            if gpu == 1:
+                if type(zg) != type(None):
+                    #zg += tmp
+                    try:
+                        zg = csrgeam_ez(zg, tmp, clf=clf)
+                    except:
+                        gpu = 0
+                else:
+                    zg = tmp
+
+                if gpu == 1:
+                    if zg.nnz >= 1.5e8:
+                    #if zg.nnz >= 10**5:
+                        print 'copy to host', i, zg.nnz
+                        if type(z) != type(None):
+                            #z += zg.get()
+                            z+= zg.copy_to_host()
+                        else:
+                            #z = zg.get()
+                            z = zg.copy_to_host()
+
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                else:
+                    if type(z) != type(None):
+                        z += zg.copy_to_host()
+                    else:
+                        z = zg.copy_to_host()
+                    z = tmp.copy_to_host()
+                    del zg
+                    zg = None
+                    gc.collect()
+
+                print 'x nnz', x.nnz, y.nnz, tmp.nnz
+                del x, y, tmp
+
+            else:
+                if type(z) != type(None):
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+
+                    z += x * y
+                else:
+                    if type(zg) != type(None):
+                        z += zg.copy_to_host()
+                        del zg
+                        zg = None
+                        gc.collect()
+                        z += x * y
+                    else:
+                        z = x * y
+
+                del x, y
+
+        gc.collect()
+        if type(zg) != type(None):
+            print 'copy from device to host'
+            if type(z) != type(None):
+                #z += zg.get()
+                z += zg.copy_to_host()
+            else:
+                #z = zg.get()
+                z = zg.copy_to_host()
+
+            del zg
+            zg = None
+            gc.collect()
+
+        if type(z) == type(None):
+            #return None, None, None
+            #continue
+            #outs.append([None, None, None])
+            continue
+
+        z.eliminate_zeros()
+        z.data **= I
+        #z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        # remove element < prune
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+        z.data[norm_dat < prune] = 0 
+        z.eliminate_zeros()
+       
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        #row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    try:
+        pyculib.cuda.close()
+    except:
+        pass
+    return outs
+
 
 
 
@@ -5255,8 +5452,11 @@ def sdiv(parameters, row_sum=None, dtype='float32'):
         x.data /= row_sum.take(x.indices, mode='clip')
         # convert entries to 16 bit float
         #x.data = np.asarray(x.data, dtype=dtype)
+        print 'norm before nnz', x.nnz, fn
         x.data[x.data < prune] = 0
         x.eliminate_zeros()
+        print 'norm after nnz', x.nnz, fn
+
         sparse.save_npz(fn + '_new', x)
         os.system('mv %s_new.npz %s' % (fn, fn))
         if check:
