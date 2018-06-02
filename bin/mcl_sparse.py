@@ -2022,10 +2022,11 @@ def load_matrix_gpu(qry, shape=(10**8, 10**8), csr=False):
     else:
         x = sparse.load_npz(qry)
         block = x.shape[0]
-        i = int(qry.split('_')[-1].split('.npz')[0])
+        ij = qry.split(os.sep)[-1].split('.npz')[0].split('_')[:2]
+        i, j = map(int, ij)
         a, b = x.nonzero()
         a += i * block
-        b += i * block
+        b += j * block
         c = x.data
         x = sparse.csr_matrix((c, (a, b)), shape=shape)
         # print 'loading shape is', shape, qry, x.shape
@@ -5733,13 +5734,16 @@ def sdiv_gpu(parameters, row_sum=None, dtype='float32'):
     try:
         print 'sdiv_gpu', fn, 'csr', csr
         x = load_matrix(fn, shape=shape, csr=csr)
-        print 'sdiv_gpu load x', x.shape
 
         j = int(fn.split('_')[-1].split('.npz')[0])
         start = j * block
         end = start + block
 
-        x.data /= row_sum[start: end].take(x.indices, mode='clip')
+        rs_part = row_sum[start: end]
+
+        print 'sdiv_gpu load x', x.shape, 'row sum', rs_part.shape
+
+        x.data /= rs_part.take(x.indices, mode='clip')
 
 
         # convert entries to 16 bit float
@@ -6576,7 +6580,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
     N = len(q2n)
-    prune = min(prune, 100. / N)
+    #prune = min(prune, 100. / N)
     shape = (N, N)
     # reorder matrix
     #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
@@ -6758,7 +6762,8 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
     q2n, block = mat_split_gpu(qry, chunk=chunk, cpu=cpu, sym=sym)
     N = len(q2n)
-    prune = min(prune, 100. / N)
+    #prune = min(prune, 100. / N)
+
     #shape = (N, N)
     shape = (block, block)
     # reorder matrix
