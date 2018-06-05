@@ -2035,6 +2035,27 @@ def load_matrix_gpu(qry, shape=(10**8, 10**8), csr=False):
 
 
 
+# prune function
+def prune(x, p=1/4e4, S=500, R=300):
+    R = min(S, R)
+    R, C = x.shape
+    dif = np.diff(x.indptr)
+    dif_s = np.where(dif > R)
+    for i in dif_s:
+        st = x.indptr[st]
+        ed = x.indptr[st+1]
+        dat = x.data[st: ed]
+        n = (dat > p).sum()
+        if n > S:
+            dat[dat.argsort()[:-S]] = 0
+        elif n < R:
+            dat[dat.argsort()[:-R]] = 0
+        else:
+            dat[dat<p] = 0
+
+    x.eliminate_zeros()
+    return x
+
 
 
 # split row block and col block into row_col block
