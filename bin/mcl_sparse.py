@@ -3219,7 +3219,7 @@ def submerge_gpu(xys):
         z_h = sparse.hstack(z_hs)
         z_vs.append(z_h)
 
-    z = sparse.vstack(z_v)
+    z = sparse.vstack(z_vs)
 
     if type(z) != type(None):
         sparse.save_npz(out+'_merge', z)
