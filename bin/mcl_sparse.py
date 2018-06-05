@@ -6975,6 +6975,7 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+                shape = (shape[0]*2, shape[1]*2)
             else:
                 print 'we failed to merge'
         else:
