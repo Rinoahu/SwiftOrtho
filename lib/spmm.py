@@ -8,11 +8,23 @@ except:
     jit = lambda x: x
 
 
+#jit = lambda x: x
+
+
 @jit
 def resize(a, new_size):
     new = np.empty(new_size, a.dtype)
     new[:a.size] = a
     return new
+
+
+@jit
+def resize0(a, new_size):
+    new = np.asarray(np.memmap('tmp.npy', mode='w+', shape=new_size, dtype=a.dtype), dtype=a.dtype)
+    #new = np.empty(new_size, a.dtype)
+    new[:a.size] = a
+    return new
+
 
 
 # csr matrix by matrix

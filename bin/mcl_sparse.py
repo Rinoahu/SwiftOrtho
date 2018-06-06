@@ -14,7 +14,7 @@ import gzip
 import bz2 as bzip2
 import bz2
 from itertools import izip
-import numpy as np
+#import numpy as np
 from scipy import sparse as sps
 
 
@@ -43,11 +43,9 @@ import multiprocessing as mp
 from multiprocessing import Manager, Array
 
 try:
-    from numba import jit
+    from numba import jit, cuda
 except:
     jit = lambda x: x
-
-
 
 
 # the sparse matrix add matrix on gpu
@@ -4778,12 +4776,13 @@ def element_wrapper_gpu7(elems):
     return outs
 
 
-def element_wrapper_gpu(elems, device=1):
+def element_wrapper_gpu(elems):
 
     if len(elems) <= 1:
         return []
 
     # init gpu
+    device = len(cuda.gpus.lst)
     gid = elems[0] % device
     cp.cuda.Device(gid).use()
     #csrmm = lambda x,y: cp.cusparse.csrgemm(cp.sparse.csr_matrix(x), cp.sparse.csr_matrix(y))
@@ -7334,8 +7333,9 @@ if __name__ == '__main__':
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
     gpu = min(cpu, gpu)
+    device = len(cuda.gpus.lst)
 
-    if has_gpu and gpu > 0:
+    if has_gpu and gpu > 0 and device > 0:
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
         mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
