@@ -4826,8 +4826,7 @@ def element_wrapper_gpu(elems, device=1):
                 z += zg.get()
                 #z += x * y
                 z += csrmm_ez(x, y)
-
-                del zg, tmp, x, y
+                del zg, x, y
                 gc.collect()
                 zg = cp.sparse.csr_matrix(shape, dtype='float32')
 
