@@ -4823,9 +4823,11 @@ def element_wrapper_gpu(elems, device=1):
 
                 #zg += csrmm(x, y)
             except:
+                print 'cp_gpu fail'
                 z += zg.get()
                 #z += x * y
                 z += csrmm_ez(x, y)
+                print 'z_nnz', z.nnz
                 del zg, x, y
                 gc.collect()
                 zg = cp.sparse.csr_matrix(shape, dtype='float32')
@@ -4838,7 +4840,7 @@ def element_wrapper_gpu(elems, device=1):
                
 
         gc.collect()
-        z = zg.get()
+        z += zg.get()
         del zg
         zg = None
         gc.collect()
@@ -4877,10 +4879,10 @@ def element_wrapper_gpu(elems, device=1):
         cp.cuda.memory.gc.collect() 
         outs.append([row_sum_n, xyn, nnz])
 
-    try:
-        pyculib.cuda.close()
-    except:
-        pass
+    #try:
+    #    pyculib.cuda.close()
+    #except:
+    #    pass
     return outs
 
 
