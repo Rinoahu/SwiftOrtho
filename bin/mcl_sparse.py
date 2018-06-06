@@ -3199,10 +3199,21 @@ def submerge_gpu(xys):
     merged = False
     #nrow, ncol = shape
     #z = sparse.csr_matrix(nrow*2, ncol*2)
+    if len(rows) <= 1:
+        Rows = [rows[0], rows[0]+1]
+    else:
+        Rows = rows
+
+    if len(cols) <= 1:
+        Cols = [cols[0], cols[0]+1]
+    else:
+        Cols = cols
+
+
     z_vs = []
-    for r in rows:
+    for r in Rows:
         z_hs = []
-        for c in cols:
+        for c in Cols:
             R, C = map(str, [r, c])
             rc = tmp_path + os.sep + R + '_' + C + '.npz'
             try:
@@ -3210,16 +3221,18 @@ def submerge_gpu(xys):
                 print 'rm old file', rc
                 os.system('rm %s'%rc)
                 print 'rmed old file', rc
+                print 'before_mreged_z is', tmp.shape
 
             except:
                 tmp = sparse.csr_matrix(shape, dtype='float32')
 
             z_hs.append(tmp)
 
-        z_h = sparse.hstack(z_hs)
+        z_h = sparse.hstack(z_hs, format='csr')
         z_vs.append(z_h)
 
-    z = sparse.vstack(z_vs)
+    z = sparse.vstack(z_vs, format='csr')
+    print 'after_mreged_z is', z.shape
 
     if type(z) != type(None):
         sparse.save_npz(out+'_merge', z)
@@ -4453,7 +4466,7 @@ def element_wrapper_gpu6(elems):
 
 
 # adjust prune
-def element_wrapper_gpu(elems):
+def element_wrapper_gpu7(elems):
 
     if len(elems) <= 1:
         return []
@@ -4602,6 +4615,111 @@ def element_wrapper_gpu(elems):
             gc.collect()
 
         if type(z) == type(None):
+            #return None, None, None
+            #continue
+            #outs.append([None, None, None])
+            continue
+
+        z.eliminate_zeros()
+        z.data **= I
+        #z.data[z.data < prune] = 0
+        z.eliminate_zeros()
+
+        # remove element < prune
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+        z.data[norm_dat < prune] = 0 
+        z.eliminate_zeros()
+       
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        #return row_sum
+        #row_sum = z.sum(0)
+        #row_sum = np.asarray(z.sum(0), 'float32')[0]
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        #print 'row_sum is', type(row_sum)
+        #return row_sum, xyn, nnz
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    try:
+        pyculib.cuda.close()
+    except:
+        pass
+    return outs
+
+
+def element_wrapper_gpu(elems, device=1):
+
+    if len(elems) <= 1:
+        return []
+
+    # init gpu
+    gid = elems[0] % device
+    cp.cuda.Device(gid).use()
+    #csrmm = lambda x,y: cp.cusparse.csrgemm(cp.sparse.csr_matrix(x), cp.sparse.csr_matrix(y))
+
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    #zg = cp.sparse.csr_matrix(shape)
+    for elem in elems[1:]:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+        zg = cp.sparse.csr_matrix(shape, dtype='float32')
+        z = sparse.csr_matrix(shape, dtype='float32')
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x elem_wrapper_gpu', xn, csr
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+
+            except:
+                print 'can not load y elem_wrapper_gpu', yn, csr
+                continue
+
+            try:
+                xc = cp.sparse.csr_matrix(x)
+                yc = cp.sparse.csr_matrix(y)
+                zg += cp.sparse.csrgemm(xc, yc)
+                del x, y, xc, yc
+                gc.collect()
+
+                #zg += csrmm(x, y)
+            except:
+                z += zg.get()
+                z += x * y
+                del zg, tmp, x, y
+                gc.collect()
+                zg = cp.sparse.csr_matrix(shape, dtype='float32')
+
+            if zg.nnz > 5e7:
+                z += zg.get()
+                del zg
+                gc.collect()
+                zg = cp.sparse.csr_matrix(shape, dtype='float32')
+               
+
+        gc.collect()
+        z = zg.get()
+        del zg
+        zg = None
+        gc.collect()
+
+        if z.nnz == 0:
             #return None, None, None
             #continue
             #outs.append([None, None, None])
@@ -6967,8 +7085,8 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             #os.system('rm %s/*.npz_old'%tmp_path)
             fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
-        #if 0:
-        if nnz < chunk / 4 and len(fns) / 4  > cpu:
+        if 0:
+        #if nnz < chunk / 4 and len(fns) / 4  > cpu:
         #if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
             row_sum_new, fns_new, nnz_new, merged = merge_submat_gpu(fns, shape, csr=True, cpu=cpu)
