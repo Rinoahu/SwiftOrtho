@@ -19,17 +19,17 @@ def resize(a, new_size):
 
 
 @jit
-def resize0(a, new_size):
+def resize_mmp(a, new_size):
     new = np.asarray(np.memmap('tmp.npy', mode='w+', shape=new_size, dtype=a.dtype), dtype=a.dtype)
-    #new = np.empty(new_size, a.dtype)
     new[:a.size] = a
     return new
 
 
 
 # csr matrix by matrix
+# original version
 @jit
-def csrmm(xr, xc, x, yr, yc, y):
+def csrmm_ori(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
     D = yr.shape[0]
@@ -107,10 +107,90 @@ def csrmm(xr, xc, x, yr, yc, y):
     #return zmtx
 
 
+# memory save version
+@jit
+def csrmm_msav(xr, xc, x, yr, yc, y):
+
+    R = xr.shape[0]
+    D = yr.shape[0]
+    chk = x.size + y.size
+    nnz = chk
+    print 'nnz size', nnz
+    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
+    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
+    data = np.zeros(D-1, dtype=x.dtype)
+    #print 'zr init', zr[:5]
+
+    # hash table
+    #visit = np.zeros(yr.size, 'int8')
+    index = np.zeros(yr.size, yr.dtype)
+    flag = 0
+    zptr = 0
+    for i in xrange(R-1):
+
+        # get ith row of a
+        kst, ked = xr[i], xr[i + 1]
+        if kst == ked:
+            zr[i+1] = zr[i]
+            continue
+
+        ks = 0
+        nz = 0
+        for k in xrange(kst, ked):
+            x_col, x_val = xc[k], x[k]
+
+            # get row of b
+            jst, jed = yr[x_col], yr[x_col + 1]
+            if jst == jed:
+                continue
+
+            nz += jed - jst
+            flag += 2
+
+            for j in xrange(jst, jed):
+                y_col, y_val = yc[j], y[j]
+                y_col_val = data[y_col] + x_val * y_val
+                if y_col_val != 0:
+                    index[ks] = y_col
+                    ks += 1
+                    flag += 2
+
+                data[y_col] = y_col_val
+                flag += 3
+
+
+        zend = zr[i] + nz
+        if zend > nnz:
+            nnz += chk
+            #print('resize sparse matrix', n_size)
+            zc = resize(zc, nnz)
+            z = resize(z, nnz)
+            flag += 2
+
+        for pt in xrange(ks):
+            y_col = index[pt]
+            #mx_col = max(mx_col, idx)
+            y_col_val = data[y_col]
+            if y_col_val != 0:
+                zc[zptr], z[zptr] = y_col, y_col_val
+                zptr += 1
+                data[y_col] = 0
+                flag += 3
+
+            flag += 1
+
+
+        zr[i+1] = zptr
+
+    return zr, zc[:zptr], z[:zptr], flag
+    #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
+    #return zmtx
+
+
 
 #csrmm_jit = jit(csrmm)
 
-def csrmm_ez(a, b, use_jit=True):
+def csrmm_ez(a, b, mm='msav'):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
 
@@ -122,6 +202,10 @@ def csrmm_ez(a, b, use_jit=True):
     #    zr, zc, z, flag = csrmm_jit(xr, xc, x, yr, yc, y)
     #else:
     #    zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
+    if mm == 'msav':
+        csrmm = csrmm_msav
+    elif mm == 'ori':
+        csrmm = csrmm_ori
 
     zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
 
@@ -131,6 +215,107 @@ def csrmm_ez(a, b, use_jit=True):
     print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
     zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     return zmtx
+
+
+# csr by csc
+@jit
+def csr_by_csc(xr, xc, x, yc, yr, y):
+
+    R = xr.size
+    C = yc.size
+    chk = x.size + y.size
+    nnz = chk
+    print 'nnz size', nnz
+    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
+    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
+
+    ptr = 0
+    flag = 0
+    for i in xrange(R-1):
+
+        # get ith row of a
+        rst, red = xr[i], xr[i + 1]
+        #N = red - rst
+        if rst == red:
+            zr[i+1] = ptr
+            #flag += 1
+            continue
+        #flag += 2
+        for j in xrange(C-1):
+            # get row of b
+            cst, ced = yc[j], yc[j+1]
+            #flag += 2
+            if cst == ced:
+                continue
+
+            #M = ced - cst
+            #D = min(N, M)
+            #D = red-rst, ced-cst)
+            #for k in xrange(D):
+
+            p0, p1 = rst, cst
+            val = 0
+            #flag += 3
+            while p0 < red and p1 < ced:
+            #for d in xrange(D):
+                if xc[p0] < yr[p1]:
+                    p0 += 1
+                elif xc[p0] > yr[p1]:
+                    p1 += 1
+                else:
+                    val += x[p0] * y[p1]
+                    p0 += 1
+                    p1 += 1
+                flag += 1
+            if val > 0:
+                if ptr < nnz:
+                    z[ptr] = val
+                    zc[ptr] = j
+                    ptr += 1
+                else:
+                    nnz += chk
+                    z = resize(z, nnz)
+                    zc = resize(zc, nnz)
+                    z[ptr] = val
+                    zc[ptr] = j
+                    ptr += 1
+
+                flag += 1
+        zr[i+1] = ptr
+
+    print 'final_ptr', ptr
+    return zr, zc[:ptr], z[:ptr], flag
+    #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
+    #return zmtx
+
+
+# csr by csc version, slow
+def cscmm_ez(a, c, use_jit=True):
+    xr, xc, x = a.indptr, a.indices, a.data
+    b = c.tocsc()
+    yc, yr, y = b.indptr, b.indices, b.data
+
+    print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
+
+
+    st = time()
+    #if use_jit:
+    #    zr, zc, z, flag = csrmm_jit(xr, xc, x, yr, yc, y)
+    #else:
+    #    zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
+
+    zr, zc, z, flag = csr_by_csc(xr, xc, x, yc, yr, y)
+
+    print 'total operation', flag
+    print 'csrmm cpu', time() - st
+    print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
+    print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
+    zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    return zmtx
+
+
+
+
 
 
 if __name__ == '__main__':
@@ -155,14 +340,20 @@ if __name__ == '__main__':
     #small = sps.random(100, 100, .01, format='csr')
     #small_xy = csrmm_ez(small, small)
 
+    st = time()
+    y0 = csrmm_ez(x, y, 'msav')
+    print 'my sparse msav', time() - st, y0.shape
+
+
+
 
     st = time()
-    y0 = csrmm_ez(x, y)
-    print 'my sparse', time() - st, y0.shape
+    y1 = csrmm_ez(x, y, 'ori')
+    print 'my sparse ori', time() - st, y0.shape
 
     st = time()
-    y1 = x * y
+    y2 = x * y
     print 'scipy csr', time() - st, y1.shape
 
-    dif = y0 - y1
+    dif = y0 - y2
     print dif.max(), dif.min(), 'my nnz', y0.nnz, 'scipy nnz', y1.nnz
