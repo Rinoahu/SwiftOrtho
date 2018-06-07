@@ -25,12 +25,12 @@ except:
     sm = np
 
 
-try:
-    import cupy as cp
-    has_cupy = has_gpu = True
-except:
-    cp = np
-    has_cupy = has_gpu = False
+#try:
+#    import cupy as cp
+#    has_cupy = has_gpu = True
+#except:
+#    cp = np
+#    has_cupy = has_gpu = False
 
 try:
     import pyculib
@@ -50,6 +50,7 @@ except:
 
 # the sparse matrix add matrix on gpu
 if has_gpu:
+#if 1:
     def csrgeam_ez(matA, matB, alpha=1, beta=1, transA='N', transB='N', descrA=None,
                    descrB=None, descrC=None, clf=None):
 
@@ -4919,30 +4920,32 @@ def element_wrapper_gpu(elems):
     # init gpu
     try:
         gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
-        pyculib.cuda.close()
+        #pyculib.cuda.close()
         pyculib.cuda.select_device(gid)
-        csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
         clf = pyculib.sparse.Sparse()
+        #csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
+        csrgemm_ez = clf.csrgemm_ez
         has_gpu = 1
     except:
         clf = None
         has_gpu = 0
         #csrgemm_ez = lambda x, y: csrmm_ez(x, y)
-        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst), pyculib.sparse.Sparse()
+        #print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst), pyculib.sparse.Sparse()
+        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst)
 
     x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
     outs = []
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
+    try:
+        zg = pyculib.sparse.csr_matrix(shape, dtype='float32')
+    except:
+        has_gpu = 0
+
+    #has_gpu = 0
     for elem in elems[1:]:
         xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
-
-        try:
-            zg = pyculib.sparse.csr_matrix(shape, dtype='float32')
-        except:
-            has_gpu = 0
-
         z = sparse.csr_matrix(shape, dtype='float32')
         for i in xrange(d):
             xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
@@ -4960,18 +4963,36 @@ def element_wrapper_gpu(elems):
                 continue
             if has_gpu == 1:
                 try:
-                    xy = csrgemm_ez(x, y)
-                    zg = csrgeam_ez(zg, xy, clf)
+                    xyg = csrgemm_ez(x, y)
                 except:
+                    xy = csrmm_ez(x, y)
+
+                try:
+                    zg = csrgeam_ez(zg, xyg, clf)
+                    del xyg
+                except:
+                    try:
+                        z += xyg.copy_to_host()
+                        del xyg
+                    except:
+                        z += xy
+                        del xy
+
                     z += zg.copy_to_host()
-                    z += csrmm_ez(x, y)
                     del zg
+                    gc.collect()
                     zg = pyculib.sparse.csr_matrix(shape, dtype='float32')
 
             else:
                 z += csrmm_ez(x, y)
 
             gc.collect()
+
+        if has_gpu == 1:
+            try:
+                z += zg.copy_to_host()
+            except:
+                pass
 
         if z.nnz <= 0:
             continue
@@ -4995,7 +5016,7 @@ def element_wrapper_gpu(elems):
         np.savez_compressed(row_sum_n, row_sum)
         del z
         gc.collect()
-        cp.cuda.memory.gc.collect() 
+        #cp.cuda.memory.gc.collect() 
         outs.append([row_sum_n, xyn, nnz])
 
     try:
@@ -5628,7 +5649,7 @@ def expand_gpu(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=
             flag += 1
 
     #zns = map(element_wrapper, xys)
-    if cpu <= 1:
+    if cpu <= 1 or len(xys) <= 1:
         print 'cpu < 1', cpu, len(xys)
         zns = map(element_wrapper_gpu, xys)
     else:
@@ -7331,9 +7352,9 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             #os.system('rm %s/*.npz_old'%tmp_path)
             fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
-        if 0:
+        #if 0:
         #if nnz < chunk / 4 and len(fns) / 4  > cpu:
-        #if nnz < chunk / 4:
+        if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
             row_sum_new, fns_new, nnz_new, merged = merge_submat_gpu(fns, shape, csr=True, cpu=cpu)
             #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
@@ -7454,9 +7475,11 @@ if __name__ == '__main__':
     # q2n = mat_split(qry)
     # mul(qry, csr=False)
     gpu = min(cpu, gpu)
-    device = len(cuda.gpus.lst)
+    #device = len(cuda.gpus.lst)
 
-    if has_gpu and gpu > 0 and device > 0:
+    #if has_gpu and gpu > 0 and device > 0:
+    #if has_gpu and gpu > 0:
+    if gpu > 0:
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
         mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
