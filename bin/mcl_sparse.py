@@ -4798,7 +4798,8 @@ def element_wrapper_gpu7(elems):
     return outs
 
 
-def element_wrapper_gpu(elems):
+# use cupy instead of pyculib
+def element_wrapper_gpu8(elems):
 
     if len(elems) <= 1:
         return []
@@ -4905,6 +4906,104 @@ def element_wrapper_gpu(elems):
     #except:
     #    pass
     return outs
+
+
+
+
+# use pyculib instead of cupy
+def element_wrapper_gpu(elems):
+
+    if len(elems) <= 1:
+        return []
+
+    # init gpu
+    try:
+        gid = elems[0] % len(pyculib.cuda.devices.gpus.lst)
+        pyculib.cuda.close()
+        pyculib.cuda.select_device(gid)
+        csrgemm_ez = pyculib.sparse.Sparse().csrgemm_ez
+        clf = pyculib.sparse.Sparse()
+        has_gpu = 1
+    except:
+        clf = None
+        has_gpu = 0
+        #csrgemm_ez = lambda x, y: csrmm_ez(x, y)
+        print 'gpu disable gid', elems[0] % len(pyculib.cuda.devices.gpus.lst), pyculib.sparse.Sparse()
+
+    x, y, d, qry, shape, tmp_path, csr, I, prune = elems[1]
+    outs = []
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    for elem in elems[1:]:
+        xi, yi, d, qry, shape, tmp_path, csr, I, prune = elem
+
+        try:
+            zg = pyculib.sparse.csr_matrix(shape, dtype='float32')
+        except:
+            has_gpu = 0
+
+        z = sparse.csr_matrix(shape, dtype='float32')
+        for i in xrange(d):
+            xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+            yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+            print 'xi', xi, 'yi', yi
+            try:
+                x = load_matrix(xn, shape=shape, csr=csr)
+            except:
+                print 'can not load x elem_wrapper_gpu', xn, csr
+                continue
+            try:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            except:
+                print 'can not load y elem_wrapper_gpu', yn, csr
+                continue
+            if has_gpu == 1:
+                try:
+                    xy = csrgemm_ez(x, y)
+                    zg = csrgeam_ez(zg, xy, clf)
+                except:
+                    z += zg.copy_to_host()
+                    z += csrmm_ez(x, y)
+                    del zg
+                    zg = pyculib.sparse.csr_matrix(shape, dtype='float32')
+
+            else:
+                z += csrmm_ez(x, y)
+
+            gc.collect()
+
+        if z.nnz <= 0:
+            continue
+
+        z.eliminate_zeros()
+        z.data **= I
+        z.eliminate_zeros()
+
+        # remove element < prune
+        row_sum = np.asarray(z.sum(0), 'float32')[0]
+        norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+        z.data[norm_dat < prune] = 0 
+        z.eliminate_zeros()
+       
+
+        nnz = z.nnz
+        xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+        sparse.save_npz(xyn + '_new', z)
+
+        row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+        np.savez_compressed(row_sum_n, row_sum)
+        del z
+        gc.collect()
+        cp.cuda.memory.gc.collect() 
+        outs.append([row_sum_n, xyn, nnz])
+
+    try:
+        pyculib.cuda.close()
+    except:
+        pass
+    return outs
+
 
 
 
