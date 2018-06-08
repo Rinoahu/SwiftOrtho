@@ -3452,7 +3452,7 @@ def merge_submat_gpu(fns, shape=(10**7, 10**7), csr=False, cpu=1):
             xys[flag%cpu].append(xy)
             flag += 1
 
-    if cpu <= 1:
+    if cpu <= 1 or len(xys) <= 1:
         zns = map(submerge_wrapper_gpu, xys)
     else:
         print 'parallel_merge_submat'
@@ -7353,14 +7353,15 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
         #if 0:
-        #if nnz < chunk / 4 and len(fns) / 4  > cpu:
-        if nnz < chunk / 4:
+        if nnz < chunk / 4 and len(fns) / 4  > cpu:
+        #if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
             row_sum_new, fns_new, nnz_new, merged = merge_submat_gpu(fns, shape, csr=True, cpu=cpu)
             #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
             if merged:
                 row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
                 shape = (shape[0]*2, shape[1]*2)
+                print 'merge_shape is', shape
             else:
                 print 'we failed to merge'
         else:
