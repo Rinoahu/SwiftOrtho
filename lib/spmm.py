@@ -3,22 +3,23 @@ from numba import jit
 import numpy as np
 from scipy import sparse as sps
 try:
-    from numba import jit
+    from numba import jit, njit, prange
 except:
-    jit = lambda x: x
+    njit = jit = lambda x: x
+    prange = xrange
 
 
 #jit = lambda x: x
 
 
-@jit
+@njit
 def resize(a, new_size):
     new = np.empty(new_size, a.dtype)
     new[:a.size] = a
     return new
 
 
-@jit
+@njit
 def resize_mmp(a, new_size):
     new = np.asarray(np.memmap('tmp.npy', mode='w+', shape=new_size, dtype=a.dtype), dtype=a.dtype)
     new[:a.size] = a
@@ -28,7 +29,7 @@ def resize_mmp(a, new_size):
 
 # csr matrix by matrix
 # original version
-@jit
+@njit(fastmath=True)
 def csrmm_ori(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -108,7 +109,8 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
 
 # memory save version
-@jit
+#@njit(parallel=True, fastmath=True)
+@njit(fastmath=True)
 def csrmm_msav(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -148,6 +150,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             flag += 2
 
             for j in xrange(jst, jed):
+            #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
                 y_col_val = data[y_col] + x_val * y_val
                 if y_col_val != 0:
@@ -168,6 +171,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             flag += 2
 
         for pt in xrange(ks):
+        #for pt in prange(ks):
             y_col = index[pt]
             #mx_col = max(mx_col, idx)
             y_col_val = data[y_col]
@@ -356,4 +360,4 @@ if __name__ == '__main__':
     print 'scipy csr', time() - st, y1.shape
 
     dif = y0 - y2
-    print dif.max(), dif.min(), 'my nnz', y0.nnz, 'scipy nnz', y1.nnz
+    print dif.max(), dif.min(), 'my fast nnz', y0.nnz, 'scipy nnz', y1.nnz

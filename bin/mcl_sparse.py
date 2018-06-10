@@ -43,9 +43,9 @@ import multiprocessing as mp
 from multiprocessing import Manager, Array
 
 try:
-    from numba import jit, cuda
+    from numba import jit, njit, cuda
 except:
-    jit = lambda x: x
+    njit = jit = lambda x: x
 
 
 # the sparse matrix add matrix on gpu
@@ -97,13 +97,13 @@ else:
 
 
 # my own csr by csr function, which is 2 times faster than scipy
-@jit
+@njit
 def resize(a, new_size):
     new = np.empty(new_size, a.dtype)
     new[:a.size] = a
     return new
 
-@jit
+@njit
 def resize_mmp(a, new_size):
     new = np.asarray(np.memmap('tmp.npy', mode='w+', shape=new_size, dtype=a.dtype), dtype=a.dtype)
     new[:a.size] = a
@@ -112,7 +112,7 @@ def resize_mmp(a, new_size):
 
 # csr matrix by matrix
 # original version
-@jit
+@njit(fastmath=True)
 def csrmm_ori(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -175,7 +175,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
 
 # memory save version
-@jit
+@njit(fastmath=True)
 def csrmm_msav(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -2179,7 +2179,7 @@ def load_matrix_gpu(qry, shape=(10**8, 10**8), csr=False):
 
 
 # prune function
-def prune(x, p=1/4e4, S=500, R=300):
+def prune_proto(x, p=1/4e4, S=500, R=300):
     R = min(S, R)
     R, C = x.shape
     dif = np.diff(x.indptr)
@@ -2198,6 +2198,98 @@ def prune(x, p=1/4e4, S=500, R=300):
 
     x.eliminate_zeros()
     return x
+
+# csr sort by value
+@jit
+def csrsort(a, b, c):
+    #a, b, c = x.indices, x.indptr, x.data
+    n = b.size
+    for i in xrange(n-1):
+        st, ed = x[i:i+2]
+        idx = c[st:ed].argsort()
+        a[st:ed][idx] = c[st:ed][idx]
+
+def csrsort(x):
+    a, b, c = x.indices, x.indptr, x.data
+    csrsort(a, b, c)
+
+
+def csrmerge(x0, x1, S=1000):
+    a0, b0, c0 = x0.indices, x0.indptr, x0.data
+    a1, b1, c1 = x1.indices, x1.indptr, x1.data
+    assert b0.size == b1.size
+    n = b0.size
+    N = a0.size + a1.size
+    a2, b2, c2 = np.empty(N, a0.dtype), np.empty(n, b0.dtype), np.empty(N, c0.dtype)
+    b2[0] = 0
+    ptr = 0
+    for i in xrange(n-1):
+        st0, ed0 = b0[i:i+2]
+        st1, ed1 = b1[i:i+2]
+        p0, p1 = st0, st1
+        flag = 0
+        while p0 < ed0 and p1 < ed1 and flag < S:
+            if c0[p0] >= c1[p1]:
+                c2[ptr] = c0[p0]
+                a2[ptr] = a0[p0]
+                p1 += 1
+            else:
+                c2[ptr] = c1[p1]
+                a2[ptr] = a1[p1]
+                p0 += 1
+
+            ptr += 1
+            flag += 1 
+        b2[i+1] = ptr
+
+    a2 = a2[:ptr]
+    c2 = c2[:ptr]
+    z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
+    return z
+
+def find_cutoff(elems):
+    if len(xy) <= 0:
+        return []
+    x0 = None
+    for elem in elems:
+        a, b, tmp_path, p, S, R = elem
+        fn = tmp_path + '/%d_%d.npz'%(a, b)
+        try:
+            x1 = sparse.load_npz(fn)
+        except:
+            continue
+
+        # sort x1
+            csrsort(x0)
+        # merge with x0
+        if type(x0) == type(None):
+            x0 = x1
+        else:
+            x0 = csrmerge(x0, x1, S)
+
+
+# prune
+def prune(qry, tmp_path=None, p=1/4e4, S=500, R=300, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+
+    # find the threshold
+    xys = [[[a, b, tmp_path, p, S, R] for b in xrange(N)] for a in xrange(N)]
+    if cpu <= 1:
+        cutoff = map(find_cutoff, xys)
+    else:
+        pool = mp.Pool(cpu)
+        cutoff = pool.map(find_cutoff, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+
+
 
 
 
