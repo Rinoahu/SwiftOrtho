@@ -2236,12 +2236,12 @@ def csrsort(x):
 
 @njit
 def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
-    a0, b0, c0 = x0.indices, x0.indptr, x0.data
-    a1, b1, c1 = x1.indices, x1.indptr, x1.data
+    #a0, b0, c0 = x0.indices, x0.indptr, x0.data
+    #a1, b1, c1 = x1.indices, x1.indptr, x1.data
     assert b0.size == b1.size
     n = b0.size
-    N = a0.size + a1.size
-    a2, b2, c2 = np.empty(N, a0.dtype), np.empty(n, b0.dtype), np.empty(N, c0.dtype)
+    nnz = min(a0.size + a1.size, b0.size*S)
+    a2, b2, c2 = np.empty(nnz, a0.dtype), np.empty(n, b0.dtype), np.empty(nnz, c0.dtype)
     b2[0] = 0
     ptr = 0
     for i in xrange(n-1):
@@ -2254,11 +2254,11 @@ def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
             if c0[p0] >= c1[p1]:
                 c2[ptr] = c0[p0]
                 a2[ptr] = a0[p0]
-                p1 += 1
+                p0 += 1
             else:
                 c2[ptr] = c1[p1]
                 a2[ptr] = a1[p1]
-                p0 += 1
+                p1 += 1
 
             ptr += 1
             flag += 1 
@@ -2266,14 +2266,16 @@ def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
 
     a2 = a2[:ptr]
     c2 = c2[:ptr]
-    z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
-    return z
+    #z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
+    #return z
+    return a2, b2, c2
 
 def csrmerge(x0, x1, S=1000):
     a0, b0, c0 = x0.indices, x0.indptr, x0.data
     a1, b1, c1 = x1.indices, x1.indptr, x1.data
-    return csrmg_jit(a0, b0, c0, a1, b1, c1, S)
-
+    a2, b2, c2 = csrmg_jit(a0, b0, c0, a1, b1, c1, S)
+    z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
+    return z
 
 
 
