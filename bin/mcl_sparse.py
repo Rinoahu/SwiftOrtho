@@ -2200,21 +2200,42 @@ def prune_proto(x, p=1/4e4, S=500, R=300):
     return x
 
 # csr sort by value
-@jit
-def csrsort(a, b, c):
+@njit
+def csrsort_jit(a, b, c):
     #a, b, c = x.indices, x.indptr, x.data
     n = b.size
+    flag = 0
     for i in xrange(n-1):
-        st, ed = x[i:i+2]
-        idx = c[st:ed].argsort()
-        a[st:ed][idx] = c[st:ed][idx]
+        st, ed = b[i:i+2]
+        m = ed - st
+        if m <= 1:
+            #print st, ed
+            continue
+        #elif m == 2:
+        #    j = st+1
+        #    if c[st] < c[j]:
+        #        c[st], c[j] = c[j], c[st]
+        #        a[st], a[j] = a[j], a[st]
+        else:
+            idx = c[st:ed].argsort()
+            idx = idx[::-1]
+            a[st:ed] = a[st:ed][idx]
+            c[st:ed] = c[st:ed][idx]
+            flag += 1
+
+    #print('sorting', flag, 'times')
+    return flag
+
 
 def csrsort(x):
     a, b, c = x.indices, x.indptr, x.data
-    csrsort(a, b, c)
+    flag = csrsort_jit(a, b, c)
+    print 'sorting', flag, 'times'
+    #x_s = sparse.csr_matrix((c, a, b), shape=x.shape, dtype=x.dtype)
+    #return x_s
 
-
-def csrmerge(x0, x1, S=1000):
+@njit
+def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
     a0, b0, c0 = x0.indices, x0.indptr, x0.data
     a1, b1, c1 = x1.indices, x1.indptr, x1.data
     assert b0.size == b1.size
@@ -2228,6 +2249,7 @@ def csrmerge(x0, x1, S=1000):
         st1, ed1 = b1[i:i+2]
         p0, p1 = st0, st1
         flag = 0
+
         while p0 < ed0 and p1 < ed1 and flag < S:
             if c0[p0] >= c1[p1]:
                 c2[ptr] = c0[p0]
@@ -2246,6 +2268,14 @@ def csrmerge(x0, x1, S=1000):
     c2 = c2[:ptr]
     z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
     return z
+
+def csrmerge(x0, x1, S=1000):
+    a0, b0, c0 = x0.indices, x0.indptr, x0.data
+    a1, b1, c1 = x1.indices, x1.indptr, x1.data
+    return csrmg_jit(a0, b0, c0, a1, b1, c1, S)
+
+
+
 
 def find_cutoff(elems):
     if len(xy) <= 0:
