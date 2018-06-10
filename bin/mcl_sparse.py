@@ -2238,6 +2238,7 @@ def csrsort(x):
 def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
     #a0, b0, c0 = x0.indices, x0.indptr, x0.data
     #a1, b1, c1 = x1.indices, x1.indptr, x1.data
+    #row_min = np.empty(b0.size, c0.dtype)
     assert b0.size == b1.size
     n = b0.size
     nnz = min(a0.size + a1.size, b0.size*S)
@@ -2261,7 +2262,9 @@ def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
                 p1 += 1
 
             ptr += 1
-            flag += 1 
+            flag += 1
+
+        #row_min[i] = a2[ptr-1]
         b2[i+1] = ptr
 
     a2 = a2[:ptr]
@@ -2270,12 +2273,40 @@ def csrmg_jit(a0, b0, c0, a1, b1, c1, S=1):
     #return z
     return a2, b2, c2
 
+
 def csrmerge(x0, x1, S=1000):
     a0, b0, c0 = x0.indices, x0.indptr, x0.data
     a1, b1, c1 = x1.indices, x1.indptr, x1.data
     a2, b2, c2 = csrmg_jit(a0, b0, c0, a1, b1, c1, S)
     z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
     return z
+
+
+# find the lower bound of each row
+@njit
+def find_lower(indptr, data, prune=1e-4, R=300):
+    n = indptr.size
+    ps = np.empty(n, data.dtype)
+    for i in xrange(n-1):
+        st, ed = b[i:i+2]
+        row = data[st:ed]
+        idx = row > prune
+        j = idx.sum()
+        if j > R:
+            ps[i] = prune
+        else:
+            ps[i] = row[:R][-1]
+
+    return ps
+
+# remove element by give threshold
+def rm_elem(indptr, data, prune):
+    n = indptr.size
+    for i in xrange(n-1):
+        st, ed = b[i:i+2]
+        row = data[st:ed]
+        p = prune[i]
+        data[row<p] = 0
 
 
 
@@ -2299,9 +2330,23 @@ def find_cutoff(elems):
         else:
             x0 = csrmerge(x0, x1, S)
 
+    ps = find_lower(x0, prune=p, S=S)
+
+    # prune
+    for elem in elems:
+        a, b, tmp_path, p, S, R = elem
+        fn = tmp_path + '/%d_%d.npz'%(a, b)
+        try:
+            x1 = sparse.load_npz(fn)
+        except:
+            continue
+        # remove small element
+        rm_elem(x1, ps)
+        x1.eliminate_zeros()
+        sparse.save_npz(fn, x1)
 
 # prune
-def prune(qry, tmp_path=None, p=1/4e4, S=500, R=300, cpu=1):
+def pruning(qry, tmp_path=None, p=1/4e4, S=500, R=300, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
