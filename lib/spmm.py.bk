@@ -10,7 +10,7 @@ except:
 
 from multiprocessing.pool import ThreadPool as Pool
 from threading import Thread
-#from Queue import Queue
+from Queue import Queue
 
 from time import time
 import sys
@@ -518,29 +518,13 @@ if __name__ == '__main__':
     try:
         a, b = sys.argv[1:3]
         x, y = map(sps.load_npz, [a, b])
-        z = sps.vstack([x, y], format='csr')
-        z = sps.hstack([z, z], format='csr')
-        #sps.save_npz('tmp.npz', z)
-        x = y = z
-        print 'x shape', x.shape, x.nnz
-        try:
-            cpu = int(eval(sys.argv[3]))
-        except:
-            cpu = 1
     except:
         N = int(eval(sys.argv[1]))
-        try:
-            cpu = int(eval(sys.argv[2]))
-        except:
-            cpu = 1
-
-        x = sps.random(N, N, 2./N, format='csr', dtype='float32')
+        x = sps.random(N, N, 2./N, format='csr')
         row, col = x.nonzero()
         row += N//2
         col += N//2
         x = sps.csr_matrix((x.data,(row, col)), shape=(2*N, 2*N))
-        #sps.save_npz('tmp.npz', x)
-        #raise SystemExit()
         y = x
     #sps.save_npz('tmp.npz', x)
     print 'random matrix', time() - st
@@ -549,32 +533,24 @@ if __name__ == '__main__':
     #small_xy = csrmm_ez(small, small)
 
     st = time()
-    y2 = csrmm_ez(x, y, 'msav', cpu=cpu)
-    print 'my sparse parallel', time() - st, y2.shape, y2.nnz
-    del y2
-    print ''
-
-
-
-    st = time()
     y0 = csrmm_ez(x, y, 'msav')
-    print 'my sparse msav', time() - st, y0.shape, y0.nnz
-    del y0
+    print 'my sparse msav', time() - st, y0.shape
     print ''
-
 
     st = time()
     y1 = csrmm_ez(x, y, 'ori')
-    print 'my sparse ori', time() - st, y1.shape, y1.nnz
-    del y1
+    print 'my sparse ori', time() - st, y0.shape
     print ''
 
+    st = time()
+    y2 = csrmm_ez(x, y, 'msav', cpu=4)
+    print 'my sparse parallel', time() - st, y0.shape
+    print ''
 
     st = time()
     y3 = x * y
-    print 'scipy csr', time() - st, y3.shape, y3.nnz
-    del y3
+    print 'scipy csr', time() - st, y1.shape
     print ''
 
-    #dif = y2 - y3
-    #print dif.max(), dif.min(), 'my fast parallel nnz', y2.nnz, 'scipy nnz', y3.nnz
+    dif = y2 - y3
+    print dif.max(), dif.min(), 'my fast parallel nnz', y2.nnz, 'scipy nnz', y3.nnz
