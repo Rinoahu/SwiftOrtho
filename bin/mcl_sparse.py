@@ -427,7 +427,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     else:
         print 'using threads'
         N, D = a.shape
-        step = N // cpu + 1
+        step = N // (cpu * 4) + 1
         threads = []
         for i in xrange(0, N, step):
             start, end = i, min(i+step, N)
