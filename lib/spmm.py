@@ -233,19 +233,21 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
 
 # parallel version of csrmm
 @njit(fastmath=True, nogil=True)
-def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred):
+def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
-    xr = Xr[xrst: xred]
+    xr = np.empty(xred+1-xrst, Xr.dtype)
+    xr[:] = Xr[xrst:xred+1]
     xr -= xr[0]
     xcst, xced = Xr[xrst], Xr[xred]
     xc = Xc[xcst: xced]
     x = X[xcst: xced]
+    #print 'xrst %d xred %d xcst %d xced %d'%(xrst, xred, xcst, xced)
 
     R = xr.shape[0]
     D = yr.shape[0]
     chk = x.size + y.size
     nnz = chk
-    print 'nnz size', nnz
+    #print 'nnz size %d %d %d %d'%(nnz, x.size, y.size, X.size)
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
@@ -253,7 +255,9 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred):
 
     # hash table
     #visit = np.zeros(yr.size, 'int8')
-    index = np.zeros(yr.size, yr.dtype)
+    chk1 = yr.size // cpu
+    nnz1 = chk1
+    index = np.zeros(nnz1, yr.dtype)
     flag = 0
     zptr = 0
     for i in xrange(R-1):
@@ -282,6 +286,10 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred):
                 y_col, y_val = yc[j], y[j]
                 y_col_val = data[y_col] + x_val * y_val
                 if y_col_val != 0:
+                    if ks >= nnz1:
+                        nnz1 += chk1
+                        index = resize(index, nnz1)
+
                     index[ks] = y_col
                     ks += 1
                     flag += 2
@@ -318,59 +326,89 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred):
     #print 'retunr value', zr
     return zr, zc[:zptr], z[:zptr], flag
 
-@jit(nogil=True)
-def csrmm_sp_wrapper(elem):
-    Xr, Xc, X, yr, yc, y, xrst, xred = elem
-    zr, zc, z, flag = csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred)
-    print 'get_value'
-    return zr, zc, z, flag
+#@jit(nogil=True)
+#def csrmm_sp_wrapper(elem):
+#    Xr, Xc, X, yr, yc, y, xrst, xred = elem
+#    zr, zc, z, flag = csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred)
+#    print 'get_value'
+#    #return zr, zc, z, flag
+#    return sps.csr_matrix((z, zc, zr), dtype=z.dtype)
 
 
 
 #csrmm_jit = jit(csrmm)
 
-def csrmm_ez(a, b, mm='msav', cpu=4):
+def csrmm_ez(a, b, mm='msav', cpu=1):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
 
-    print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
-
+    #print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
+    print 'a nnz', a.nnz, 'b nnz', b.nnz
 
     st = time()
     #if use_jit:
     #    zr, zc, z, flag = csrmm_jit(xr, xc, x, yr, yc, y)
     #else:
     #    zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
-    if mm == 'msav':
+    if cpu > 1:
+        csrmm = csrmm_sp
+    elif mm == 'msav':
         csrmm = csrmm_msav
     elif mm == 'ori':
         csrmm = csrmm_ori
+    else:
+        raise SystemExit()
 
     if cpu <= 1:
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
+        zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     else:
+        print 'using threads'
         N, D = a.shape
         step = N // cpu + 1
-        paras = []
+        threads = []
         for i in xrange(0, N, step):
             start, end = i, min(i+step, N)
-            paras.append([xr, xc, x, yr, yc, y, start, end])
+            t = worker(csrmm_sp, (xr, xc, x, yr, yc, y, start, end, cpu))
+            t.start()
+            threads.append(t)
+
+        res = []
+        #offset = 0
+        #for t in threads:
+        flag = 0
+        for i in xrange(0, N, step):
+            start, end = i, min(i+step, N)
+            t = threads[i//step]
+            t.join()
+            zr, zc, z, flag0 = t.get_result()
+            new_shape = (end-start, b.shape[1])
+            #print 'new shape', new_shape, z
+            res.append(sps.csr_matrix((z, zc, zr), shape=new_shape, dtype=z.dtype))
+            #print 'res', res
+            flag += flag0
+
+        #print res
+        zmtx = sps.vstack(res)
+        #paras = []
+        #for i in xrange(0, N, step):
+        #    start, end = i, min(i+step, N)
+        #    paras.append([xr, xc, x, yr, yc, y, start, end])
 
         
-        pool = Pool(cpu)
+        #pool = Pool(cpu)
         #results = pool.map(csrmm_sp_wrapper, paras)
-        results = map(csrmm_sp_wrapper, paras)
+        #results = map(csrmm_sp_wrapper, paras)
 
-        print 'result is', results
 
        #print 'threads is', threads
         #flag = sum([elem[-1] for elem in threads])
 
     print 'total operation', flag
     print 'csrmm cpu', time() - st
-    print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
-    print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
-    zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    #print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
+    #print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
+    #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     return zmtx
 
 
@@ -497,17 +535,22 @@ if __name__ == '__main__':
     st = time()
     y0 = csrmm_ez(x, y, 'msav')
     print 'my sparse msav', time() - st, y0.shape
-
-
-
+    print ''
 
     st = time()
     y1 = csrmm_ez(x, y, 'ori')
     print 'my sparse ori', time() - st, y0.shape
+    print ''
 
     st = time()
-    y2 = x * y
-    print 'scipy csr', time() - st, y1.shape
+    y2 = csrmm_ez(x, y, 'msav', cpu=4)
+    print 'my sparse parallel', time() - st, y0.shape
+    print ''
 
-    dif = y0 - y2
-    print dif.max(), dif.min(), 'my fast nnz', y0.nnz, 'scipy nnz', y1.nnz
+    st = time()
+    y3 = x * y
+    print 'scipy csr', time() - st, y1.shape
+    print ''
+
+    dif = y2 - y3
+    print dif.max(), dif.min(), 'my fast parallel nnz', y2.nnz, 'scipy nnz', y3.nnz
