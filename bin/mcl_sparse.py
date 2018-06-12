@@ -8345,6 +8345,8 @@ if __name__ == '__main__':
     # mul(qry, csr=False)
     gpu = min(cpu, gpu)
     #device = len(cuda.gpus.lst)
+    #global CPU
+    #CPU = cpu * 8
 
     #if has_gpu and gpu > 0 and device > 0:
     #if has_gpu and gpu > 0:
