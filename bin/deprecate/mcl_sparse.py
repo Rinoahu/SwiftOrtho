@@ -17,7 +17,7 @@ from itertools import izip
 #import numpy as np
 from scipy import sparse as sps
 
-from threading import Thread
+
 from sklearn.externals.joblib import Parallel, delayed
 try:
     import sharedmem as sm
@@ -96,31 +96,12 @@ else:
         return x+y
 
 
-
-# worker of thread
-class worker(Thread):
-
-    def __init__(self,func,args=()):
-        super(worker, self).__init__()
-        self.func = func
-        self.args = args
-
-    def run(self):
-        self.result = self.func(*self.args)
-
-    def get_result(self):
-        try:
-            return self.result
-        except Exception:
-            return None
-
-
+# my own csr by csr function, which is 2 times faster than scipy
 @njit
 def resize(a, new_size):
     new = np.empty(new_size, a.dtype)
     new[:a.size] = a
     return new
-
 
 @njit
 def resize_mmp(a, new_size):
@@ -129,26 +110,21 @@ def resize_mmp(a, new_size):
     return new
 
 
-
 # csr matrix by matrix
 # original version
-@jit(fastmath=True, nogil=True)
+@njit(fastmath=True, cache=True)
 def csrmm_ori(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
     D = yr.shape[0]
     nnz = int(1. * x.size * y.size / (D-1))
-    print 'nnz size', nnz
-    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     n_size = nnz
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(n_size, xc.dtype), np.empty(n_size, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
-    #print 'zr init', zr[:5]
 
     # hash table
     visit = np.zeros(yr.size, 'int8')
     index = np.zeros(yr.size, yr.dtype)
-    flag = 0
     zptr = 0
     for i in xrange(R-1):
 
@@ -177,59 +153,38 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
                     visit[y_col] = 1
                     index[ks] = y_col
                     ks += 1
-                    flag += 3
-                #nz += 1
-                flag += 3
-            flag += 2
-
 
         zend = zr[i] + nz
         if zend > n_size:
             n_size += nnz
-            #print('resize sparse matrix', n_size)
             zc = resize(zc, n_size)
             z = resize(z, n_size)
-            flag += 2
 
         for pt in xrange(ks):
             idx = index[pt]
-            #mx_col = max(mx_col, idx)
             val = data[idx]
             visit[idx] = 0
             if val > 0:
                 zc[zptr], z[zptr] = idx, val
                 zptr += 1
                 data[idx] = 0
-                flag += 5
-
-            flag += 1
 
         zr[i+1] = zptr
 
-    return zr, zc[:zptr], z[:zptr], flag
-    #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
-    #return zmtx
+    return zr, zc[:zptr], z[:zptr]
 
 
 # memory save version
-#@njit(parallel=True, fastmath=True)
-@njit(fastmath=True, nogil=True)
+@njit(fastmath=True, cache=True)
 def csrmm_msav(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
     D = yr.shape[0]
     chk = x.size + y.size
     nnz = chk
-    print 'nnz size', nnz
-    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
-    #print 'zr init', zr[:5]
-
-    # hash table
-    #visit = np.zeros(yr.size, 'int8')
     index = np.zeros(yr.size, yr.dtype)
-    flag = 0
     zptr = 0
     for i in xrange(R-1):
 
@@ -250,229 +205,47 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
                 continue
 
             nz += jed - jst
-            flag += 2
-
             for j in xrange(jst, jed):
-            #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
                 y_col_val = data[y_col] + x_val * y_val
                 if y_col_val != 0:
                     index[ks] = y_col
                     ks += 1
-                    flag += 2
 
                 data[y_col] = y_col_val
-                flag += 3
 
 
         zend = zr[i] + nz
         if zend > nnz:
             nnz += chk
-            #print('resize sparse matrix', n_size)
             zc = resize(zc, nnz)
             z = resize(z, nnz)
-            flag += 2
 
         for pt in xrange(ks):
-        #for pt in prange(ks):
             y_col = index[pt]
-            #mx_col = max(mx_col, idx)
             y_col_val = data[y_col]
             if y_col_val != 0:
                 zc[zptr], z[zptr] = y_col, y_col_val
                 zptr += 1
                 data[y_col] = 0
-                flag += 3
-
-            flag += 1
 
 
         zr[i+1] = zptr
 
-    return zr, zc[:zptr], z[:zptr], flag
-    #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
-    #return zmtx
-
-# parallel version of csrmm
-@njit(fastmath=True, nogil=True)
-def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
-
-    xr = np.empty(xred+1-xrst, Xr.dtype)
-    xr[:] = Xr[xrst:xred+1]
-    xr -= xr[0]
-    xcst, xced = Xr[xrst], Xr[xred]
-    xc = Xc[xcst: xced]
-    x = X[xcst: xced]
-    #print 'xrst %d xred %d xcst %d xced %d'%(xrst, xred, xcst, xced)
-
-    R = xr.shape[0]
-    D = yr.shape[0]
-    chk = x.size + y.size
-    nnz = chk
-    #print 'nnz size %d %d %d %d'%(nnz, x.size, y.size, X.size)
-    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
-    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
-    data = np.zeros(D-1, dtype=x.dtype)
-    #print 'zr init', zr[:5]
-
-    # hash table
-    #visit = np.zeros(yr.size, 'int8')
-    chk1 = yr.size // cpu
-    nnz1 = chk1
-    index = np.zeros(nnz1, yr.dtype)
-    flag = 0
-    zptr = 0
-    for i in xrange(R-1):
-
-        # get ith row of a
-        kst, ked = xr[i], xr[i + 1]
-        if kst == ked:
-            zr[i+1] = zr[i]
-            continue
-
-        ks = 0
-        nz = 0
-        for k in xrange(kst, ked):
-            x_col, x_val = xc[k], x[k]
-
-            # get row of b
-            jst, jed = yr[x_col], yr[x_col + 1]
-            if jst == jed:
-                continue
-
-            nz += jed - jst
-            flag += 2
-
-            for j in xrange(jst, jed):
-            #for j in prange(jst, jed):
-                y_col, y_val = yc[j], y[j]
-                y_col_val = data[y_col] + x_val * y_val
-                if y_col_val != 0:
-                    if ks >= nnz1:
-                        nnz1 += chk1
-                        index = resize(index, nnz1)
-
-                    index[ks] = y_col
-                    ks += 1
-                    flag += 2
-
-                data[y_col] = y_col_val
-                flag += 3
+    return zr, zc[:zptr], z[:zptr]
 
 
-        zend = zr[i] + nz
-        if zend > nnz:
-            nnz += chk
-            #print('resize sparse matrix', n_size)
-            zc = resize(zc, nnz)
-            z = resize(z, nnz)
-            flag += 2
-
-        for pt in xrange(ks):
-        #for pt in prange(ks):
-            y_col = index[pt]
-            #mx_col = max(mx_col, idx)
-            y_col_val = data[y_col]
-            if y_col_val != 0:
-                zc[zptr], z[zptr] = y_col, y_col_val
-                zptr += 1
-                data[y_col] = 0
-                flag += 3
-
-            flag += 1
-
-
-        zr[i+1] = zptr
-
-    #zr += xrst
-    #print 'retunr value', zr
-    return zr, zc[:zptr], z[:zptr], flag
-
-#@jit(nogil=True)
-#def csrmm_sp_wrapper(elem):
-#    Xr, Xc, X, yr, yc, y, xrst, xred = elem
-#    zr, zc, z, flag = csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred)
-#    print 'get_value'
-#    #return zr, zc, z, flag
-#    return sps.csr_matrix((z, zc, zr), dtype=z.dtype)
-
-
-
-#csrmm_jit = jit(csrmm)
-
-def csrmm_ez(a, b, mm='msav', cpu=1):
+def csrmm_ez(a, b, mode='msav'):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
-
-    #print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
-    print 'a nnz', a.nnz, 'b nnz', b.nnz
-
-    st = time()
-    #if use_jit:
-    #    zr, zc, z, flag = csrmm_jit(xr, xc, x, yr, yc, y)
-    #else:
-    #    zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
-    if cpu > 1:
-        csrmm = csrmm_sp
-    elif mm == 'msav':
+    if mode == 'msav':
         csrmm = csrmm_msav
-    elif mm == 'ori':
+    elif mode == 'ori':
         csrmm = csrmm_ori
-    else:
-        raise SystemExit()
 
-    if cpu <= 1:
-        zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
-        zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
-    else:
-        print 'using threads'
-        N, D = a.shape
-        step = N // cpu + 1
-        threads = []
-        for i in xrange(0, N, step):
-            start, end = i, min(i+step, N)
-            t = worker(csrmm_sp, (xr, xc, x, yr, yc, y, start, end, cpu))
-            t.start()
-            threads.append(t)
-
-        res = []
-        #offset = 0
-        #for t in threads:
-        flag = 0
-        for i in xrange(0, N, step):
-            start, end = i, min(i+step, N)
-            t = threads[i//step]
-            t.join()
-            zr, zc, z, flag0 = t.get_result()
-            new_shape = (end-start, b.shape[1])
-            #print 'new shape', new_shape, z
-            res.append(sps.csr_matrix((z, zc, zr), shape=new_shape, dtype=z.dtype))
-            #print 'res', res
-            flag += flag0
-
-        #print res
-        zmtx = sps.vstack(res)
-        #paras = []
-        #for i in xrange(0, N, step):
-        #    start, end = i, min(i+step, N)
-        #    paras.append([xr, xc, x, yr, yc, y, start, end])
-
-        
-        #pool = Pool(cpu)
-        #results = pool.map(csrmm_sp_wrapper, paras)
-        #results = map(csrmm_sp_wrapper, paras)
-
-
-       #print 'threads is', threads
-        #flag = sum([elem[-1] for elem in threads])
-
-    print 'total operation', flag
-    print 'csrmm cpu', time() - st
-    #print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
-    #print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
-    #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    zr, zc, z = csrmm(xr, xc, x, yr, yc, y)
+    zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     return zmtx
-
 
 
 
@@ -4025,7 +3798,8 @@ def element1(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
     return row_sum_n, xyn, nnz
 
 
-def element2(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
+
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4055,79 +3829,6 @@ def element2(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
             continue
         #tmp = x * y
         tmp = csrmm_ez(x, y)
-        try:
-            z += tmp
-        except:
-            z = tmp
-
-        del x, y, tmp
-        gc.collect()
-
-    if type(z) == type(None):
-        return None, None, None
-
-    z.data **= I
-    #z.data[z.data < prune] = 0
-    z.eliminate_zeros()
-
-
-    # remove element < prune
-    row_sum = np.asarray(z.sum(0), 'float32')[0]
-    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
-    z.data[norm_dat < prune] = 0 
-    z.eliminate_zeros()
-
-
-
-    nnz = z.nnz
-    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
-    sparse.save_npz(xyn + '_new', z)
-
-    #return row_sum
-    #row_sum = z.sum(0)
-    #row_sum = np.asarray(z.sum(0), 'float32')[0]
-    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
-    np.savez_compressed(row_sum_n, row_sum)
-    #print 'row_sum is', type(row_sum)
-    #return row_sum, xyn, nnz
-    del z
-    gc.collect()
-
-    return row_sum_n, xyn, nnz
-
-
-
-
-def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
-    if tmp_path == None:
-        tmp_path = qry + '_tmpdir'
-
-    z = None
-    for i in xrange(d):
-        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
-        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
-        print 'xi', xi, 'yi', yi
-        try:
-            x = load_matrix(xn, shape=shape, csr=csr)
-            #x_i, x_j = x.nonzero()
-            #x.data[x_i==x_j] = 1
-            #x.data[x.data<prune] = 0
-            #x.eliminate_zeros()
-        except:
-            print 'can not load x', xn
-            continue
-        try:
-            y = load_matrix(yn, shape=shape, csr=csr)
-            #y_i, y_j = y.nonzero()
-            #y.data[y_i==y_j] = 1
-            #y.data[y.data<prune] = 0
-            #y.eliminate_zeros()
-
-        except:
-            print 'can not load y', yn
-            continue
-        #tmp = x * y
-        tmp = csrmm_ez(x, y, cpu=cpu)
         try:
             z += tmp
         except:
@@ -4313,22 +4014,13 @@ def element_wrapper0(elem):
     return element(x, y, d, qry, shape, tmp_path, csr, I, prune)
 
 
-def element_wrapper1(elems):
+def element_wrapper(elems):
     outs = []
     for elem in elems:
         x, y, d, qry, shape, tmp_path, csr, I, prune = elem
         out = element(x, y, d, qry, shape, tmp_path, csr, I, prune)
         outs.append(out)
     return outs
-
-def element_wrapper(elems):
-    outs = []
-    for elem in elems:
-        x, y, d, qry, shape, tmp_path, csr, I, prune, cpu = elem
-        out = element(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
-        outs.append(out)
-    return outs
-
 
 
 def element_wrapper_gpu0(elems):
@@ -5830,8 +5522,7 @@ def expand8(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
 
     #return row_sum, fns, nnz
 
-
-def expand9(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -5865,86 +5556,6 @@ def expand9(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
         del pool
         gc.collect()
 
-
-    gc.collect()
-    #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
-    row_sum_ns = []
-    for elem_zns in zns:
-        for elem in elem_zns:
-            if type(elem[0]) != type(None):
-                row_sum_ns.append(elem[0])
-
-    print 'row_sum_name', row_sum_ns
-    xys = [[] for elem in xrange(cpu)]
-    Nrs = len(row_sum_ns)
-    for i in xrange(Nrs):
-        xys[i%cpu].append(row_sum_ns[i])
-    if cpu <= 1:
-        print 'row sum cpu < 1', cpu, len(xys)
-        row_sums = map(prsum, xys)
-    else:
-        print 'row sum cpu > 1', cpu, len(xys)
-        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
-
-    gc.collect()
-    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
-
-
-    #nnz = max([elem[2] for elem in zns])
-    nnz = 0
-    for elem_zns in zns:
-        for elem in elem_zns:
-            nnz = max(nnz, elem[2])
-
-    # remove old file
-    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
-    for i in old_fns:
-        os.system('rm %s'%i)
-
-    #print 'old_new', set([elem.replace('_old', '') for elem in old_fns]) - set(fns), set(fns) - set([elem.replace('_old', '') for elem in old_fns])
-    # rename
-    fns = []
-    for x in xrange(d):
-        for y in xrange(d):
-            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
-            if os.path.isfile(fn):
-                os.system('mv %s %s_old' % (fn, fn))
-            if os.path.isfile(fn+'_new.npz'):
-                os.system('mv %s_new.npz %s' % (fn, fn))
-                fns.append(fn)
-
-    return row_sum, fns, nnz
-    # rename
-    #for i in fns:
-    #    os.system('mv %s %s_old' % (i, i))
-    #    os.system('mv %s_new.npz %s' % (i, i))
-
-    #return row_sum, fns, nnz
-
-
-
-def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
-    if tmp_path == None:
-        tmp_path = qry + '_tmpdir'
-
-    err = None
-    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
-    N = max([max(map(int, elem)) for elem in Ns]) + 1
-    d = N
-    # print 'num set is', num_set
-
-    nnz = 0
-    row_sum = None
-    xys = [[] for elem in xrange(cpu)]
-    flag = 0
-    for x in xrange(d):
-        for y in xrange(d):
-            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune, cpu]
-            xys[flag%cpu].append(xy)
-            flag += 1
-
-    #zns = map(element_wrapper, xys)
-    zns = map(element_wrapper, xys)
 
     gc.collect()
     #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
@@ -8392,7 +8003,6 @@ if __name__ == '__main__':
             start = time()
             z += x * y
             print 'mul by', ref, time() - start
-
 
 
 
