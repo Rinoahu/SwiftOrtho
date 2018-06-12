@@ -132,7 +132,7 @@ def resize_mmp(a, new_size):
 
 # csr matrix by matrix
 # original version
-@jit(fastmath=True, nogil=True)
+@jit(fastmath=True, nogil=True, cache=True)
 def csrmm_ori(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -213,7 +213,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
 # memory save version
 #@njit(parallel=True, fastmath=True)
-@njit(fastmath=True, nogil=True)
+@njit(fastmath=True, nogil=True, cache=True)
 def csrmm_msav(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
@@ -294,7 +294,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     #return zmtx
 
 # parallel version of csrmm
-@njit(fastmath=True, nogil=True)
+@njit(fastmath=True, nogil=True, cache=True)
 def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
     xr = np.empty(xred+1-xrst, Xr.dtype)
