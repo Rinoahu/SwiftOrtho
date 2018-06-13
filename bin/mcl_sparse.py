@@ -466,9 +466,9 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         _ozr.close()
         _ozc.close()
         _oz.close()
-        zr = np.memmap('tmp_zr.npy', dtype=xr.dtype)
-        zc = np.memmap('tmp_zc.npy', dtype=xc.dtype)
-        z = np.memmap('tmp_z.npy', dtype=x.dtype)
+        zr = np.memmap('./tmp_zr.npy', dtype=xr.dtype)
+        zc = np.memmap('./tmp_zc.npy', dtype=xc.dtype)
+        z = np.memmap('./tmp_z.npy', dtype=x.dtype)
         zr, zc, z = map(np.array, [zr, zc, z])
         os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
         #print res
@@ -2558,7 +2558,6 @@ def rm_elem(indptr, data, prune):
         data[row<p] = 0
 
 
-
 def find_cutoff(elems):
     if len(elems) <= 0:
         return []
@@ -2572,7 +2571,8 @@ def find_cutoff(elems):
             continue
 
         # sort x1
-            csrsort(x0)
+        csrsort(x1)
+        print 'csrsorting'
         # merge with x0
         if type(x0) == type(None):
             x0 = x1
@@ -2595,7 +2595,7 @@ def find_cutoff(elems):
         sparse.save_npz(fn, x1)
 
 # prune
-def pruning(qry, tmp_path=None, prune=1/4e4, S=1400, R=600, cpu=1):
+def pruning(qry, tmp_path=None, prune=1/4e3, S=1400, R=600, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
