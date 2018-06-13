@@ -423,7 +423,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
 
     if cpu <= 1:
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
-        zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+        #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     else:
         print 'using threads'
         N, D = a.shape
@@ -435,23 +435,44 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
             t.start()
             threads.append(t)
 
-        res = []
+        #res = []
         #offset = 0
         #for t in threads:
-        flag = 0
+        _ozr = open('./tmp_zr.npy', 'wb')
+        _ozc = open('./tmp_zc.npy', 'wb')
+        _oz = open('./tmp_z.npy', 'wb')
+
+        flag = -1
         for i in xrange(0, N, step):
             start, end = i, min(i+step, N)
             t = threads[i//step]
             t.join()
             zr, zc, z, flag0 = t.get_result()
-            new_shape = (end-start, b.shape[1])
-            #print 'new shape', new_shape, z
-            res.append(sps.csr_matrix((z, zc, zr), shape=new_shape, dtype=z.dtype))
-            #print 'res', res
-            flag += flag0
+            if flag != -1:
+                zr = zr[1:]
+                zr += flag
+            flag = zr[-1]
+            _ozr.write(np.getbuffer(zr))
+            _ozc.write(np.getbuffer(zc))
+            _oz.write(np.getbuffer(z))
 
+            #new_shape = (end-start, b.shape[1])
+            #print 'new shape', new_shape, z
+            #res.append(sps.csr_matrix((z, zc, zr), shape=new_shape, dtype=z.dtype))
+            #print 'res', res
+            #flag += flag0
+            flag += zr.size
+
+        _ozr.close()
+        _ozc.close()
+        _oz.close()
+        zr = np.memmap('tmp_zr.npy', dtype=xr.dtype)
+        zc = np.memmap('tmp_zc.npy', dtype=xc.dtype)
+        z = np.memmap('tmp_z.npy', dtype=x.dtype)
+        zr, zc, z = map(np.array, [zr, zc, z])
+        os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
         #print res
-        zmtx = sps.vstack(res)
+        #zmtx = sps.vstack(res)
         #paras = []
         #for i in xrange(0, N, step):
         #    start, end = i, min(i+step, N)
@@ -470,7 +491,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     print 'csrmm cpu', time() - st
     #print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
     #print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
-    #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     return zmtx
 
 
