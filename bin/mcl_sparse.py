@@ -2532,7 +2532,7 @@ def csrmerge(x0, x1, S=1000):
 
 # find the lower bound of each row
 @njit(cache=True)
-def find_lower(indptr, data, prune=1e-4, R=300):
+def find_lower0(indptr, data, prune=1e-4, R=300):
     n = indptr.size
     ps = np.empty(n, data.dtype)
     for i in xrange(n-1):
@@ -2547,6 +2547,35 @@ def find_lower(indptr, data, prune=1e-4, R=300):
 
     return ps
 
+
+@njit(cache=True)
+def find_lower(indptr, data, prune=1e-4, S=1000, R=300):
+    n = indptr.size
+    ps = np.empty(n, data.dtype)
+    for i in xrange(n-1):
+        st, ed = indptr[i:i+2]
+        if st == ed:
+            ps[i] = prune
+            continue
+        #m = ed - st
+        row = data[st:ed]
+        idx_s = row.argsort()
+        idx = row > prune
+        j = idx.sum()
+        if R <= j <= S:
+            ps[i] = prune
+        elif j < R:
+            idx_m = idx_s[:R][-1]
+            ps[i] = row[idx_m]
+            #ps[i] = row[R-1]
+        else:
+            idx_m = idx_s[:S][-1]
+            ps[i] = row[idx_m]
+            #ps[i] = row[:S][-1]
+            #ps[i] = row[S-1]
+    return ps
+
+
 # remove element by give threshold
 @njit(cache=True)
 def rm_elem(indptr, data, prune):
@@ -2555,7 +2584,10 @@ def rm_elem(indptr, data, prune):
         st, ed = indptr[i:i+2]
         row = data[st:ed]
         p = prune[i]
-        data[row<p] = 0
+        row[row<p] = 0
+
+        #print (row<p).sum(), row.size
+
 
 
 def find_cutoff(elems):
