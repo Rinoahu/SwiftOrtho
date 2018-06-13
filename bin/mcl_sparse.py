@@ -461,7 +461,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
             #res.append(sps.csr_matrix((z, zc, zr), shape=new_shape, dtype=z.dtype))
             #print 'res', res
             #flag += flag0
-            flag += zr.size
+            #flag += zr.size
 
         _ozr.close()
         _ozc.close()
