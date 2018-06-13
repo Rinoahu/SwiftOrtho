@@ -2527,6 +2527,7 @@ def csrmerge(x0, x1, S=1000):
     a1, b1, c1 = x1.indices, x1.indptr, x1.data
     a2, b2, c2 = csrmg_jit(a0, b0, c0, a1, b1, c1, S)
     z = sparse.csr_matrix((c2, a2, b2), shape=x0.shape, dtype=x0.dtype)
+    print 'after_csr_merge', z.nnz
     return z
 
 
@@ -2554,31 +2555,39 @@ def find_lower(indptr, data, prune=1e-4, S=1000, R=300):
     ps = np.empty(n, data.dtype)
     for i in xrange(n-1):
         st, ed = indptr[i:i+2]
-        if st == ed:
-            ps[i] = prune
+        m = ed - st
+        if m <= R:
+            row = data[st:ed]
+            ps[i] = 0
             continue
-        #m = ed - st
-        row = data[st:ed]
-        idx_s = row.argsort()
-        idx = row > prune
-        j = idx.sum()
-        if R <= j <= S:
-            ps[i] = prune
-        elif j < R:
-            idx_m = idx_s[:R][-1]
-            ps[i] = row[idx_m]
-            #ps[i] = row[R-1]
+            #print'ps_less', ps[i]
         else:
-            idx_m = idx_s[:S][-1]
-            ps[i] = row[idx_m]
-            #ps[i] = row[:S][-1]
-            #ps[i] = row[S-1]
+            row = data[st:ed]
+            idx = row > prune
+            j = idx.sum()
+            if j <= R:
+                idx_s = row.argsort()
+                idx_m = idx_s[m-R]
+                ps[i] = row[idx_m]
+                #print'ps_less_2', ps[i]
+
+            elif j >= S:
+                idx_s = row.argsort()
+                idx_m = idx_s[m-S]
+                ps[i] = row[idx_m]
+                #print'ps_more', ps[i]
+
+            else:
+                ps[i] = prune
+                #print'ps_good', ps[i]
+
     return ps
 
 
 # remove element by give threshold
 @njit(cache=True)
 def rm_elem(indptr, data, prune):
+    print 'before_prune_rm', (data>0).sum()
     n = indptr.size
     for i in xrange(n-1):
         st, ed = indptr[i:i+2]
@@ -2588,6 +2597,7 @@ def rm_elem(indptr, data, prune):
 
         #print (row<p).sum(), row.size
 
+    print 'after_prune_rm', (data>0).sum()
 
 
 def find_cutoff(elems):
@@ -2611,6 +2621,7 @@ def find_cutoff(elems):
         else:
             x0 = csrmerge(x0, x1, S)
 
+    print 'max_diff', np.diff(x0.indptr).max()
     ps = find_lower(x0.indptr, x0.data, prune=p, R=R)
 
     # prune
@@ -2622,7 +2633,9 @@ def find_cutoff(elems):
         except:
             continue
         # remove small element
+        print 'before_before_prune', x1.nnz
         rm_elem(x1.indptr, x1.data, ps)
+
         x1.eliminate_zeros()
         sparse.save_npz(fn, x1)
 
