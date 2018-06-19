@@ -6010,7 +6010,20 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
             flag += 1
 
     #zns = map(element_wrapper, xys)
-    zns = map(element_wrapper, xys)
+    if cpu <= 1:
+        print 'cpu < 1', cpu, len(xys)
+        zns = map(element_wrapper, xys)
+    else:
+        print 'cpu > 1', cpu, len(xys)
+        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+        pool = mp.Pool(cpu)
+        zns = pool.map(element_wrapper, xys)
+        pool.terminate()
+        pool.close()
+        del pool
+        gc.collect()
+
+
 
     gc.collect()
     #row_sum_ns = [elem[0] for elem in zns if type(elem[0]) != type(None)]
@@ -8260,7 +8273,9 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
     #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
     # norm
     fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, csr=False, cpu=cpu)
-    pruning(qry, tmp_path, cpu=cpu)
+    #pruning(qry, tmp_path, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+
     # print 'finish norm', cvg
     # expension
     for i in xrange(itr):
@@ -8284,7 +8299,8 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             #os.system('rm %s/*.npz_old'%tmp_path)
             fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
-        pruning(qry, tmp_path, cpu=cpu)
+        #pruning(qry, tmp_path, cpu=cpu)
+        pruning(qry, tmp_path, prune=prune, cpu=cpu)
 
         #if 0:
         if nnz < chunk / 4 and len(fns) / 4  > cpu:
@@ -8341,11 +8357,6 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
             _o.writelines([out, '\n'])
     if outfile and type(outfile) == str:
         _o.close()
-
-
-
-
-
 
 
 
