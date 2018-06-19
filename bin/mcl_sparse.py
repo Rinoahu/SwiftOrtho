@@ -16,6 +16,7 @@ import bz2
 from itertools import izip
 #import numpy as np
 from scipy import sparse as sps
+import tempfile
 
 from threading import Thread
 from sklearn.externals.joblib import Parallel, delayed
@@ -472,9 +473,13 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         _ozr.close()
         _ozc.close()
         _oz.close()
-        zr = np.memmap('./tmp_zr.npy', dtype=xr.dtype)
-        zc = np.memmap('./tmp_zc.npy', dtype=xc.dtype)
-        z = np.memmap('./tmp_z.npy', dtype=x.dtype)
+        #zr = np.memmap('./tmp_zr.npy', dtype=xr.dtype)
+        #zc = np.memmap('./tmp_zc.npy', dtype=xc.dtype)
+        #z = np.memmap('./tmp_z.npy', dtype=x.dtype)
+        zr = np.memmap(tmpfn+'_zr.npy', dtype=xr.dtype)
+        zc = np.memmap(tmpfn+'_zc.npy', dtype=xc.dtype)
+        z = np.memmap(tmpfn+'_z.npy', dtype=x.dtype)
+
         zr, zc, z = map(np.array, [zr, zc, z])
         #os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
         os.system('rm %s_z*.npy'%tmpfn)
