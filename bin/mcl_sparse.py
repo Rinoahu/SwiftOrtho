@@ -438,9 +438,15 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         #res = []
         #offset = 0
         #for t in threads:
-        _ozr = open('./tmp_zr.npy', 'wb')
-        _ozc = open('./tmp_zc.npy', 'wb')
-        _oz = open('./tmp_z.npy', 'wb')
+        tmpfn = tempfile.mkdtemp()
+        #_ozr = open('./tmp_zr.npy', 'wb')
+        #_ozc = open('./tmp_zc.npy', 'wb')
+        #_oz = open('./tmp_z.npy', 'wb')
+        _ozr = open(tmpfn+'_zr.npy', 'wb')
+        _ozc = open(tmpfn+'_zc.npy', 'wb')
+        _oz = open(tmpfn+'_z.npy', 'wb')
+
+
 
         flag = -1
         for i in xrange(0, N, step):
@@ -470,7 +476,9 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         zc = np.memmap('./tmp_zc.npy', dtype=xc.dtype)
         z = np.memmap('./tmp_z.npy', dtype=x.dtype)
         zr, zc, z = map(np.array, [zr, zc, z])
-        os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
+        #os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
+        os.system('rm %s_z*.npy'%tmpfn)
+
         #print res
         #zmtx = sps.vstack(res)
         #paras = []
