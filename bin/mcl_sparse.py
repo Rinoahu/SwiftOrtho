@@ -509,7 +509,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     if type(z) != type(None):
         zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     else:
-        zmtx = sps.csr_matrix(shape=(a.shape[0], b.shape[1]))
+        zmtx = sps.csr_matrix((a.shape[0], b.shape[1]), dtype=a.type)
 
     return zmtx
 
