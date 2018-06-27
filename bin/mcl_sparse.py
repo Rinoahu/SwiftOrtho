@@ -476,13 +476,15 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         #zr = np.memmap('./tmp_zr.npy', dtype=xr.dtype)
         #zc = np.memmap('./tmp_zc.npy', dtype=xc.dtype)
         #z = np.memmap('./tmp_z.npy', dtype=x.dtype)
-        zr = np.memmap(tmpfn+'_zr.npy', dtype=xr.dtype)
-        zc = np.memmap(tmpfn+'_zc.npy', dtype=xc.dtype)
-        z = np.memmap(tmpfn+'_z.npy', dtype=x.dtype)
-
-        zr, zc, z = map(np.array, [zr, zc, z])
-        #os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
-        os.system('rm %s_z*.npy'%tmpfn)
+        try:
+            zr = np.memmap(tmpfn+'_zr.npy', dtype=xr.dtype)
+            zc = np.memmap(tmpfn+'_zc.npy', dtype=xc.dtype)
+            z = np.memmap(tmpfn+'_z.npy', dtype=x.dtype)
+            zr, zc, z = map(np.array, [zr, zc, z])
+            #os.system('rm ./tmp_zr.npy ./tmp_zc.npy ./tmp_z.npy')
+            os.system('rm %s_z*.npy'%tmpfn)
+        except:
+            zr = zc = z = None
 
         #print res
         #zmtx = sps.vstack(res)
@@ -504,7 +506,11 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     print 'csrmm cpu', time() - st
     #print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
     #print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
-    zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    if type(z) != type(None):
+        zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    else:
+        zmtx = sps.csr_matrix(shape=(a.shape[0], b.shape[1]))
+
     return zmtx
 
 
@@ -6028,13 +6034,13 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
         zns = map(element_wrapper, xys)
     else:
         print 'cpu > 1', cpu, len(xys)
-        #zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
-        pool = mp.Pool(cpu)
-        zns = pool.map(element_wrapper, xys)
-        pool.terminate()
-        pool.close()
-        del pool
-        gc.collect()
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+        #pool = mp.Pool(cpu)
+        #zns = pool.map(element_wrapper, xys)
+        #pool.terminate()
+        #pool.close()
+        #del pool
+        #gc.collect()
 
 
 
