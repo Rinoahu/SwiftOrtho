@@ -2156,7 +2156,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
         else:
             qid, sid, score = j[1:4]
 
-        z = float(score)
+        z = abs(float(score))
         x, y = map(q2n.get, [qid, sid])
         out = pack('fff', *[x, y, z])
         xi, yi = x // block, y // block
@@ -2327,7 +2327,7 @@ def mat_split_gpu(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, d
         else:
             qid, sid, score = j[1:4]
 
-        z = float(score)
+        z = abs(float(score))
         x, y = map(q2n.get, [qid, sid])
         out = pack('fff', *[x % block, y % block, z])
         xi, yi = x // block, y // block
