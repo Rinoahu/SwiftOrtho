@@ -401,7 +401,7 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
 #csrmm_jit = jit(csrmm)
 
-def csrmm_ez(a, b, mm='msav', cpu=1):
+def csrmm_ez0(a, b, mm='msav', cpu=1):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
 
@@ -514,6 +514,75 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     return zmtx
 
 
+def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None):
+    xr, xc, x = a.indptr, a.indices, a.data
+    yr, yc, y = b.indptr, b.indices, b.data
+    print 'a nnz', a.nnz, 'b nnz', b.nnz
+    st = time()
+    if cpu > 1:
+        csrmm = csrmm_sp
+    elif mm == 'msav':
+        csrmm = csrmm_msav
+    elif mm == 'ori':
+        csrmm = csrmm_ori
+    else:
+        raise SystemExit()
+
+    if cpu <= 1:
+        zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
+    else:
+        print 'using threads'
+        N, D = a.shape
+        step = N // (cpu * 4) + 1
+        threads = []
+        for i in xrange(0, N, step):
+            start, end = i, min(i+step, N)
+            t = worker(csrmm_sp, (xr, xc, x, yr, yc, y, start, end, cpu))
+            t.start()
+            threads.append(t)
+
+        if prefix == None:
+            tmpfn = tempfile.mkdtemp()
+        else:
+            tmpfn = prefix
+        _ozr = open(tmpfn+'_zr.npy', 'wb')
+        _ozc = open(tmpfn+'_zc.npy', 'wb')
+        _oz = open(tmpfn+'_z.npy', 'wb')
+
+        flag = -1
+        for i in xrange(0, N, step):
+            start, end = i, min(i+step, N)
+            t = threads[i//step]
+            t.join()
+            zr, zc, z, flag0 = t.get_result()
+            if flag != -1:
+                zr = zr[1:]
+                zr += flag
+            flag = zr[-1]
+            _ozr.write(np.getbuffer(zr))
+            _ozc.write(np.getbuffer(zc))
+            _oz.write(np.getbuffer(z))
+
+        _ozr.close()
+        _ozc.close()
+        _oz.close()
+        try:
+            zr = np.memmap(tmpfn+'_zr.npy', dtype=xr.dtype)
+            zc = np.memmap(tmpfn+'_zc.npy', dtype=xc.dtype)
+            z = np.memmap(tmpfn+'_z.npy', dtype=x.dtype)
+            zr, zc, z = map(np.array, [zr, zc, z])
+            os.system('rm %s_z*.npy'%tmpfn)
+        except:
+            zr = zc = z = None
+
+    print 'total operation', flag
+    print 'csrmm cpu', time() - st
+    if type(z) != type(None):
+        zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
+    else:
+        zmtx = sps.csr_matrix((a.shape[0], b.shape[1]), dtype=a.dtype)
+
+    return zmtx
 
 
 
@@ -4181,6 +4250,77 @@ def element2(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
     return row_sum_n, xyn, nnz
 
 
+def element3(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    z = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+            #x_i, x_j = x.nonzero()
+            #x.data[x_i==x_j] = 1
+            #x.data[x.data<prune] = 0
+            #x.eliminate_zeros()
+        except:
+            print 'can not load x', xn
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+            #y_i, y_j = y.nonzero()
+            #y.data[y_i==y_j] = 1
+            #y.data[y.data<prune] = 0
+            #y.eliminate_zeros()
+
+        except:
+            print 'can not load y', yn
+            continue
+        #tmp = x * y
+        tmp = csrmm_ez(x, y, cpu=cpu)
+        try:
+            z += tmp
+        except:
+            z = tmp
+
+        del x, y, tmp
+        gc.collect()
+
+    if type(z) == type(None):
+        return None, None, None
+
+    z.data **= I
+    #z.data[z.data < prune] = 0
+    z.eliminate_zeros()
+
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+
+    #return row_sum
+    #row_sum = z.sum(0)
+    #row_sum = np.asarray(z.sum(0), 'float32')[0]
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    #print 'row_sum is', type(row_sum)
+    #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
 
 
 def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
@@ -4212,7 +4352,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             print 'can not load y', yn
             continue
         #tmp = x * y
-        tmp = csrmm_ez(x, y, cpu=cpu)
+        xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(yi) + '_tmp'
+        tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp)
         try:
             z += tmp
         except:
