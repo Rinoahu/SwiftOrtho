@@ -514,7 +514,7 @@ def csrmm_ez0(a, b, mm='msav', cpu=1):
     return zmtx
 
 
-def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None):
+def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
     print 'a nnz', a.nnz, 'b nnz', b.nnz
@@ -542,9 +542,9 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None):
             threads.append(t)
 
         if prefix == None:
-            tmpfn = tempfile.mkdtemp()
+            tmpfn = tempfile.mktemp('tmp', dir='./tmp/')
         else:
-            tmpfn = prefix
+            tmpfn = tempfile.mktemp(prefix, dir=path)
         _ozr = open(tmpfn+'_zr.npy', 'wb')
         _ozc = open(tmpfn+'_zc.npy', 'wb')
         _oz = open(tmpfn+'_z.npy', 'wb')
@@ -4352,8 +4352,9 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             print 'can not load y', yn
             continue
         #tmp = x * y
-        xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(yi) + '_tmp'
-        tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp)
+        #xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(yi) + '_tmp'
+        xyn_tmp = str(xi) + '_' + str(yi) + '_tmp'
+        tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
         try:
             z += tmp
         except:
