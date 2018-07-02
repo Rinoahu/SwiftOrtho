@@ -544,7 +544,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
         if prefix == None:
             tmpfn = tempfile.mktemp('tmp', dir='./tmp/')
         else:
-            tmpfn = tempfile.mktemp(prefix, dir=path)
+            tmpfn = tempfile.mktemp(prefix, dir=tmp_path)
         _ozr = open(tmpfn+'_zr.npy', 'wb')
         _ozc = open(tmpfn+'_zc.npy', 'wb')
         _oz = open(tmpfn+'_z.npy', 'wb')
