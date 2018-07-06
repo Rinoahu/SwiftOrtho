@@ -544,7 +544,8 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
         if prefix == None:
             tmpfn = tempfile.mktemp('tmp', dir='./tmp/')
         else:
-            tmpfn = tempfile.mktemp(prefix, dir=tmp_path)
+            #tmpfn = tempfile.mktemp(prefix, dir=tmp_path)
+            tmpfn = prefix
         _ozr = open(tmpfn+'_zr.npy', 'wb')
         _ozc = open(tmpfn+'_zc.npy', 'wb')
         _oz = open(tmpfn+'_z.npy', 'wb')
@@ -4353,7 +4354,7 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
             continue
         #tmp = x * y
         #xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(yi) + '_tmp'
-        xyn_tmp = str(xi) + '_' + str(yi) + '_tmp'
+        xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(i) + '_' + str(yi) + '_tmp'
         tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
         try:
             z += tmp
