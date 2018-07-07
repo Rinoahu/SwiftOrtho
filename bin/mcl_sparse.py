@@ -519,8 +519,10 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     yr, yc, y = b.indptr, b.indices, b.data
     print 'a nnz', a.nnz, 'b nnz', b.nnz
     st = time()
-    if cpu > 1:
+    if cpu > 1 and x.size > 5e7:
         csrmm = csrmm_sp
+    if cpu > 1 and x.size < 5e7:
+        csrmm = csrmm_msav
     elif mm == 'msav':
         csrmm = csrmm_msav
     elif mm == 'ori':
