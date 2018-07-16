@@ -422,7 +422,9 @@ def csrmm_ez0(a, b, mm='msav', cpu=1):
     else:
         raise SystemExit()
 
-    if cpu <= 1:
+    #if cpu <= 1:
+    # close threads
+    if 1:
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
         #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     else:
