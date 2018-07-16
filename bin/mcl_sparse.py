@@ -532,7 +532,9 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     else:
         raise SystemExit()
 
-    if cpu <= 1:
+    #if cpu <= 1:
+    # shutdown threads
+    if 1:
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
     else:
         print 'using threads'
