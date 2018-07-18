@@ -213,9 +213,8 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
 
 # memory save version
-#@njit(parallel=True, fastmath=True)
 @njit(fastmath=True, nogil=True, cache=True)
-def csrmm_msav(xr, xc, x, yr, yc, y):
+def csrmm_msav0(xr, xc, x, yr, yc, y):
 
     R = xr.shape[0]
     D = yr.shape[0]
@@ -225,10 +224,11 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
-    #print 'zr init', zr[:5]
+    print 'zr init', zr[:5], zc[:5], z[:5]
 
     # hash table
     #visit = np.zeros(yr.size, 'int8')
+    #index = np.zeros(yr.size, yr.dtype)
     index = np.zeros(yr.size, yr.dtype)
     flag = 0
     zptr = 0
@@ -240,11 +240,11 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             zr[i+1] = zr[i]
             continue
 
+        i_sz = index.size
         ks = 0
         nz = 0
         for k in xrange(kst, ked):
             x_col, x_val = xc[k], x[k]
-
             # get row of b
             jst, jed = yr[x_col], yr[x_col + 1]
             if jst == jed:
@@ -252,18 +252,133 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
 
             nz += jed - jst
             flag += 2
-
             for j in xrange(jst, jed):
             #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
+                #print 'before', ks, len(index), i_sz
                 y_col_val = data[y_col] + x_val * y_val
                 if y_col_val != 0:
-                    index[ks] = y_col
+                    if ks < i_sz:
+                        index[ks] = y_col
+                    else:
+                        i_sz += (jed-jst) * 2
+                        index = resize(index, i_sz)
+                        index[ks] = y_col
                     ks += 1
                     flag += 2
 
                 data[y_col] = y_col_val
                 flag += 3
+                #print 'end', ks, len(index), i_sz
+
+            #print(k, jst, jed, len(yr))
+
+
+        zend = zr[i] + nz
+        if zend > nnz:
+            nnz += chk
+            #print('resize sparse matrix', n_size)
+            zc = resize(zc, nnz)
+            z = resize(z, nnz)
+            flag += 2
+
+        for pt in xrange(ks):
+        #for pt in prange(ks):
+            y_col = index[pt]
+            #mx_col = max(mx_col, idx)
+            y_col_val = data[y_col]
+            if y_col_val != 0:
+                zc[zptr], z[zptr] = y_col, y_col_val
+                zptr += 1
+                data[y_col] = 0
+                flag += 3
+
+            flag += 1
+
+
+        zr[i+1] = zptr
+
+    return zr, zc[:zptr], z[:zptr], flag
+
+
+
+@njit(fastmath=True, nogil=True, cache=True)
+def csrmm_msav(xr, xc, x, yr, yc, y):
+
+    R = xr.shape[0]
+    D = yr.shape[0]
+    chk = x.size + y.size
+    nnz = chk
+    print 'nnz size', nnz
+    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
+    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
+    data = np.zeros(D-1, dtype=x.dtype)
+    print 'zr init', zr[:5], zc[:5], z[:5]
+
+    # hash table
+    #visit = np.zeros(yr.size, 'int8')
+    #index = np.zeros(yr.size, yr.dtype)
+    index = np.zeros(yr.size, yr.dtype)
+    index_tmp = np.zeros(yr.size, yr.dtype)
+    index_mg = np.zeros(yr.size, yr.dtype)
+
+    flag = 0
+    zptr = 0
+    for i in xrange(R-1):
+
+        # get ith row of a
+        kst, ked = xr[i], xr[i + 1]
+        if kst == ked:
+            zr[i+1] = zr[i]
+            continue
+
+        index[0] = index_tmp[0] = -1
+        nz = 0
+        for k in xrange(kst, ked):
+            x_col, x_val = xc[k], x[k]
+            # get row of b
+            jst, jed = yr[x_col], yr[x_col + 1]
+            if jst == jed:
+                continue
+
+            nz += jed - jst
+            flag += 2
+            ks_tmp = 0
+            for j in xrange(jst, jed):
+                y_col, y_val = yc[j], y[j]
+                y_col_val = data[y_col] + x_val * y_val
+                if y_col_val != 0:
+                    index_tmp[ks_tmp] = y_col
+                    ks_tmp += 1
+                    flag += 2
+
+                data[y_col] = y_col_val
+                flag += 3
+                #print 'end', ks, len(index), i_sz
+            if index[0] == -1:
+                index, index_tmp = index_tmp, index
+                ks = ks_tmp
+
+            if index_tmp[0] != -1:
+                #ks = merge_index(index, index_tmp)
+                ks_mg = p0 = p1 = 0
+                while p0 < ks and p1 < ks_tmp:
+                    idx0 = index[p0]
+                    idx1 = index_tmp[p1]
+                    if idx0 < idx1:
+                        index_mg[ks_mg] = idx0
+                        p0 += 1
+                    else:
+                        p1 += 1
+                        index_mg[ks_mg] = idx1
+                    if ks_mg <= 0:
+                        ks_mg += 1
+                    elif index_mg[ks_mg-1] != index_mg[ks_mg]:
+                        ks_mg += 1
+                    else:
+                        continue
+                index, ks = index_mg, ks_mg
+            #print(k, jst, jed, len(yr))
 
 
         zend = zr[i] + nz
@@ -295,7 +410,8 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     #return zmtx
 
 # parallel version of csrmm
-@njit(fastmath=True, nogil=True, cache=True)
+#@njit(fastmath=True, nogil=True, cache=True)
+@njit(nogil=True, cache=True)
 def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
     xr = np.empty(xred+1-xrst, Xr.dtype)
@@ -516,7 +632,7 @@ def csrmm_ez0(a, b, mm='msav', cpu=1):
     return zmtx
 
 
-def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
+def csrmm_ez(a, b, mm='scipy', cpu=1, prefix=None, tmp_path=None):
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
     print 'a nnz', a.nnz, 'b nnz', b.nnz
@@ -524,18 +640,22 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     #if cpu > 1 and x.size > 5e8:
     #    csrmm = csrmm_sp
     #if cpu > 1 and x.size < 5e8:
-    if cpu > 1:
-        csrmm = csrmm_msav
+    #if cpu > 1:
+    if mm == 'scipy':
+        return a * b
     elif mm == 'msav':
+        print 'using msav'
         csrmm = csrmm_msav
     elif mm == 'ori':
         csrmm = csrmm_ori
     else:
         raise SystemExit()
 
-    #if cpu <= 1:
+    if cpu <= 1:
     # shutdown threads
-    if 1:
+    #print 'try msav'
+    #if 1:
+        print 'cal msav'
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
     else:
         print 'using threads'
