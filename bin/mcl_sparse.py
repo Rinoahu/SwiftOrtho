@@ -724,7 +724,10 @@ def csrmm_ez0(a, b, mm='msav', cpu=1):
     return zmtx
 
 
-def csrmm_ez(a, b, mm='scipy', cpu=1, prefix=None, tmp_path=None):
+def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
+    np.nan_to_num(a.data, False)
+    np.nan_to_num(b.data, False)
+
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
     print 'a nnz', a.nnz, 'b nnz', b.nnz
