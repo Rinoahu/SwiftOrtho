@@ -746,7 +746,8 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     else:
         raise SystemExit()
 
-    if cpu <= 1:
+    nnzs = x.size + y.size
+    if cpu <= 1 or nnzs <= 1e8:
     # shutdown threads
     #print 'try msav'
     #if 1:
