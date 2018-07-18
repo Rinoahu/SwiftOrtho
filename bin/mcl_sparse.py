@@ -188,7 +188,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y, visit):
         zend = zr[i] + nz
         if zend > n_size:
             n_size += nnz
-            #print('resize sparse matrix', n_size)
+            print 'resize sparse matrix', n_size
             zc = resize(zc, n_size)
             z = resize(z, n_size)
             flag += 2
@@ -220,12 +220,13 @@ def csrmm_msav(xr, xc, x, yr, yc, y, visit):
     R = xr.shape[0]
     D = yr.shape[0]
     chk = x.size + y.size
-    nnz = chk
+    #nnz = chk
+    nnz = int(1. * x.size * y.size / (D-1))
     print 'nnz size', nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
-    print 'zr init', zr[:5], zc[:5], z[:5]
+    #print 'zr init', zr[:5], zc[:5], z[:5]
 
     # hash table
     #visit = np.zeros(yr.size, 'int8')
