@@ -279,8 +279,8 @@ def csrmm_msav(xr, xc, x, yr, yc, y, visit):
         zend = zr[i] + nz
         if zend > nnz:
             print'resize estimate', nnz, nnz+chk, nnz * R / i
-            nnz = max(chk+nnz, R/i*nnz)
-            #nnz += chk
+            #nnz = max(chk+nnz, R/i*nnz)
+            nnz += chk * 20
 
             #print('resize sparse matrix', n_size)
             zc = resize(zc, nnz)
