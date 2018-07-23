@@ -222,7 +222,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y, visit):
     chk = x.size + y.size
     #nnz = chk
     nnz = min(int(1. * x.size * y.size / (D-1)), chk * 25)
-    print 'nnz size', nnz
+    print 'nnz size', chk, nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
