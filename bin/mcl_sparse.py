@@ -302,7 +302,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y, visit):
 
 
         zr[i+1] = zptr
-
+    print 'the zptr', zptr
     return zr, zc[:zptr], z[:zptr], flag
 
 
