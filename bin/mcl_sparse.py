@@ -17,9 +17,12 @@ from itertools import izip
 #import numpy as np
 from scipy import sparse as sps
 import tempfile
+import cPickle
 
 from threading import Thread
 from sklearn.externals.joblib import Parallel, delayed
+
+
 try:
     import sharedmem as sm
 except:
@@ -8369,7 +8372,20 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     os.system('rm -rf %s' % tmp_path)
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+
     N = len(q2n)
+
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
+
+
     #prune = min(prune, 100. / N)
     shape = (N, N)
     # reorder matrix
@@ -8429,6 +8445,12 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     gc.collect()
 
     # print 'find components', cs
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
     groups = {}
     for k, v in q2n.iteritems():
         c = cs[1][v]
@@ -8653,6 +8675,15 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
     N = len(q2n)
     #prune = min(prune, 100. / N)
 
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
     #shape = (N, N)
     shape = (block, block)
     # reorder matrix
@@ -8721,6 +8752,14 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
     del g
     gc.collect()
+
+
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
 
     # print 'find components', cs
     groups = {}
