@@ -4549,9 +4549,7 @@ def element3(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
     return row_sum_n, xyn, nnz
 
 
-
-
-def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def element4(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4618,6 +4616,73 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     np.savez_compressed(row_sum_n, row_sum)
     #print 'row_sum is', type(row_sum)
     #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+
+
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xr = yc = z = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+            if type(xr) == type(None):
+                xr = x
+            else:
+                xr += x
+        except:
+            print 'can not load x', xn
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+            if type(yc) == type(None):
+                yc = y
+            else:
+                yc += y 
+
+        except:
+            print 'can not load y', yn
+            continue
+
+        #xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(i) + '_' + str(yi) + '_tmp'
+        #tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
+        #try:
+        #    z += tmp
+        #except:
+        #    z = tmp
+
+        #del x, y, tmp
+        del x, y
+        gc.collect()
+    if type(xr) != type(None) and type(yc) != type(None):
+        xyn_tmp = tmp_path + '/' + str(xi) + '_x_' + str(yi) + '_tmp'
+        z = csrmm_ez(xr, yc, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
+    else:
+        return None, None, None
+
+    z.data **= I
+    z.eliminate_zeros()
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
     del z
     gc.collect()
 
