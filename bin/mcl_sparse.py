@@ -4623,8 +4623,7 @@ def element4(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
 
 
 
-
-def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def element5(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4668,6 +4667,122 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         z = csrmm_ez(xr, yc, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
     else:
         return None, None, None
+
+    z.data **= I
+    z.eliminate_zeros()
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+# bmat
+def bkmat(xyn, cpu=1):
+    print 'working on block mat', xyn
+    xn, yn, shape, csr = xyn
+    try:
+        x = load_matrix(xn, shape=shape, csr=csr)
+        if xn == yn:
+            y = x
+        else:
+            y = load_matrix(yn, shape=shape, csr=csr)
+        print 'bkmat loading'
+
+    except:
+        print 'not get', xn, yn
+        return None
+
+    z = csrmm_ez(x, y, cpu=1)
+    print 'get z', z
+    return z
+
+def badd(xy):
+    x, y = xy
+    z = x + y
+    del x, y
+    gc.collect()
+    return z
+
+# block merge
+def bmerge(zs, cpu=1):
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        while len(zs) > 0:
+            z0 = zs.pop()
+            try:
+                z1 = zs.pop()
+            except:
+                z1 = None
+            if type(z1) != type(None):
+                xys.append([z0, z1])
+            else:
+                try:
+                    unpair.append(z0)
+                except:
+                    unpair = [z0]
+        if cpu <= 1:
+            new_zs = map(elem, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd)(elem) for elem in xys)
+
+        while len(new_zs) > 0:
+            z = new_zs.pop()
+            if type(z) != type(None):
+                unpair.append(z)
+
+        zs = unpair
+    try:
+        return zs[0]
+    except:
+        return None
+
+
+
+# processing entry blocks one by one
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xr = yc = z = None
+    xyn = []
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        #print 'xi', xi, 'yi', yi
+        if os.path.isfile(xn) and os.path.isfile(yn):
+            xyn.append([xn, yn, shape, csr])
+
+    print 'compute_element_cpu', cpu
+    print 'parallel_bmat', xyn[0], len(xyn)
+    #zs = bmat(xyns, cpu)
+    #if cpu <= 1:
+    if 1:
+        zs = map(bkmat, xyn)
+    else:
+        zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
+    z = bmerge(zs, cpu=cpu)
+    print 'breakpoint', zs, z
+    #raise SystemExit()
+    if type(z) == type(None):
+        #print 'return_none_z'
+        return None, None, None
+    #else:
+    #    z = zs_merge(zs)
+
 
     z.data **= I
     z.eliminate_zeros()
@@ -6442,8 +6557,7 @@ def expand9(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
     #return row_sum, fns, nnz
 
 
-
-def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand10(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -6527,12 +6641,88 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
                 fns.append(fn)
 
     return row_sum, fns, nnz
-    # rename
-    #for i in fns:
-    #    os.system('mv %s %s_old' % (i, i))
-    #    os.system('mv %s_new.npz %s' % (i, i))
 
-    #return row_sum, fns, nnz
+
+
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+
+    nnz = 0
+    row_sum = None
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune, cpu]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #if cpu <= 1:
+    #    print 'cpu < 1', cpu, len(xys)
+    #    zns = map(element_wrapper, xys)
+    #else:
+    #    print 'cpu > 1', cpu, len(xys)
+    #    zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+    #    #pool = mp.Pool(cpu)
+    #    #zns = pool.map(element_wrapper, xys)
+    #    #pool.terminate()
+    #    #pool.close()
+    #    #del pool
+    #    #gc.collect()
+    zns = map(element_wrapper, xys)
+
+
+
+    gc.collect()
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
 
 
 
