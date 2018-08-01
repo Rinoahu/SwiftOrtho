@@ -4623,7 +4623,7 @@ def element4(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
 
 
 
-def element5(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def element_fast(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4959,8 +4959,11 @@ def element_wrapper1(elems):
 def element_wrapper(elems):
     outs = []
     for elem in elems:
-        x, y, d, qry, shape, tmp_path, csr, I, prune, cpu = elem
-        out = element(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
+        x, y, d, qry, shape, tmp_path, csr, I, prune, cpu, fast = elem
+        if fast:
+            out = element_fast(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
+        else:
+            out = element(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
         outs.append(out)
     return outs
 
@@ -6644,7 +6647,7 @@ def expand10(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e
 
 
 
-def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1, fast=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -6659,7 +6662,7 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
     flag = 0
     for x in xrange(d):
         for y in xrange(d):
-            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune, cpu]
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune, cpu, fast]
             xys[flag%cpu].append(xy)
             flag += 1
 
@@ -8660,8 +8663,11 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
 
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
 
-        row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
         if i > 0 and i % check == 0:
             print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
