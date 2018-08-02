@@ -4690,7 +4690,7 @@ def element_fast(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, 
 
 # bmat
 def bkmat(xyns, cpu=1):
-    print 'working on block mat', xyn
+    print 'working on block mat', xyns
     z = None
     for xyn in xyns:
         xn, yn, shape, csr = xyn
