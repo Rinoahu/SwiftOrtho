@@ -4774,7 +4774,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         #print 'xi', xi, 'yi', yi
         if os.path.isfile(xn) and os.path.isfile(yn):
             #xyn.append([xn, yn, shape, csr])
-            xyn[d % cpu].append([xn, yn, shape, csr])
+            xyn[i % cpu].append([xn, yn, shape, csr])
+            print 'in_bkt', i, cpu, i % cpu
 
     xyn = [elem for elem in xyn if elem]
 
