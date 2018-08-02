@@ -4703,7 +4703,8 @@ def bkmat(xyns, cpu=1):
             print 'bkmat loading'
         except:
             print 'not get', xn, yn
-            return None
+            #return None
+            continue
 
         z0 = csrmm_ez(x, y, cpu=1)
         if type(z) != type(None):
@@ -6690,8 +6691,10 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
     #    #pool.close()
     #    #del pool
     #    #gc.collect()
-    zns = map(element_wrapper, xys)
-
+    if fast and cpu > 1:
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+    else:
+        zns = map(element_wrapper, xys)
 
 
     gc.collect()
