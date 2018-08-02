@@ -4689,22 +4689,27 @@ def element_fast(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, 
 
 
 # bmat
-def bkmat(xyn, cpu=1):
+def bkmat(xyns, cpu=1):
     print 'working on block mat', xyn
-    xn, yn, shape, csr = xyn
-    try:
-        x = load_matrix(xn, shape=shape, csr=csr)
-        if xn == yn:
-            y = x
+    z = None
+    for xyn in xyns:
+        xn, yn, shape, csr = xyn
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+            if xn == yn:
+                y = x
+            else:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            print 'bkmat loading'
+        except:
+            print 'not get', xn, yn
+            return None
+
+        z0 = csrmm_ez(x, y, cpu=1)
+        if type(z) != type(None):
+            z += z0
         else:
-            y = load_matrix(yn, shape=shape, csr=csr)
-        print 'bkmat loading'
-
-    except:
-        print 'not get', xn, yn
-        return None
-
-    z = csrmm_ez(x, y, cpu=1)
+            z = z0
     print 'get z', z
     return z
 
@@ -4723,6 +4728,9 @@ def bmerge(zs, cpu=1):
         unpair = []
         while len(zs) > 0:
             z0 = zs.pop()
+            if type(z0) == type(None):
+                continue
+
             try:
                 z1 = zs.pop()
             except:
@@ -4758,22 +4766,26 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
         tmp_path = qry + '_tmpdir'
 
     xr = yc = z = None
-    xyn = []
+    xyn = [[] for elem in xrange(cpu)]
     for i in xrange(d):
         xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
         yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
         #print 'xi', xi, 'yi', yi
         if os.path.isfile(xn) and os.path.isfile(yn):
-            xyn.append([xn, yn, shape, csr])
+            #xyn.append([xn, yn, shape, csr])
+            xyn[d % cpu].append([xn, yn, shape, csr])
+
+    xyn = [elem for elem in xyn if elem]
 
     print 'compute_element_cpu', cpu
     print 'parallel_bmat', xyn[0], len(xyn)
     #zs = bmat(xyns, cpu)
     #if cpu <= 1:
-    if 1:
-        zs = map(bkmat, xyn)
-    else:
-        zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
+    #if 1:
+    #    zs = map(bkmat, xyn)
+    #else:
+    #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
+    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
     z = bmerge(zs, cpu=cpu)
     print 'breakpoint', zs, z
     #raise SystemExit()
