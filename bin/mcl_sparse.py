@@ -4821,14 +4821,14 @@ def bmerge_disk(zs, cpu=1):
             new_zs = Parallel(n_jobs=cpu)(delayed(badd_disk)(elem) for elem in xys)
 
 
-        print 'unfinished_merge0', new_zs, xys, unpair, Nraw
+        #print 'unfinished_merge0', new_zs, xys, unpair, Nraw
         for un in unpair:
             new_zs.extend(un)
 
-        print 'unfinished_merge1', new_zs, xys, unpair, Nraw
+        #print 'unfinished_merge1', new_zs, xys, unpair, Nraw
 
         zs = [elem for elem in new_zs if elem != None]
-        print 'unfinished_merge_flt', zs, Nraw
+        #print 'unfinished_merge_flt', zs, Nraw
 
 
     print 'finish_merge', zs
@@ -4871,8 +4871,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     #else:
     #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
     zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
-    #z = bmerge(zs, cpu=1)
-    z = bmerge_disk(zs, cpu=cpu)
+    z = bmerge(zs, cpu=1)
+    #z = bmerge_disk(zs, cpu=cpu)
     print 'breakpoint', zs, z
     #raise SystemExit()
     if type(z) == type(None):
