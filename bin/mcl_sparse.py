@@ -4723,6 +4723,8 @@ def badd(xy):
 
 # block merge
 def bmerge(zs, cpu=1):
+    if len(zs) == 1:
+        return zs
     while len(zs) > 1:
         print 'working on bmerge', len(zs)
         xys = []
@@ -4744,7 +4746,7 @@ def bmerge(zs, cpu=1):
                 except:
                     unpair = [z0]
         if cpu <= 1:
-            new_zs = map(elem, xys)
+            new_zs = map(badd, xys)
         else:
             new_zs = Parallel(n_jobs=cpu)(delayed(badd)(elem) for elem in xys)
 
@@ -4791,6 +4793,10 @@ def badd_disk(xyzs):
 def bmerge_disk(zs, cpu=1):
     # write z to disk
     N = len(zs)
+    Nraw = N
+    if N == 1:
+        return zs[0]
+
     Ns = range(N)
     for i in Ns:
         sparse.save_npz('tmp_mat_%d.npz'%i, zs[i])
@@ -4810,13 +4816,22 @@ def bmerge_disk(zs, cpu=1):
                 unpair.append(zs[idx:idx+4])
 
         if cpu <= 1:
-            new_zs = map(elem, xys)
+            new_zs = map(badd_disk, xys)
         else:
             new_zs = Parallel(n_jobs=cpu)(delayed(badd_disk)(elem) for elem in xys)
 
-        new_zs.extend(unpair)
-        zs = [elem for elem in new_zs if elem]
 
+        print 'unfinished_merge0', new_zs, xys, unpair, Nraw
+        for un in unpair:
+            new_zs.extend(un)
+
+        print 'unfinished_merge1', new_zs, xys, unpair, Nraw
+
+        zs = [elem for elem in new_zs if elem != None]
+        print 'unfinished_merge_flt', zs, Nraw
+
+
+    print 'finish_merge', zs
     try:
         #return zs[0]
         idx = zs[0]
@@ -4856,7 +4871,7 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     #else:
     #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
     zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
-    #z = bmerge(zs, cpu=cpu)
+    #z = bmerge(zs, cpu=1)
     z = bmerge_disk(zs, cpu=cpu)
     print 'breakpoint', zs, z
     #raise SystemExit()
