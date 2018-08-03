@@ -4714,17 +4714,35 @@ def bkmat(xyns, cpu=1):
     print 'get z', z
     return z
 
-def badd(xy):
+def badd0(xy):
     x, y = xy
     z = x + y
     del x, y
     gc.collect()
     return z
 
+def badd(xy):
+    #x, y = xy
+    #z = x + y
+    #del x, y
+    #gc.collect()
+    #return z
+    z = None
+    for i in xy:
+        if type(z) == type(None):
+            z = i
+        else:
+            z += i
+        del i
+        gc.collect()
+
+    return z
+
 # block merge
-def bmerge(zs, cpu=1):
+def bmerge0(zs, cpu=1):
     if len(zs) == 1:
         return zs
+
     while len(zs) > 1:
         print 'working on bmerge', len(zs)
         xys = []
@@ -4745,6 +4763,47 @@ def bmerge(zs, cpu=1):
                     unpair.append(z0)
                 except:
                     unpair = [z0]
+        if cpu <= 1:
+            new_zs = map(badd, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd)(elem) for elem in xys)
+
+        while len(new_zs) > 0:
+            z = new_zs.pop()
+            if type(z) != type(None):
+                unpair.append(z)
+
+        zs = unpair
+    try:
+        return zs[0]
+    except:
+        return None
+
+
+# block merge
+def bmerge(zs, cpu=1):
+    if len(zs) == 1:
+        return zs[0]
+
+    z = None
+    if cpu <= 1:
+        return badd(zs)
+
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        tmp = []
+        while zs:
+            tmp.append(zs.pop())
+            if len(tmp) >= 4:
+                xys.append(tmp)
+                tmp = []
+        if len(tmp) > 1:
+            xys.append(tmp)
+        else:
+            unpair = tmp
+
         if cpu <= 1:
             new_zs = map(badd, xys)
         else:
@@ -4871,7 +4930,7 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     #else:
     #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
     zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
-    z = bmerge(zs, cpu=1)
+    z = bmerge(zs, cpu=cpu)
     #z = bmerge_disk(zs, cpu=cpu)
     print 'breakpoint', zs, z
     #raise SystemExit()
