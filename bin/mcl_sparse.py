@@ -4798,6 +4798,7 @@ def bmerge_disk(zs, cpu=1):
     del zs
     gc.collect()
 
+    zs = Ns
     while len(zs) > 1:
         print 'working on bmerge', len(zs)
         xys = []
