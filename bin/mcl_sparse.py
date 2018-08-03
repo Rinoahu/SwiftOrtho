@@ -4761,6 +4761,73 @@ def bmerge(zs, cpu=1):
 
 
 
+# disk based matrix add function
+def badd_disk(xyzs):
+    #x, y = xy
+    #z = x + y
+    #del x, y
+    #gc.collect()
+    #return z
+    z = None
+    idx = None
+    for i in xyzs:
+        if type(z) == type(None):
+            z = sparse.load_npz('tmp_mat_%d.npz'%i)
+            idx = i
+        else:
+            z += sparse.load_npz('tmp_mat_%d.npz'%i)
+
+        os.system('rm tmp_mat_%d.npz'%i)
+
+    if type(z) != type(None) and idx != None:
+        sparse.save_npz('tmp_mat_%d'%idx, z)
+        del z
+        gc.collect()
+
+    return idx
+
+
+# disk based merge function
+def bmerge_disk(zs, cpu=1):
+    # write z to disk
+    N = len(zs)
+    Ns = range(N)
+    for i in Ns:
+        sparse.save_npz('tmp_mat_%d.npz'%i, zs[i])
+
+    del zs
+    gc.collect()
+
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        for idx in xrange(0, len(zs), 4):
+            if len(zs[idx:idx+4]) > 1:
+                xys.append(zs[idx:idx+4])
+            else:
+                unpair.append(zs[idx:idx+4])
+
+        if cpu <= 1:
+            new_zs = map(elem, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd_disk)(elem) for elem in xys)
+
+        new_zs.extend(unpair)
+        zs = [elem for elem in new_zs if elem]
+
+    try:
+        #return zs[0]
+        idx = zs[0]
+        z = sparse.load_npz('tmp_mat_%d.npz'%idx)
+        os.system('rm tmp_mat_%d.npz'%idx)
+    except:
+        z = None
+
+    return z
+
+
+
 # processing entry blocks one by one
 def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
@@ -4788,7 +4855,8 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     #else:
     #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
     zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
-    z = bmerge(zs, cpu=cpu)
+    #z = bmerge(zs, cpu=cpu)
+    z = bmerge_disk(zs, cpu=cpu)
     print 'breakpoint', zs, z
     #raise SystemExit()
     if type(z) == type(None):
