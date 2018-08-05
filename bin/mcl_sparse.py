@@ -8837,7 +8837,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
         pruning(qry, tmp_path, cpu=cpu)
-        if nnz < chunk / 4 and len(fns) > cpu:
+        if nnz < chunk / 4 and len(fns) > cpu * cpu:
             print 'we try to merge 4 block into one', nnz, chunk/4
             row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
             #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
