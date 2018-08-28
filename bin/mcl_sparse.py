@@ -8782,7 +8782,7 @@ def mcl6(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=
 
 
 # add pruning function
-def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
+def mcl7(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -8801,6 +8801,125 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     del q2n
     gc.collect()
 
+
+
+    #prune = min(prune, 100. / N)
+    shape = (N, N)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
+
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        pruning(qry, tmp_path, cpu=cpu)
+        #if nnz < chunk / 4 and len(fns) > cpu * cpu:
+        if nnz < chunk / 4:
+            print 'we try to merge 4 block into one', nnz, chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
+# add resume parameter
+def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, rsm=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    if rsm == False: 
+        q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+
+        N = len(q2n)
+
+        # save q2n to disk
+        print 'saving q2n to disk'
+        _o = open(tmp_path + '_dict.pkl', 'wb')
+        cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+        _o.close()
+
+        del q2n
+        gc.collect()
+    else:
+        f = open(tmp_path + '_dict.pkl', 'rb')
+        q2n = cPickle.load(f)
+        N = len(q2n)
+        f.close()
 
 
     #prune = min(prune, 100. / N)
@@ -9218,12 +9337,14 @@ def manual_print():
     print '  -o: string. name of output file'
     print '  -d: T|F. is the graph directed? Default is False'
     print '  -g: int. how many gpus to use for speedup. Default is 0'
+    print '  -r: T|F. resume the work. Default is F'
+
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-d': 'F', '-g': '0'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-d': 'F', '-g': '0', '-r': 'f'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -9246,7 +9367,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g']))
+        qry, ifl, cpu, bch, ofn, sym, gpu, rsm = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g'])), args['-r']
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
@@ -9254,6 +9375,16 @@ if __name__ == '__main__':
         else:
             manual_print()
             raise SystemExit()
+
+        if rsm.lower().startswith('f'):
+            rsm = False
+        elif rsm.lower().startswith('t'):
+            rsm = True
+        else:
+            manual_print()
+            raise SystemExit()
+
+
 
     except:
         manual_print()
