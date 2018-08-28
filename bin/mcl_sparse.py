@@ -8919,6 +8919,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         f = open(tmp_path + '_dict.pkl', 'rb')
         q2n = cPickle.load(f)
         N = len(q2n)
+        os.system('rm %s/*new* %s/*old'%(tmp_path, tmp_path))
         f.close()
 
 
