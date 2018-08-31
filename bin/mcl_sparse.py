@@ -2572,9 +2572,9 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
 
     # update chunk
     print 'memory limit', mem
-    chunk = (N * 1e3 * cpu * 6e2 / mem / 1e9) ** .5
-    chunk = int(chunk) + 1
-
+    blk2 = N * 1e3 * cpu * 6e2 / mem / 1e9
+    chunk = N * 1e3 / blk2
+    print 'the new chunck size', N, cpu, mem, blk2 ** .5
     shape = (N, N)
 
     # get the size of input file
