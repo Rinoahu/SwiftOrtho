@@ -2361,11 +2361,10 @@ def mat_split7(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
 
 
 
-# remove 1k file limitation
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32', mem=4):
+# remove 1k file open limitation
+def mat_split8(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32'):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
-
 
     os.system('mkdir -p %s' % tmp_path)
     q2n = {}
@@ -2395,11 +2394,6 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
     #np.random.seed(42)
     #np.random.shuffle(qid_set)
     N = len(q2n)
-
-    # update chunk
-    chunk = (N * 1e3 * cpu * 6e2 / mem / 1e9) ** .5
-    chunk = int(chunk) + 1
-
     shape = (N, N)
 
     # get the size of input file
@@ -2537,9 +2531,15 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
 
 
 
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32'):
+
+
+
+
+
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32', mem=4):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
+
 
     os.system('mkdir -p %s' % tmp_path)
     q2n = {}
@@ -2569,6 +2569,12 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
     #np.random.seed(42)
     #np.random.shuffle(qid_set)
     N = len(q2n)
+
+    # update chunk
+    print 'memory limit', mem
+    chunk = (N * 1e3 * cpu * 6e2 / mem / 1e9) ** .5
+    chunk = int(chunk) + 1
+
     shape = (N, N)
 
     # get the size of input file
@@ -9792,7 +9798,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym, gpu, rsm, mem = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g'])), args['-r'], float(eval(args['-g']))
+        qry, ifl, cpu, bch, ofn, sym, gpu, rsm, mem = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g'])), args['-r'], float(eval(args['-m']))
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
