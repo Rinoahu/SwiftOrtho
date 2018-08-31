@@ -9762,7 +9762,7 @@ def manual_print():
     print '  -d: T|F. is the graph directed? Default is False'
     print '  -g: int. how many gpus to use for speedup. Default is 0'
     print '  -r: T|F. resume the work. Default is F'
-    print '  -m: int. memory usage limitation'
+    print '  -m: int. memory usage limitation. Deaault is 4GB'
 
 
 if __name__ == '__main__':
