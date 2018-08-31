@@ -2574,13 +2574,19 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
     print 'memory limit', mem
     blk2 = N * 1e3 * cpu * 6e2 / mem / 1e9
     chunk = N * 1e3 / blk2
-    print 'the new chunck size', N, cpu, mem, blk2 ** .5
+    block = int(N / blk2 ** .5) + 1
+
+    print 'the new chunck size', N, cpu, mem, blk2, blk2 ** .5, block
     shape = (N, N)
+
+
 
     # get the size of input file
     #tsize = os.path.getsize(qry)
     #tstep = max(tsize // (chunk*12), 1)
     #block = min(N//step+1, N//tstep+1 )
+
+    '''
     if lines*3 > chunk:
         #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
         tstep = max(sqrt(lines*3//chunk) * sqrt(cpu), cpu)
@@ -2598,6 +2604,7 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
         block = N
         print 'split block cpu=1', block, N // block, lines*3, chunk
         cpu = 1
+    '''
 
     #qn = q2n.keys()
     #qn.sort()
