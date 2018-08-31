@@ -2572,11 +2572,14 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
 
     # update chunk
     print 'memory limit', mem
-    blk2 = N * 1e3 * cpu * 6e2 / mem / 1e9
+    blk0 = N * 1e3 * 12 * 50 / mem / 1e9
+    blk1 = (N * 1e3 * cpu * 6e2 / mem / 1e9) ** .5
     chunk = N * 1e3 / blk2
-    block = int(N / blk2 ** .5) + 1
+    block0 = int(N / blk0) + 1
+    block1 = int(N / blk1) + 1
+    block = (block0 + block1) // 2
 
-    print 'the new chunck size', N, cpu, mem, blk2, blk2 ** .5, block
+    print 'the new chunck size', N, cpu, mem, blk, blk2 ** .5, block
     shape = (N, N)
 
 
