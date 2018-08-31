@@ -9326,6 +9326,135 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
 
 
 
+# reduce memory usage of cpu version of mcl
+def mcl_lite(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, gpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    q2n, block = mat_split_gpu(qry, chunk=chunk, cpu=cpu, sym=sym)
+    N = len(q2n)
+    #prune = min(prune, 100. / N)
+
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
+    #shape = (N, N)
+    shape = (block, block)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, csr=False, cpu=cpu)
+    #pruning(qry, tmp_path, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i, os.listdir(tmp_path)
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+
+
+        #row_sum, fns, nnz = expand_gpu(qry, shape, tmp_path, True, I, prune, gpu)
+
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
+
+
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        #pruning(qry, tmp_path, cpu=cpu)
+        pruning(qry, tmp_path, prune=prune, cpu=cpu)
+
+        #if 0:
+        if nnz < chunk / 4 and len(fns) / 4  > cpu:
+        #if nnz < chunk / 4:
+            print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat_gpu(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+                shape = (shape[0]*2, shape[1]*2)
+                print 'merge_shape is', shape
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix_gpu(fns[0], (N, N), True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        try:
+            g = load_matrix_gpu(fn, (N, N), True)
+        except:
+            continue
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+
+    # print 'find components', cs
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
 # print the manual
 def manual_print():
     print 'Usage:'
@@ -9409,6 +9538,7 @@ if __name__ == '__main__':
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
         mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
+        #mcl_lite(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
 
     # preprocess(qry)
     raise SystemExit()
