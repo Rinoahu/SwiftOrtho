@@ -9210,9 +9210,9 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
-    os.system('rm -rf %s' % tmp_path)
+    if rsm == False:
+        os.system('rm -rf %s' % tmp_path)
 
-    if rsm == False: 
         q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym, mem=mem)
 
         N = len(q2n)
