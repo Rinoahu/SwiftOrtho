@@ -17,9 +17,12 @@ from itertools import izip
 #import numpy as np
 from scipy import sparse as sps
 import tempfile
+import cPickle
 
 from threading import Thread
 from sklearn.externals.joblib import Parallel, delayed
+
+
 try:
     import sharedmem as sm
 except:
@@ -133,12 +136,13 @@ def resize_mmp(a, new_size):
 
 # csr matrix by matrix
 # original version
-@jit(fastmath=True, nogil=True, cache=True)
-def csrmm_ori(xr, xc, x, yr, yc, y):
+@njit(fastmath=True, nogil=True, cache=True)
+def csrmm_ori(xr, xc, x, yr, yc, y, visit):
 
     R = xr.shape[0]
     D = yr.shape[0]
     nnz = int(1. * x.size * y.size / (D-1))
+    #nnz = x.size + y.size
     print 'nnz size', nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     n_size = nnz
@@ -147,7 +151,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
     #print 'zr init', zr[:5]
 
     # hash table
-    visit = np.zeros(yr.size, 'int8')
+    #visit = np.zeros(yr.size, 'int8')
     index = np.zeros(yr.size, yr.dtype)
     flag = 0
     zptr = 0
@@ -187,7 +191,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
         zend = zr[i] + nz
         if zend > n_size:
             n_size += nnz
-            #print('resize sparse matrix', n_size)
+            print 'resize sparse matrix', n_size
             zc = resize(zc, n_size)
             z = resize(z, n_size)
             flag += 2
@@ -213,22 +217,23 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
 
 # memory save version
-#@njit(parallel=True, fastmath=True)
 @njit(fastmath=True, nogil=True, cache=True)
-def csrmm_msav(xr, xc, x, yr, yc, y):
+def csrmm_msav(xr, xc, x, yr, yc, y, visit):
 
     R = xr.shape[0]
     D = yr.shape[0]
     chk = x.size + y.size
-    nnz = chk
-    print 'nnz size', nnz
+    #nnz = chk
+    nnz = min(max(int(1. * x.size * y.size / (D-1)), chk * 33), chk*50)
+    print 'nnz size', chk, nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
-    #print 'zr init', zr[:5]
+    #print 'zr init', zr[:5], zc[:5], z[:5]
 
     # hash table
     #visit = np.zeros(yr.size, 'int8')
+    #index = np.zeros(yr.size, yr.dtype)
     index = np.zeros(yr.size, yr.dtype)
     flag = 0
     zptr = 0
@@ -240,11 +245,11 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             zr[i+1] = zr[i]
             continue
 
+        i_sz = index.size
         ks = 0
         nz = 0
         for k in xrange(kst, ked):
             x_col, x_val = xc[k], x[k]
-
             # get row of b
             jst, jed = yr[x_col], yr[x_col + 1]
             if jst == jed:
@@ -252,20 +257,138 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
 
             nz += jed - jst
             flag += 2
-
             for j in xrange(jst, jed):
             #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
+                #print 'before', ks, len(index), i_sz
                 y_col_val = data[y_col] + x_val * y_val
                 if y_col_val != 0:
-                    index[ks] = y_col
+                    if ks < i_sz:
+                        index[ks] = y_col
+                    else:
+                        i_sz += (jed-jst) * 2
+                        index = resize(index, i_sz)
+                        index[ks] = y_col
                     ks += 1
                     flag += 2
 
                 data[y_col] = y_col_val
                 flag += 3
+                #print 'end', ks, len(index), i_sz
+
+            #print(k, jst, jed, len(yr))
 
 
+        zend = zr[i] + nz
+        if zend > nnz:
+            print'resize estimate', nnz, nnz+chk*15, nnz * R / i
+            #nnz = max(chk+nnz, R/i*nnz)
+            nnz += chk * 15
+
+            #print('resize sparse matrix', n_size)
+            zc = resize(zc, nnz)
+            z = resize(z, nnz)
+            flag += 2
+
+        for pt in xrange(ks):
+        #for pt in prange(ks):
+            y_col = index[pt]
+            #mx_col = max(mx_col, idx)
+            y_col_val = data[y_col]
+            if y_col_val != 0:
+                zc[zptr], z[zptr] = y_col, y_col_val
+                zptr += 1
+                data[y_col] = 0
+                flag += 3
+
+            flag += 1
+
+
+        zr[i+1] = zptr
+    print 'the zptr', zptr
+    return zr, zc[:zptr], z[:zptr], flag
+
+
+
+@njit(fastmath=True, nogil=True, cache=True)
+def csrmm_msav1(xr, xc, x, yr, yc, y):
+
+    R = xr.shape[0]
+    D = yr.shape[0]
+    chk = x.size + y.size
+    nnz = chk
+    print 'nnz size', nnz
+    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
+    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
+    data = np.zeros(D-1, dtype=x.dtype)
+    print 'zr init', zr[:5], zc[:5], z[:5]
+
+    # hash table
+    #visit = np.zeros(yr.size, 'int8')
+    #index = np.zeros(yr.size, yr.dtype)
+    index = np.zeros(yr.size, yr.dtype)
+    index_tmp = np.zeros(yr.size, yr.dtype)
+    index_mg = np.zeros(yr.size, yr.dtype)
+
+    flag = 0
+    zptr = 0
+    for i in xrange(R-1):
+
+        # get ith row of a
+        kst, ked = xr[i], xr[i + 1]
+        if kst == ked:
+            zr[i+1] = zr[i]
+            continue
+
+        index[0], index_tmp[0] = -1, -1
+        nz = 0
+        ks = 0
+        for k in xrange(kst, ked):
+            x_col, x_val = xc[k], x[k]
+            # get row of b
+            jst, jed = yr[x_col], yr[x_col + 1]
+            if jst == jed:
+                continue
+
+            nz += jed - jst
+            flag += 2
+            ks_tmp = 0
+            for j in xrange(jst, jed):
+                y_col, y_val = yc[j], y[j]
+                y_col_val = data[y_col] + x_val * y_val
+                if y_col_val != 0:
+                    index_tmp[ks_tmp] = y_col
+                    ks_tmp += 1
+                    flag += 2
+
+                data[y_col] = y_col_val
+                flag += 3
+                #print 'end', ks, len(index), i_sz
+            if index[0] == -1:
+                index, index_tmp = index_tmp, index
+                ks = ks_tmp
+
+            if index_tmp[0] != -1:
+                #ks = merge_index(index, index_tmp)
+                ks_mg = p0 = p1 = 0
+                while p0 < ks and p1 < ks_tmp:
+                    idx0 = index[p0]
+                    idx1 = index_tmp[p1]
+                    if idx0 < idx1:
+                        index_mg[ks_mg] = idx0
+                        p0 += 1
+                    else:
+                        p1 += 1
+                        index_mg[ks_mg] = idx1
+                    if ks_mg <= 0 or index_mg[ks_mg-1] != index_mg[ks_mg]:
+                        ks_mg += 1
+                    else:
+                        continue
+                index, index_mg = index_mg, index
+                ks, ks_mg = ks_mg, ks
+            #print(k, jst, jed, len(yr))
+
+        print index[:ks+1]
         zend = zr[i] + nz
         if zend > nnz:
             nnz += chk
@@ -294,8 +417,97 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
     #return zmtx
 
-# parallel version of csrmm
+
 @njit(fastmath=True, nogil=True, cache=True)
+def csrmm_msav2(xr, xc, x, yr, yc, y, visit):
+
+    R = xr.shape[0]
+    D = yr.shape[0]
+    chk = (x.size + y.size)
+    #nnz = int(1. * x.size * y.size / (D-1))
+    nnz = chk
+    print 'nnz size', nnz
+    # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
+    zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
+    data = np.zeros(D-1, dtype=x.dtype)
+    #visit = np.zeros(D-1, 'int8')
+    #print 'zr init', zr[:5], zc[:5], z[:5]
+
+    # hash table
+    #visit = np.zeros(yr.size, 'int8')
+    #index = np.zeros(yr.size, yr.dtype)
+    index = np.zeros(yr.size, yr.dtype)
+    flag = 0
+    zptr = 0
+    for i in xrange(R-1):
+
+        # get ith row of a
+        kst, ked = xr[i], xr[i + 1]
+        if kst == ked:
+            zr[i+1] = zr[i]
+            continue
+
+        nz = 0
+        ks = 0
+        for k in xrange(kst, ked):
+            x_col, x_val = xc[k], x[k]
+            # get row of b
+            jst, jed = yr[x_col], yr[x_col + 1]
+            if jst == jed:
+                continue
+
+            nz += jed - jst
+            flag += 2
+            for j in xrange(jst, jed):
+                y_col, y_val = yc[j], y[j]
+                y_col_val = data[y_col] + x_val * y_val
+                if y_col_val != 0 and visit[y_col] == 0:
+                #if visit[y_col] == 0:
+                    index[ks] = y_col
+                    visit[y_col] = 1
+                    ks += 1
+                    flag += 2
+
+                data[y_col] = y_col_val
+                flag += 3
+                #print 'end', ks, len(index), i_sz
+
+        zend = zr[i] + nz
+        if zend > nnz:
+            print'resize estimate', nnz, nnz+chk, nnz * R / i
+            nnz = max(chk+nnz, R/i*nnz)
+            #nnz += chk
+            #print('resize sparse matrix', n_size)
+            zc = resize(zc, nnz)
+            z = resize(z, nnz)
+            flag += 2
+
+        for pt in xrange(ks):
+        #for pt in prange(ks):
+            y_col = index[pt]
+            #mx_col = max(mx_col, idx)
+            y_col_val = data[y_col]
+            if y_col_val != 0:
+                zc[zptr], z[zptr] = y_col, y_col_val
+                zptr += 1
+                data[y_col] = visit[y_col] = 0
+                flag += 3
+
+            flag += 1
+
+
+        zr[i+1] = zptr
+
+    return zr, zc[:zptr], z[:zptr], flag
+
+
+
+
+
+
+# parallel version of csrmm
+#@njit(fastmath=True, nogil=True, cache=True)
+@njit(nogil=True, cache=True)
 def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
     xr = np.empty(xred+1-xrst, Xr.dtype)
@@ -517,6 +729,9 @@ def csrmm_ez0(a, b, mm='msav', cpu=1):
 
 
 def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
+    np.nan_to_num(a.data, False)
+    np.nan_to_num(b.data, False)
+
     xr, xc, x = a.indptr, a.indices, a.data
     yr, yc, y = b.indptr, b.indices, b.data
     print 'a nnz', a.nnz, 'b nnz', b.nnz
@@ -524,19 +739,24 @@ def csrmm_ez(a, b, mm='msav', cpu=1, prefix=None, tmp_path=None):
     #if cpu > 1 and x.size > 5e8:
     #    csrmm = csrmm_sp
     #if cpu > 1 and x.size < 5e8:
-    if cpu > 1:
-        csrmm = csrmm_msav
+    #if cpu > 1:
+    if mm == 'scipy':
+        return a * b
     elif mm == 'msav':
+        print 'using msav'
         csrmm = csrmm_msav
     elif mm == 'ori':
         csrmm = csrmm_ori
     else:
         raise SystemExit()
 
-    #if cpu <= 1:
+    nnzs = x.size + y.size
+    if cpu <= 1 or nnzs <= 1e8:
     # shutdown threads
-    if 1:
-        zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
+    #print 'try msav'
+    #if 1:
+        visit = np.zeros(yr.size, 'int8')
+        zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y, visit)
     else:
         print 'using threads'
         N, D = a.shape
@@ -2141,8 +2361,8 @@ def mat_split7(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False):
 
 
 
-# remove 1k file limitation
-def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32'):
+# remove 1k file open limitation
+def mat_split8(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32'):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -2197,6 +2417,197 @@ def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype
         block = N
         print 'split block cpu=1', block, N // block, lines*3, chunk
         cpu = 1
+
+    #qn = q2n.keys()
+    #qn.sort()
+    #np.random.seed(42)
+    #np.random.shuffle(qn)
+    #flag = N - 1
+    flag = 0
+    for i in q2n:
+    #for i in qn:
+        q2n[i] = flag
+        flag += 1
+        #flag -= 1
+    #for qid, i in izip(q2n, idxs):
+    #    q2n[qid] = i
+    #del qn
+    gc.collect()
+
+    eye = [0] * N
+    _os = {}
+
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    pairs = {}
+    flag = 0
+    for i in f:
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        z = abs(float(score))
+        x, y = map(q2n.get, [qid, sid])
+        out = pack('fff', *[x, y, z])
+        xi, yi = x // block, y // block
+
+        try:
+            pairs[(xi, yi)].append(out)
+        except:
+            pairs[(xi, yi)] = [out]
+
+
+        if sym == False:
+            # sym
+            out = pack('fff', *[y, x, z])
+            try:
+                pairs[(yi, xi)].append(out)
+            except:
+                pairs[(yi, xi)] = [out]
+            flag += 1
+
+        if eye[x] < z:
+            eye[x] = z
+        if eye[y] < z:
+            eye[y] = z
+
+        flag += 1
+        # write batch to disk
+        if flag % 5000000 == 0:
+            for key, val in pairs.iteritems():
+                if len(val) > 0:
+                    a, b = key
+                    _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+                    _o.writelines(val)
+                    _o.close()
+                    pairs[key] = []
+                else:
+                    continue
+
+    f.close()
+
+    for key, val in pairs.iteritems():
+        if len(val) > 0:
+            a, b = key
+            _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+            _o.writelines(val)
+            _o.close()
+            pairs[key] = []
+        else:
+            continue
+
+    # set eye of matrix:
+    for i in xrange(N):
+        z = eye[i]
+        out = pack('fff', *[i, i, z])
+        j = i // block
+        try:
+            pairs[(j, j)].append(out)
+        except:
+            pairs[(j, j)] = [out]
+
+    for key, val in pairs.iteritems():
+        if len(val) > 0:
+            a, b = key
+            _o = open(tmp_path + '/%d_%d.npz' % (a, b), 'ab')
+            _o.writelines(val)
+            _o.close()
+            pairs[key] = []
+        else:
+            continue
+
+    # reorder the matrix
+    #print 'reorder the matrix'
+    #q2n = mat_reorder(qry, q2n, shape, False, tmp_path)
+
+    return q2n, block
+
+
+
+
+
+
+
+
+def mat_split(qry, step=4, chunk=5*10**7, tmp_path=None, cpu=4, sym=False, dtype='float32', mem=4):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+
+    os.system('mkdir -p %s' % tmp_path)
+    q2n = {}
+    lines = 0
+    if mimetypes.guess_type(qry)[1] == 'gzip':
+        f = gzip.open(qry, 'r')
+    elif mimetypes.guess_type(qry)[1] == 'bzip2':
+        f = bz2.BZ2File(qry, 'r')
+    else:
+        f = open(qry, 'r')
+
+    for i in f:
+        lines += 1
+        j = i[:-1].split('\t')
+        if len(j) == 3:
+            qid, sid, score = j[:3]
+        else:
+            qid, sid, score = j[1:4]
+
+        if qid not in q2n:
+            q2n[qid] = None
+        if sid not in q2n:
+            q2n[sid] = None
+
+    f.close()
+
+    #np.random.seed(42)
+    #np.random.shuffle(qid_set)
+    N = len(q2n)
+
+    # update chunk
+    print 'memory limit', mem
+    blk0 = N * 1e3 * 12 * 50 / mem / 1e9
+    blk1 = (N * 1e3 * cpu * 6e2 / mem / 1e9) ** .5
+    chunk = N * 1e3 / blk1
+    block0 = int(N / blk0) + 1
+    block1 = int(N / blk1) + 1
+    block = (block0 + block1) // 2
+
+    print 'the new chunck size', N, cpu, mem, blk0, blk1, block
+    shape = (N, N)
+
+
+
+    # get the size of input file
+    #tsize = os.path.getsize(qry)
+    #tstep = max(tsize // (chunk*12), 1)
+    #block = min(N//step+1, N//tstep+1 )
+
+    '''
+    if lines*3 > chunk:
+        #tstep = max(lines*3//chunk*sqrt(cpu), cpu)
+        tstep = max(sqrt(lines*3//chunk) * sqrt(cpu), cpu)
+        print 'tstep is', tstep
+        #tstep = min(max(tstep, 1), 30)
+        tstep = max(tstep, 1)
+        print 'tstep 2 is', tstep
+        #print 'break point', step, tstep, lines * 3, chunk
+        #block = min(N//step+1, int(N//tstep)+1)
+        #block = min(int(N/tstep)+ 1, int(N/cpu)+1)
+        #block = N // step + 1
+        block = N // tstep
+        print 'split block cpu=N', block, N // block
+    else:
+        block = N
+        print 'split block cpu=1', block, N // block, lines*3, chunk
+        cpu = 1
+    '''
 
     #qn = q2n.keys()
     #qn.sort()
@@ -4329,9 +4740,7 @@ def element3(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.
     return row_sum_n, xyn, nnz
 
 
-
-
-def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def element4(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -4398,6 +4807,345 @@ def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5
     np.savez_compressed(row_sum_n, row_sum)
     #print 'row_sum is', type(row_sum)
     #return row_sum, xyn, nnz
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+
+def element_fast(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xr = yc = z = None
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        print 'xi', xi, 'yi', yi
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+            if type(xr) == type(None):
+                xr = x
+            else:
+                xr += x
+        except:
+            print 'can not load x', xn
+            continue
+        try:
+            y = load_matrix(yn, shape=shape, csr=csr)
+            if type(yc) == type(None):
+                yc = y
+            else:
+                yc += y 
+
+        except:
+            print 'can not load y', yn
+            continue
+
+        #xyn_tmp = tmp_path + '/' + str(xi) + '_' + str(i) + '_' + str(yi) + '_tmp'
+        #tmp = csrmm_ez(x, y, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
+        #try:
+        #    z += tmp
+        #except:
+        #    z = tmp
+
+        #del x, y, tmp
+        del x, y
+        gc.collect()
+    if type(xr) != type(None) and type(yc) != type(None):
+        xyn_tmp = tmp_path + '/' + str(xi) + '_x_' + str(yi) + '_tmp'
+        z = csrmm_ez(xr, yc, cpu=cpu, prefix=xyn_tmp, tmp_path=tmp_path)
+    else:
+        return None, None, None
+
+    z.data **= I
+    z.eliminate_zeros()
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
+    del z
+    gc.collect()
+
+    return row_sum_n, xyn, nnz
+
+
+# bmat
+def bkmat(xyns, cpu=1):
+    print 'working on block mat', xyns
+    z = None
+    for xyn in xyns:
+        xn, yn, shape, csr = xyn
+        try:
+            x = load_matrix(xn, shape=shape, csr=csr)
+            if xn == yn:
+                y = x
+            else:
+                y = load_matrix(yn, shape=shape, csr=csr)
+            print 'bkmat loading'
+        except:
+            print 'not get', xn, yn
+            #return None
+            continue
+
+        z0 = csrmm_ez(x, y, cpu=1)
+        if type(z) != type(None):
+            z += z0
+        else:
+            z = z0
+    print 'get z', z
+    return z
+
+def badd0(xy):
+    x, y = xy
+    z = x + y
+    del x, y
+    gc.collect()
+    return z
+
+def badd(xy):
+    #x, y = xy
+    #z = x + y
+    #del x, y
+    #gc.collect()
+    #return z
+    z = None
+    for i in xy:
+        if type(z) == type(None):
+            z = i
+        else:
+            z += i
+        del i
+        gc.collect()
+
+    return z
+
+# block merge
+def bmerge0(zs, cpu=1):
+    if len(zs) == 1:
+        return zs
+
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        while len(zs) > 0:
+            z0 = zs.pop()
+            if type(z0) == type(None):
+                continue
+
+            try:
+                z1 = zs.pop()
+            except:
+                z1 = None
+            if type(z1) != type(None):
+                xys.append([z0, z1])
+            else:
+                try:
+                    unpair.append(z0)
+                except:
+                    unpair = [z0]
+        if cpu <= 1:
+            new_zs = map(badd, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd)(elem) for elem in xys)
+
+        while len(new_zs) > 0:
+            z = new_zs.pop()
+            if type(z) != type(None):
+                unpair.append(z)
+
+        zs = unpair
+    try:
+        return zs[0]
+    except:
+        return None
+
+
+# block merge
+def bmerge(zs, cpu=1):
+    if len(zs) == 1:
+        return zs[0]
+
+    z = None
+    if cpu <= 1:
+        return badd(zs)
+
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        tmp = []
+        while zs:
+            tmp.append(zs.pop())
+            if len(tmp) >= 4:
+                xys.append(tmp)
+                tmp = []
+        if len(tmp) > 1:
+            xys.append(tmp)
+        else:
+            unpair = tmp
+
+        if cpu <= 1:
+            new_zs = map(badd, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd)(elem) for elem in xys)
+
+        while len(new_zs) > 0:
+            z = new_zs.pop()
+            if type(z) != type(None):
+                unpair.append(z)
+
+        zs = unpair
+    try:
+        return zs[0]
+    except:
+        return None
+
+
+
+# disk based matrix add function
+def badd_disk(xyzs):
+    #x, y = xy
+    #z = x + y
+    #del x, y
+    #gc.collect()
+    #return z
+    z = None
+    idx = None
+    for i in xyzs:
+        if type(z) == type(None):
+            z = sparse.load_npz('tmp_mat_%d.npz'%i)
+            idx = i
+        else:
+            z += sparse.load_npz('tmp_mat_%d.npz'%i)
+
+        os.system('rm tmp_mat_%d.npz'%i)
+
+    if type(z) != type(None) and idx != None:
+        sparse.save_npz('tmp_mat_%d'%idx, z)
+        del z
+        gc.collect()
+
+    return idx
+
+
+# disk based merge function
+def bmerge_disk(zs, cpu=1):
+    # write z to disk
+    N = len(zs)
+    Nraw = N
+    if N == 1:
+        return zs[0]
+
+    Ns = range(N)
+    for i in Ns:
+        sparse.save_npz('tmp_mat_%d.npz'%i, zs[i])
+
+    del zs
+    gc.collect()
+
+    zs = Ns
+    while len(zs) > 1:
+        print 'working on bmerge', len(zs)
+        xys = []
+        unpair = []
+        for idx in xrange(0, len(zs), 4):
+            if len(zs[idx:idx+4]) > 1:
+                xys.append(zs[idx:idx+4])
+            else:
+                unpair.append(zs[idx:idx+4])
+
+        if cpu <= 1:
+            new_zs = map(badd_disk, xys)
+        else:
+            new_zs = Parallel(n_jobs=cpu)(delayed(badd_disk)(elem) for elem in xys)
+
+
+        #print 'unfinished_merge0', new_zs, xys, unpair, Nraw
+        for un in unpair:
+            new_zs.extend(un)
+
+        #print 'unfinished_merge1', new_zs, xys, unpair, Nraw
+
+        zs = [elem for elem in new_zs if elem != None]
+        #print 'unfinished_merge_flt', zs, Nraw
+
+
+    print 'finish_merge', zs
+    try:
+        #return zs[0]
+        idx = zs[0]
+        z = sparse.load_npz('tmp_mat_%d.npz'%idx)
+        os.system('rm tmp_mat_%d.npz'%idx)
+    except:
+        z = None
+
+    return z
+
+
+
+# processing entry blocks one by one
+def element(xi, yi, d, qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    xr = yc = z = None
+    xyn = [[] for elem in xrange(cpu)]
+    for i in xrange(d):
+        xn = tmp_path + '/' + str(xi) + '_' + str(i) + '.npz'
+        yn = tmp_path + '/' + str(i) + '_' + str(yi) + '.npz'
+        #print 'xi', xi, 'yi', yi
+        if os.path.isfile(xn) and os.path.isfile(yn):
+            #xyn.append([xn, yn, shape, csr])
+            xyn[i % cpu].append([xn, yn, shape, csr])
+            print 'in_bkt', i, cpu, i % cpu
+
+    xyn = [elem for elem in xyn if elem]
+
+    print 'compute_element_cpu', cpu
+    print 'parallel_bmat', xyn[0], len(xyn)
+    #zs = bmat(xyns, cpu)
+    #if cpu <= 1:
+    #if 1:
+    #    zs = map(bkmat, xyn)
+    #else:
+    #    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
+    zs = Parallel(n_jobs=cpu)(delayed(bkmat)(elem) for elem in xyn)
+    z = bmerge(zs, cpu=cpu)
+    #z = bmerge_disk(zs, cpu=cpu)
+    print 'breakpoint', zs, z
+    #raise SystemExit()
+    if type(z) == type(None):
+        #print 'return_none_z'
+        return None, None, None
+    #else:
+    #    z = zs_merge(zs)
+
+
+    z.data **= I
+    z.eliminate_zeros()
+
+    # remove element < prune
+    row_sum = np.asarray(z.sum(0), 'float32')[0]
+    norm_dat = z.data / row_sum.take(z.indices, mode='clip')
+    z.data[norm_dat < prune] = 0 
+    z.eliminate_zeros()
+
+    nnz = z.nnz
+    xyn = tmp_path + '/' + str(xi) + '_' + str(yi) + '.npz'
+    sparse.save_npz(xyn + '_new', z)
+    row_sum_n = tmp_path + '/' + str(xi) + '_' + str(yi) + '_rowsum.npz'
+    np.savez_compressed(row_sum_n, row_sum)
     del z
     gc.collect()
 
@@ -4559,8 +5307,11 @@ def element_wrapper1(elems):
 def element_wrapper(elems):
     outs = []
     for elem in elems:
-        x, y, d, qry, shape, tmp_path, csr, I, prune, cpu = elem
-        out = element(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
+        x, y, d, qry, shape, tmp_path, csr, I, prune, cpu, fast = elem
+        if fast:
+            out = element_fast(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
+        else:
+            out = element(x, y, d, qry, shape, tmp_path, csr, I, prune, cpu)
         outs.append(out)
     return outs
 
@@ -6157,8 +6908,7 @@ def expand9(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-
     #return row_sum, fns, nnz
 
 
-
-def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
+def expand10(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
@@ -6242,12 +6992,90 @@ def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6
                 fns.append(fn)
 
     return row_sum, fns, nnz
-    # rename
-    #for i in fns:
-    #    os.system('mv %s %s_old' % (i, i))
-    #    os.system('mv %s_new.npz %s' % (i, i))
 
-    #return row_sum, fns, nnz
+
+
+def expand(qry, shape=(10**8, 10**8), tmp_path=None, csr=True, I=1.5, prune=1e-6, cpu=1, fast=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    err = None
+    Ns = [elem.split('.')[0].split('_') for elem in os.listdir(tmp_path) if elem.endswith('.npz')]
+    N = max([max(map(int, elem)) for elem in Ns]) + 1
+    d = N
+
+    nnz = 0
+    row_sum = None
+    xys = [[] for elem in xrange(cpu)]
+    flag = 0
+    for x in xrange(d):
+        for y in xrange(d):
+            xy = [x, y, d, qry, shape, tmp_path, csr, I, prune, cpu, fast]
+            xys[flag%cpu].append(xy)
+            flag += 1
+
+    #if cpu <= 1:
+    #    print 'cpu < 1', cpu, len(xys)
+    #    zns = map(element_wrapper, xys)
+    #else:
+    #    print 'cpu > 1', cpu, len(xys)
+    #    zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+    #    #pool = mp.Pool(cpu)
+    #    #zns = pool.map(element_wrapper, xys)
+    #    #pool.terminate()
+    #    #pool.close()
+    #    #del pool
+    #    #gc.collect()
+    if fast and cpu > 1:
+        zns = Parallel(n_jobs=cpu)(delayed(element_wrapper)(elem) for elem in xys)
+    else:
+        zns = map(element_wrapper, xys)
+
+
+    gc.collect()
+    row_sum_ns = []
+    for elem_zns in zns:
+        for elem in elem_zns:
+            if type(elem[0]) != type(None):
+                row_sum_ns.append(elem[0])
+
+    print 'row_sum_name', row_sum_ns
+    xys = [[] for elem in xrange(cpu)]
+    Nrs = len(row_sum_ns)
+    for i in xrange(Nrs):
+        xys[i%cpu].append(row_sum_ns[i])
+    if cpu <= 1:
+        print 'row sum cpu < 1', cpu, len(xys)
+        row_sums = map(prsum, xys)
+    else:
+        print 'row sum cpu > 1', cpu, len(xys)
+        row_sums = Parallel(n_jobs=cpu)(delayed(prsum)(elem) for elem in xys)
+
+    gc.collect()
+    rows_sum = sum([elem for elem in row_sums if type(elem) != type(None)])
+
+    nnz = 0
+    for elem_zns in zns:
+        for elem in elem_zns:
+            nnz = max(nnz, elem[2])
+
+    # remove old file
+    old_fns = [tmp_path + os.sep + elem for elem in os.listdir(tmp_path) if elem.endswith('_old')]
+    for i in old_fns:
+        os.system('rm %s'%i)
+
+    # rename
+    fns = []
+    for x in xrange(d):
+        for y in xrange(d):
+            fn = tmp_path + os.sep + str(x) + '_' + str(y) + '.npz'
+            if os.path.isfile(fn):
+                os.system('mv %s %s_old' % (fn, fn))
+            if os.path.isfile(fn+'_new.npz'):
+                os.system('mv %s_new.npz %s' % (fn, fn))
+                fns.append(fn)
+
+    return row_sum, fns, nnz
 
 
 
@@ -8145,14 +8973,27 @@ def mcl6(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=
 
 
 # add pruning function
-def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
+def mcl7(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False):
     if tmp_path == None:
         tmp_path = qry + '_tmpdir'
 
     os.system('rm -rf %s' % tmp_path)
 
     q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+
     N = len(q2n)
+
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
+
+
     #prune = min(prune, 100. / N)
     shape = (N, N)
     # reorder matrix
@@ -8172,8 +9013,11 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
         #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
 
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
 
-        row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
         if i > 0 and i % check == 0:
             print 'reorder the matrix'
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
@@ -8184,6 +9028,7 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
             fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
 
         pruning(qry, tmp_path, cpu=cpu)
+        #if nnz < chunk / 4 and len(fns) > cpu * cpu:
         if nnz < chunk / 4:
             print 'we try to merge 4 block into one', nnz, chunk/4
             row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
@@ -8212,6 +9057,253 @@ def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1
     gc.collect()
 
     # print 'find components', cs
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
+# add resume parameter
+def mcl8(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, rsm=False):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    if rsm == False: 
+        q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym)
+
+        N = len(q2n)
+
+        # save q2n to disk
+        print 'saving q2n to disk'
+        _o = open(tmp_path + '_dict.pkl', 'wb')
+        cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+        _o.close()
+
+        del q2n
+        gc.collect()
+    else:
+        f = open(tmp_path + '_dict.pkl', 'rb')
+        q2n = cPickle.load(f)
+        N = len(q2n)
+        os.system('rm %s/*new* %s/*old'%(tmp_path, tmp_path))
+        f.close()
+
+
+    #prune = min(prune, 100. / N)
+    shape = (N, N)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
+
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        pruning(qry, tmp_path, cpu=cpu)
+        #if nnz < chunk / 4 and len(fns) > cpu * cpu:
+        if nnz < chunk / 4:
+            print 'we try to merge 4 block into one', nnz, chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+# add memory usage limit
+def mcl(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, rsm=False, mem=4):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    if rsm == False:
+        os.system('rm -rf %s' % tmp_path)
+
+        q2n, block = mat_split(qry, chunk=chunk, cpu=cpu, sym=sym, mem=mem)
+
+        N = len(q2n)
+        Nodes = N
+
+        # save q2n to disk
+        print 'saving q2n to disk'
+        _o = open(tmp_path + '_dict.pkl', 'wb')
+        cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+        _o.close()
+
+        del q2n
+        gc.collect()
+    else:
+        f = open(tmp_path + '_dict.pkl', 'rb')
+        q2n = cPickle.load(f)
+        N = len(q2n)
+        Nodes = N
+        os.system('rm %s/*new* %s/*old'%(tmp_path, tmp_path))
+        f.close()
+
+
+    #prune = min(prune, 100. / N)
+    shape = (N, N)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm(qry, shape, tmp_path, csr=False, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
+
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        pruning(qry, tmp_path, cpu=cpu)
+        #if nnz < chunk / 4 and len(fns) > cpu:
+        if nnz < chunk / 4 or nnz <= Nodes:
+            print 'we try to merge 4 block into one', nnz, chunk/4
+            row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix(fns[0], shape, True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        g = load_matrix(fn, shape, True)
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+    # print 'find components', cs
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
     groups = {}
     for k, v in q2n.iteritems():
         c = cs[1][v]
@@ -8436,6 +9528,15 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
     N = len(q2n)
     #prune = min(prune, 100. / N)
 
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
     #shape = (N, N)
     shape = (block, block)
     # reorder matrix
@@ -8505,6 +9606,143 @@ def mcl_gpu(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, at
     del g
     gc.collect()
 
+
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+
+    # print 'find components', cs
+    groups = {}
+    for k, v in q2n.iteritems():
+        c = cs[1][v]
+        try:
+            groups[c].append(k)
+        except:
+            groups[c] = [k]
+
+    del c
+    gc.collect()
+    if outfile and type(outfile) == str:
+        _o = open(outfile, 'w')
+    for v in groups.itervalues():
+        out =  '\t'.join(v)
+        if outfile == None:
+            print out
+        else:
+            _o.writelines([out, '\n'])
+    if outfile and type(outfile) == str:
+        _o.close()
+
+
+
+# reduce memory usage of cpu version of mcl
+def mcl_lite(qry, tmp_path=None, xy=[], I=1.5, prune=1e-4, itr=100, rtol=1e-5, atol=1e-8, check=5, cpu=1, chunk=5*10**7, outfile=None, sym=False, gpu=1):
+    if tmp_path == None:
+        tmp_path = qry + '_tmpdir'
+
+    os.system('rm -rf %s' % tmp_path)
+
+    q2n, block = mat_split_gpu(qry, chunk=chunk, cpu=cpu, sym=sym)
+    N = len(q2n)
+    #prune = min(prune, 100. / N)
+
+    # save q2n to disk
+    print 'saving q2n to disk'
+    _o = open(tmp_path + '_dict.pkl', 'wb')
+    cPickle.dump(q2n, _o, cPickle.HIGHEST_PROTOCOL)
+    _o.close()
+
+    del q2n
+    gc.collect()
+
+    #shape = (N, N)
+    shape = (block, block)
+    # reorder matrix
+    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=False, block=block, cpu=cpu)
+    # norm
+    fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, csr=False, cpu=cpu)
+    #pruning(qry, tmp_path, cpu=cpu)
+    pruning(qry, tmp_path, prune=prune, cpu=cpu)
+
+    # print 'finish norm', cvg
+    # expension
+    for i in xrange(itr):
+        print '#iteration', i, os.listdir(tmp_path)
+        # row_sum, fns = expend(qry, shape, tmp_path, True, prune=prune,
+        # cpu=cpu)
+        #row_sum, fns = expend(qry, shape, tmp_path, True, I, prune, cpu)
+        #if i > 0 and i % (check * 2) == 0:
+        #    #q2n, row_sum, fns, nnz = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block)
+        #    #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True)
+
+
+
+        #row_sum, fns, nnz = expand_gpu(qry, shape, tmp_path, True, I, prune, gpu)
+
+        if i == 0:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu, fast=True)
+        else:
+            row_sum, fns, nnz = expand(qry, shape, tmp_path, True, I, prune, cpu)
+
+
+        if i > 0 and i % check == 0:
+            print 'reorder the matrix'
+            fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, check=True, cpu=cpu)
+            #q2n, fns = mat_reorder(qry, q2n, shape=shape, chunk=chunk, csr=True, block=block, cpu=cpu)
+
+        else:
+            #os.system('rm %s/*.npz_old'%tmp_path)
+            fns, cvg, nnz = norm_gpu(qry, shape, tmp_path, row_sum=row_sum, csr=True, cpu=cpu)
+
+        #pruning(qry, tmp_path, cpu=cpu)
+        pruning(qry, tmp_path, prune=prune, cpu=cpu)
+
+        #if 0:
+        if nnz < chunk / 4 and len(fns) / 4  > cpu:
+        #if nnz < chunk / 4:
+            print 'we try to merge 4 block into one', nnz, chunk/4, len(fns)
+            row_sum_new, fns_new, nnz_new, merged = merge_submat_gpu(fns, shape, csr=True, cpu=cpu)
+            #row_sum_new, fns_new, nnz_new, merged = merge_submat(fns, shape, csr=True)
+            if merged:
+                row_sum, fns, nnz = row_sum_new, fns_new, nnz_new
+                shape = (shape[0]*2, shape[1]*2)
+                print 'merge_shape is', shape
+            else:
+                print 'we failed to merge'
+        else:
+            print 'current max nnz is', nnz, chunk, chunk/4
+
+        if cvg:
+            # print 'yes, convergency'
+            break
+
+    # get connect components
+    print 'construct from graph', fns
+    g = load_matrix_gpu(fns[0], (N, N), True)
+    cs = csgraph.connected_components(g)
+    for fn in fns[1:]:
+        try:
+            g = load_matrix_gpu(fn, (N, N), True)
+        except:
+            continue
+        ci = csgraph.connected_components(g)
+        cs = merge_connected(cs, ci)
+
+    del g
+    gc.collect()
+
+
+    # load q2n
+    f = open(tmp_path + '_dict.pkl', 'rb')
+    q2n = cPickle.load(f)
+    f.close()
+    os.system('rm %s_dict.pkl'%tmp_path)
+
+
     # print 'find components', cs
     groups = {}
     for k, v in q2n.iteritems():
@@ -8541,12 +9779,15 @@ def manual_print():
     print '  -o: string. name of output file'
     print '  -d: T|F. is the graph directed? Default is False'
     print '  -g: int. how many gpus to use for speedup. Default is 0'
+    print '  -r: T|F. resume the work. Default is F'
+    print '  -m: int. memory usage limitation. Deaault is 4GB'
+
 
 if __name__ == '__main__':
 
     argv = sys.argv
     # recommand parameter:
-    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-d': 'F', '-g': '0'}
+    args = {'-i': '', '-I': '1.5', '-a': '2', '-b': '20000000', '-o': None, '-d': 'F', '-g': '0', '-r': 'f', '-m': '4'}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -8569,7 +9810,7 @@ if __name__ == '__main__':
         raise SystemExit()
 
     try:
-        qry, ifl, cpu, bch, ofn, sym, gpu = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g']))
+        qry, ifl, cpu, bch, ofn, sym, gpu, rsm, mem = args['-i'], float(eval(args['-I'])), int(eval(args['-a'])), int(eval(args['-b'])), args['-o'], args['-d'], int(eval(args['-g'])), args['-r'], float(eval(args['-m']))
         if sym.lower().startswith('f'):
             sym = False
         elif sym.lower().startswith('t'):
@@ -8577,6 +9818,15 @@ if __name__ == '__main__':
         else:
             manual_print()
             raise SystemExit()
+
+        if rsm.lower().startswith('f'):
+            rsm = False
+        elif rsm.lower().startswith('t'):
+            rsm = True
+        else:
+            manual_print()
+            raise SystemExit()
+
 
     except:
         manual_print()
@@ -8599,7 +9849,8 @@ if __name__ == '__main__':
     if gpu > 0:
         mcl_gpu(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, gpu=gpu)
     else:
-        mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
+        mcl(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym, mem=mem)
+        #mcl_lite(qry, I=ifl, cpu=cpu, chunk=bch, outfile=ofn, sym=sym)
 
     # preprocess(qry)
     raise SystemExit()
