@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
     # recommand parameter:
     args = {'-p': '', '-v': '500', '-s': seeds, '-i': '', '-d': '', '-e': '1e-3', '-l': '-1', '-u': '-1', '-m': '1e-3', '-t': '-1', '-r': aa_nr,
-            '-j': '1', '-F': 'T', '-o': '', '-D': '', '-O': 'wb', '-L': '-1', '-U': '-1', '-M': '120000000', '-c': '50000', '-a': '1', '-T': './tmpdir'}
+            '-j': '1', '-F': 'T', '-o': '', '-D': '', '-O': 'wb', '-L': '-1', '-U': '-1', '-M': '120000000', '-c': '50000', '-a': '1', '-T': ''}
 
     N = len(argv)
     for i in xrange(1, N):
@@ -171,6 +171,8 @@ if __name__ == '__main__':
 
     try:
         qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, ssd, nr, ncpu, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-s'], args['-r'], int(args['-a']), args['-T']
+        tmpdir = tmpdir and tmpdir or qry + '_sc_tmpdir'
+
         chk /= (nr.count('/') + 1)
         flt = flt.upper()
         print 'chk size', chk
