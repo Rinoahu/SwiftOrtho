@@ -3092,10 +3092,10 @@ def manual_print():
 
 def entry_point(argv):
 
-    a = 2**31-1
-    b = xpack_int('i', a)
-    c = xunpack_int('i', b)
-    print a, c
+    #a = 2**31-1
+    #b = xpack_int('i', a)
+    #c = xunpack_int('i', b)
+    #print a, c
 
     #a0 = 2**32-1
     #b0 = xpack_int('I', a0)
