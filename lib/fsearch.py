@@ -1971,7 +1971,7 @@ class Fasta:
     def build_msav(self, space='11111111', nr=aa_nr, step=1, scale=-1, start=-1, end=-1, memory=True, ht=-1):
 
         #self.code = generate_nr_tbl(nr)
-        self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('|')]
+        self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('/')]
 
         if scale==-1:
             self.scale = Max([Max(cdc) + 1 for cdc in self.code])
@@ -2159,7 +2159,7 @@ class Fasta:
 
         self.nr = nr
         #self.code = generate_nr_tbl(nr)
-        self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('|')] 
+        self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('/')] 
 
         self.min = 25
         #self.scale = Max(self.code) + 1
@@ -2637,6 +2637,7 @@ def entropy(S):
 # seg program like methd to filter low complexity region
 def seg(S, minent=2.2, window=12.):
     s = S.upper()
+    #print 's_is', S
     log2 = log(2)
     n = len(s)
     winsize = int(window)
@@ -2758,9 +2759,12 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
             else:
                 sqi, mask = Sqi, Sqi
 
+
+            #print 'Sqi', Sqi, mask, flt
+            #print 'sqi', sqi, mask, flt
             li = len(sqi)
-            #hits = DB.find_msav_m(sqi.upper(), sort=False)
-            hits = DB.find_msav_m(sqi, sort=False)
+            hits = DB.find_msav_m(sqi.upper(), sort=False)
+            #hits = DB.find_msav_m(sqi, sort=False)
 
             hbs = []
             for hit in hits:
