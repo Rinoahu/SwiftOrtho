@@ -1299,6 +1299,10 @@ class Fasta:
             j = i - start
             self.soas[j+1] = r_uint32(intmask(self.soas[j]) + len(sq))
             for key, idx in spseeds(sq, step=step, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC):
+
+                #if i == 0:
+                #    print 'build', key, idx, hd, step, self.scale, self.code, self.mw, self.space, self.NC, sq[:10]
+
                 v0 = self.start[key]
                 self.start[key] = r_uint32(intmask(v0) + 1)
 
@@ -1693,6 +1697,10 @@ class Fasta:
     # find the hit by given a sequence
     def find_msav_m(self, seq, kbound=1, sort=True):
         # get kmer blosum62 score
+
+        #print 'find_seq_zzz', seq[:10]
+
+
         ql = len(seq)
         kscs, sc = [0] * (ql-self.mink+1), 0
         for i in xrange(self.mink):
@@ -1704,13 +1712,23 @@ class Fasta:
             sc = kscs[i-1] - b62[c0][c0] + b62[c1][c1]
             kscs[i] = sc
 
+
+
+        #print 'find_seq_xxx', seq[:10]
+
         s2a = [elem for elem in spseeds(seq, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
+
+        #print 'find_seq_yyy', seq[:10]
+
         hist = [[kscs[qst], qst, 0] for qst in xrange(len(kscs))]
         get_bin = self.get_bin_mem
         for i, qst in s2a:
+            #print 'find_query', i, qst, hist[qst][2], self.scale, self.code, self.mw, self.space, self.NC, seq
             start, end = get_bin(i)
             count = end - start
             hist[qst][2] += (count > 0 and count or 0)
+
+
 
         thr = self.threshold * len(seq)
         qsort(hist, key=lambda x:-x[0])
@@ -1738,21 +1756,32 @@ class Fasta:
                     except:
                         hits[(hd, k0)] = [[qst, sst]]
 
+
+
         flag = 0
         Hits, Scores = {}, {}
 
         for hit in hits:
+
+            #print 'score is', hit, hits[hit]
+
             if len(hit) < 2:
                 continue
+
+            #print 'score after is', hit, hits[hit]
+
             hd, k0 = hit
             sseq = self.get_hdseq(hd)[1]
             loc0 = hits[hit]
             qsort(loc0, key=lambda x:x[0])
             loc1 = lis(loc0, key=lambda x:x[1])
             score, flag1, qst, sst, qed, sed = self.get_ungap_scores(seq, sseq, loc1)
+
             flag += flag1
             if score < self.min:
                 continue
+
+            #print 'score is', hd, k0, score, loc1
             if hd not in Scores or score > Scores[hd]:
                 Hits[hd] = [[qst, sst], [qed, sed]]
                 Scores[hd] = score
@@ -1768,6 +1797,7 @@ class Fasta:
         if sort:
             qsort(score_hits, key=lambda x: -x[1])
 
+        #print 'score is', score_hits
         return score_hits
 
     # find the hit by given a sequence
@@ -2036,8 +2066,14 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
             else:
                 sqi, mask = Sqi, Sqi
 
+            #sqi = sqi.upper()
+            #print 'sq', sqi, flt
+            #print 'Sq', Sqi, flt
+
             li = len(sqi)
-            hits = DB.find_msav_m(sqi.upper(), sort=False)
+            #hits = DB.find_msav_m(sqi.upper(), sort=False)
+            hits = DB.find_msav_m(sqi, sort=False)
+            #print 'hello_hits', hits
             hbs = []
             for hit in hits:
                 hbs.extend([pack('i', uint32(elem)) for elem in hit])
@@ -2102,7 +2138,10 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
             aln0, aln1 = [], []
             if len(sqi) < 4096 and len(sqj) < 4096:
                 idy, aln, mis, gap, qst, qed, sst, sed, bit = kswat_st(sqi, sqj, qst=qi, sst=qj, score=score_mat, trace=trace_mat, al0=aln0, al1=aln1)
+
                 e = bit2e(D, sqi, sqj, bit)
+                #print 'hello_seq', sqi, sqj, bit, e
+
                 if e <= expect:
                     #m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold)
                     m8 = i, j, li, lj, hi, hj, idy, aln, mis, gap, qst+1, qed, sst+1, sed, e, bit, sc, breakpoint, len(hits), intmask(DB.threshold), hdj

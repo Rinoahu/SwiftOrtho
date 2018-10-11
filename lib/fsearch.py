@@ -379,6 +379,7 @@ def generate_nr_tbl(gaa=aa_nr):
     return aa_nr_tbl
 
 aa_nr_tbl = generate_nr_tbl(aa_nr)
+aa_nr_tbls = [aa_nr_tbl]
 
 
 # kmer2num
@@ -1973,7 +1974,7 @@ class Fasta:
         self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('|')]
 
         if scale==-1:
-            scale = Max(self.code) + 1
+            self.scale = Max([Max(cdc) + 1 for cdc in self.code])
 
         self.scale = scale
         self.nr = nr
@@ -2002,7 +2003,7 @@ class Fasta:
             hd, sq = self[i]
             j = i - start
             self.soas[j+1] = r_uint32(intmask(self.soas[j]) + len(sq))
-            for key, idx in spseeds(sq, step=step, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC):
+            for key, idx in spseeds(sq, step=step, scale=self.scale, codes=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC):
                 v0 = self.start[key]
                 self.start[key] = r_uint32(intmask(v0) + 1)
 
@@ -2020,7 +2021,7 @@ class Fasta:
             hd, sq = self[i]
             j = i - start
             off = intmask(self.soas[j])
-            for key, idx in spseeds(sq, step=step, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC):
+            for key, idx in spseeds(sq, step=step, scale=self.scale, codes=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC):
                 v0 = self.start[key]
                 self.start[key] = uint32(intmask(v0) - 1)
                 k = self.start[key]
@@ -2161,7 +2162,8 @@ class Fasta:
         self.code = [generate_nr_tbl(nr_elem) for nr_elem in nr.split('|')] 
 
         self.min = 25
-        self.scale = Max(self.code) + 1
+        #self.scale = Max(self.code) + 1
+        self.scale = Max([Max(cdc) + 1 for cdc in self.code])
 
         self.nssp = self.space.count(',') + 1
 
@@ -2311,7 +2313,7 @@ class Fasta:
     # find the hits of sequence and filter by count
     def find_msav(self, seq, kbound=12):
         # get the hit
-        s2a = [elem for elem in spseeds(seq, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
+        s2a = [elem for elem in spseeds(seq, scale=self.scale, codes=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
 
         # find the threshold of hit
         hist = [0] * len(s2a)
@@ -2410,7 +2412,7 @@ class Fasta:
             sc = kscs[i-1] - b62[c0][c0] + b62[c1][c1]
             kscs[i] = sc
 
-        s2a = [elem for elem in spseeds(seq, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
+        s2a = [elem for elem in spseeds(seq, scale=self.scale, codes=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
         hist = [[kscs[qst], qst, 0] for qst in xrange(len(kscs))]
         get_bin = self.get_bin_mem
         for i, qst in s2a:
@@ -2491,7 +2493,7 @@ class Fasta:
             sc = kscs[i-1] - b62[c0][c0] + b62[c1][c1]
             kscs[i] = sc
 
-        s2a = [elem for elem in spseeds(seq, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
+        s2a = [elem for elem in spseeds(seq, scale=self.scale, codes=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
         # find the threshold of hit
         hist = [[kscs[qst], qst, 0] for qst in xrange(len(kscs))]
         get_bin = self.get_bin
@@ -2757,7 +2759,9 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
                 sqi, mask = Sqi, Sqi
 
             li = len(sqi)
-            hits = DB.find_msav_m(sqi.upper(), sort=False)
+            #hits = DB.find_msav_m(sqi.upper(), sort=False)
+            hits = DB.find_msav_m(sqi, sort=False)
+
             hbs = []
             for hit in hits:
                 hbs.extend([pack('i', uint32(elem)) for elem in hit])

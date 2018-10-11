@@ -172,6 +172,7 @@ if __name__ == '__main__':
     try:
         qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, ssd, nr, ncpu, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-s'], args['-r'], int(args['-a']), args['-T']
         chk /= (nr.count('|') + 1)
+        print 'chk size', chk
     except:
         manual_print()
         raise SystemExit()
