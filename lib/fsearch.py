@@ -747,7 +747,6 @@ def pack(dtype, value):
 
     return ''.join(string)
 
-
 # unpack of pack
 def upack(dtype, string):
     t = dtype.lower()
@@ -766,6 +765,190 @@ def upack(dtype, string):
         val += ord(string[i])
 
     return val
+
+
+# enhance pack function
+def xpack_int(dtype, value, prec=5):
+    t = dtype
+    if t == 'h':
+        n = 2
+    elif t == 'i' or t == 'I' or t == 'f':
+        n = 4
+    elif t == 'l' or t == 'L' or t == 'd':
+        n = 8
+    else:
+        n = int(dtype)
+
+    if t == 'f' or t == 'd':
+        s0 = value >= 0 and 1 or -1
+
+        x = int(log10(value * s0))-prec
+        s1 = x >= 0 and 1 or -1
+        base = pow(10, x)
+        Val = value * s0 / base
+        Val = int(Val)
+        #Val = base > 0 and Val or -Val
+        #print 'Val is', Val, value, s0, log10(value), x, base, log10(base)
+        #print 'Val is', Val, x, s1, s0
+        Val <<= 8
+        Val |= abs(x)
+
+        Val <<= 1
+        if s1 == 1:
+            Val |= 1
+        Val <<= 1
+        if s0 == 1:
+            Val |= 1
+
+        #print 'Val is', Val
+
+    else:
+        Val = value
+        if t == 'i' or t == 'f':
+            Val = Val > 2147483647 and Val - 4294967296 or Val
+
+    #val = intmask(Val)
+    val = Val
+    string = [''] * n
+    for i in xrange(n):
+        string[i] = chr(val & 0xFF)
+        val >>= 8
+    return ''.join(string)
+
+
+
+def xpack(dtype, value, prec=5):
+    t = dtype
+    if t == 'h':
+        n = 2
+    elif t == 'i' or t == 'I' or t == 'f':
+        n = 4
+    elif t == 'l' or t == 'L' or t == 'd':
+        n = 8
+    else:
+        n = int(dtype)
+
+
+    if t == 'f' or t == 'd':
+        s0 = value >= 0 and 1 or -1
+
+        x = int(log10(value * s0))-prec
+        s1 = x >= 0 and 1 or -1
+        base = pow(10, x)
+        Val = value * s0 / base
+        Val = int(Val)
+        #Val = base > 0 and Val or -Val
+        #print 'Val is', Val, value, s0, log10(value), x, base, log10(base)
+        #print 'Val is', Val, x, s1, s0
+        Val <<= 8
+        Val |= abs(x)
+
+        Val <<= 1
+        if s1 == 1:
+            Val |= 1
+        Val <<= 1
+        if s0 == 1:
+            Val |= 1
+
+        #print 'Val is', Val
+
+    else:
+        Val = value
+        if t == 'i' or t == 'l':
+            Val = Val > 2147483647 and Val - 4294967296 or Val
+
+    #val = intmask(Val)
+    val = Val
+    string = [''] * n
+    for i in xrange(n):
+        string[i] = chr(val & 0xFF)
+        val >>= 8
+    return ''.join(string)
+
+
+# enhance unpack function
+def xunpack_int(dtype, string, prec=5):
+    t = dtype
+    if t == 'h':
+        n = 2
+    elif t == 'i' or t == 'I' or t == 'f':
+        n = 4
+    elif t == 'l' or t == 'L' or t == 'd':
+        n = 8
+    else:
+        n = int(dtype)
+
+    val = 0
+    for i in xrange(n-1, -1, -1):
+        val <<= 8
+        val += ord(string[i])
+
+    #val = intmask(val)
+    #print 'xunpack_int', val
+    if t == 'f' or t == 'd':
+        s0 = val& 0b1==1 and 1 or -1
+        val >>= 1
+        s1 = val& 0b1 ==1 and 1 or -1
+        val >>= 1
+        x = val & 0b11111111
+        val >>= 8
+
+        #val = val & 0b1111111111110000000000
+        #val >>= 1
+        #print 'xunpack', val, s0, s1
+        base = pow(10, x * s1)
+
+        val *= base * s0
+
+    else:
+        #print 'xunpack_int_val_0', val
+        if t == 'i' or t == 'l':
+            #print 'xunpack_int_val_2', val, t
+            val = val > 2147483647 and val - 4294967296 or val
+            #print 'xunpack_int_val_3', val, t
+
+    return int(val)
+
+def xunpack(dtype, string, prec=5):
+    t = dtype
+    if t == 'h':
+        n = 2
+    elif t == 'i' or t == 'I' or t == 'f':
+        n = 4
+    elif t == 'l' or t == 'L' or t == 'd':
+        n = 8
+    else:
+        n = int(dtype)
+
+    val = 0
+    for i in xrange(n-1, -1, -1):
+        val <<= 8
+        val += ord(string[i])
+
+    #val = intmask(val)
+    if t == 'f' or t == 'd':
+        s0 = val& 0b1==1 and 1 or -1
+        val >>= 1
+        s1 = val& 0b1 ==1 and 1 or -1
+        val >>= 1
+        x = val & 0b11111111
+        val >>= 8
+
+        #val = val & 0b1111111111110000000000
+        #val >>= 1
+        #print 'xunpack', val, s0, s1
+        base = pow(10, x * s1)
+
+        val *= base * s0
+
+    else:
+        #print 'int val', val
+        if t == 'i' or t == 'l':
+            val = val > 2147483647 and val - 4294967296 or val
+
+    return val
+
+
 
 
 # lis for 2 neighbor val list
@@ -2908,6 +3091,29 @@ def manual_print():
 
 
 def entry_point(argv):
+
+    #a = 2**31-1
+    #b = xpack_int('i', a)
+    #c = xunpack_int('i', b)
+    #print a, c
+
+    #a0 = 2**32-1
+    #b0 = xpack_int('I', a0)
+    #c0 = xunpack_int('I', b0)
+    #print a0, c0
+
+    #a1 = .00003
+    #b1 = xpack('f', a1)
+    #c1 = xunpack('f', b1)
+    #print a1, c1
+
+    #a2 = -123123.00003
+    #b2= xpack('f', a2)
+    #c2 = xunpack('f', b2)
+    #print a2, c2
+
+
+
 
     # 1x6
     seeds = '111111'
