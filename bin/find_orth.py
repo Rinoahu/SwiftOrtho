@@ -140,6 +140,8 @@ def blastparse0(f, coverage = .5, identity = 0., norm='no', len_dict = {}):
     if output:
         yield output.values()
 
+
+# parse blast -m8 format (12 cols) or swiftOrtho -sc format (16 cols)
 def blastparse(f, coverage = .5, identity = 0., norm='no'):
     output = {}
     len_dict = {}
@@ -149,6 +151,9 @@ def blastparse(f, coverage = .5, identity = 0., norm='no'):
     mbs_dict = {}
     for i in f:
         j = i[: -1].split('\t')
+        if len(j) != 12 or len(j) != 16:
+            continue
+
         qid, sid = j[:2]
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
