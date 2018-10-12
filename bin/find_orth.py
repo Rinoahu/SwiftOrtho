@@ -152,7 +152,10 @@ def blastparse(f, coverage = .5, identity = 0., norm='no'):
         qid, sid = j[:2]
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
-        idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
+        try:
+            idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
+        except:
+            continue
         # the fastclust seq search format
         if len(j) > 13:
             qln, sln = map(float, j[12:14])
