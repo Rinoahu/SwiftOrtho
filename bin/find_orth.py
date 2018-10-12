@@ -163,7 +163,10 @@ def blastparse(f, coverage = .5, identity = 0., norm='no'):
             continue
         # the fastclust seq search format
         if len(j) > 13:
-            qln, sln = map(float, j[12:14])
+            try:
+                qln, sln = map(float, j[12:14])
+            except:
+                continue
         else:
             if qid in len_dict:
                 qln = len_dict[qid]
