@@ -364,7 +364,7 @@ aa_nr = 'KREDQN,C,G,H,ILV,M,F,Y,W,P,STA'
 
 # generate aa nr table
 # AA is groupped aa acid
-def generate_nr_tbl(gaa=aa_nr):
+def generate_nr_tbl0(gaa=aa_nr):
     aa = gaa.upper().split(',')
     aa_nr_tbl = [0] * 256
     flag = 0
@@ -377,6 +377,25 @@ def generate_nr_tbl(gaa=aa_nr):
             aa_nr_tbl[ord(c1l)] = flag
 
     return aa_nr_tbl
+
+def generate_nr_tbl(gaa=aa_nr):
+    aa = gaa.upper().split(',')
+    aa_nr_tbl = range(512)
+    #flag = 0
+    #for c0 in aa_nr:
+    for c0 in aa:
+        flag = 1024
+        for c1 in c0:
+            if ord(c1) < flag
+                flag = ord(c1)
+
+        for c1 in c0:
+            c1l = c1.lower()
+            aa_nr_tbl[ord(c1)] = flag
+            aa_nr_tbl[ord(c1l)] = flag
+
+    return aa_nr_tbl
+
 
 aa_nr_tbl = generate_nr_tbl(aa_nr)
 aa_nr_tbls = [aa_nr_tbl]
@@ -2946,8 +2965,8 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
             #print 'Sqi', Sqi, mask, flt
             #print 'sqi', sqi, mask, flt
             li = len(sqi)
-            hits = DB.find_msav_m(sqi.upper(), sort=False)
-            #hits = DB.find_msav_m(sqi, sort=False)
+            #hits = DB.find_msav_m(sqi.upper(), sort=False)
+            hits = DB.find_msav_m(sqi, sort=False)
 
             hbs = []
             for hit in hits:
