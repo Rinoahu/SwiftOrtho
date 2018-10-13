@@ -386,7 +386,7 @@ def generate_nr_tbl(gaa=aa_nr):
     for c0 in aa:
         flag = 1024
         for c1 in c0:
-            if ord(c1) < flag
+            if ord(c1) < flag:
                 flag = ord(c1)
 
         for c1 in c0:
