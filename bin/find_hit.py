@@ -2,7 +2,7 @@
 
 #from __future__ import print_function
 import multiprocessing as mp
-from sklearn.externals.joblib import import Parallel, delayed
+from sklearn.externals.joblib import Parallel, delayed
 import os
 import sys
 from commands import getoutput
