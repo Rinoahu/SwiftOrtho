@@ -2,6 +2,7 @@
 
 #from __future__ import print_function
 import multiprocessing as mp
+from sklearn.externals.joblib import import Parallel, delayed
 import os
 import sys
 from commands import getoutput
@@ -37,7 +38,7 @@ def blastp(start, end):
         if End < 0:
             End = N
 
-        pool = mp.Pool(ncpu)
+        #pool = mp.Pool(ncpu)
         Step = max(min(10000, abs(End - Start) // ncpu), 1)
 
         sts = []
@@ -59,7 +60,9 @@ def blastp(start, end):
         Ncmd = len(cmds)
         os.system('rm -f %s' % (outfile))
         for i in xrange(0, Ncmd, ncpu):
-            pool.map(main, cmds[i:i + ncpu])
+            #pool.map(main, cmds[i:i + ncpu])
+            Parallel(n_jobs=ncpu)(delayed(main)(elem) for elem in cmds[i:i+ncpu])
+
             for st in sts:
                 res = '%s/%s.%012d'%(tmpdir, tmp_name, st)
                 if not os.path.isfile(res):
