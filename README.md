@@ -55,13 +55,13 @@ Make sure that you have the following installed
 
 **2. Orthology inference:**
 
-        $python SwiftOrtho/bin/find_orth.py -i input.fsa.sc -c 0.6 -y 0.5 > input.fsa.sc.orth
+        $python SwiftOrtho/bin/find_orth.py -i input.fsa.sc -c 0.5 -y 0 > input.fsa.sc.orth
 
 -i: input file. It is output file of step 1.
 
--c: alignment coverage of pairwise sequences. 
+-c: threshold of alignment coverage of pairwise sequences. 
 
--y: alignment identity of pairwise sequences.
+-y: threshold of alignment identity of pairwise sequences.
 
 \>: output file. It is a tabular text file that contains 4 columns in the following format:
 
