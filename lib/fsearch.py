@@ -495,6 +495,7 @@ def spseeds_fnv(seq, step=1, scale=-1, codes=aa_nr_tbls, max_weight=-1, ssps='11
         mw = max_weight < 0 and Max([ssp.count('1') for ssp in spaces]) or max_weight
         # set offset for the k2n
         #base = int(pow(scale, mw))
+        visit = {}
         L, S = len(seq), len(spaces)
         for s in xrange(S):
             space = spaces[s]
@@ -518,8 +519,10 @@ def spseeds_fnv(seq, step=1, scale=-1, codes=aa_nr_tbls, max_weight=-1, ssps='11
                 n ^= s
                 n *= b
                 n &= c
-                if seg:
-                    yield n%mod, i
+                nmod = n % mod
+                if seg and (nmod, i) not in visit:
+                    visit[(nmod, i)] = 0
+                    yield nmod, i
 
 
 
