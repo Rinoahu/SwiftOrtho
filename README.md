@@ -50,6 +50,7 @@ Make sure that you have the following installed
     A|a1	B|b2	53.52	340	158	0	111	450	240	579	1.60e-105	380	450	583
     ...
 -e: expect value.
+
 -s: space seed pattern.
 
 
