@@ -58,7 +58,7 @@ Make sure that you have the following installed
 
         $python SwiftOrtho/bin/find_orth.py -i input.fsa.sc -c 0.5 -y 0 > input.fsa.sc.orth
 
--i: input file. It is output file of step 1.
+-i: input file. It is the output file of step 1 or blast -m8.
 
 -c: threshold of alignment coverage of pairwise sequences. 
 
