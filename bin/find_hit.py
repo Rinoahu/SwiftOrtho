@@ -102,8 +102,11 @@ def manual_print():
     print '  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against'
     print '  -o: output file'
     print '  -O: write mode of output file. w: overwrite, a: append'
-    print '  -s: spaced seed in format: 1111,1110,1001.. etc'
-    print '  -r: reduced amino acid alphabet in format: AST,CFILMVY,DN,EQ,G,H,KR,P,W'
+    print '  -s: spaced seed in comma separated format: 1111,1110,1001'
+    print '''  -r: reduced amino acid alphabet. Available value is:
+      1. aa9, the default setting which stands for AST,CFILMVY,DN,EQ,G,H,KR,P,W
+      2. aa20, the fast setting which stands for the original alphabet of 20 amino acids
+      3. user defined alphabet. The 20 amino acids in comma separated format,for example: AST,CFIL,MVY,DN,EQ,G,H,KR,P,W'''
     print '  -v: number of hits to show'
     print '  -e: expect value'
     print '  -m: max ratio of pseudo hits that will trigger stop'
@@ -142,13 +145,15 @@ if __name__ == '__main__':
     #seeds = '1110010011,110010100011,10100100001011,10100010010101,11000001010011,1100010000001011,110100000001000011,1101000000000001000101'
     # 16x12 weight 12
     #seeds = '111101011101111,111011001100101111,1111001001010001001111,111100101000010010010111'
-    aa_nr = 'AST,CFILMVY,DN,EQ,G,H,KR,P,W'
+    aa_9 = 'AST,CFILMVY,DN,EQ,G,H,KR,P,W'
+    aa_20 = 'A,S,T,C,F,I,L,M,V,Y,D,N,E,Q,G,H,K,R,P,W'
+
     #aa_nr = 'A,KR,EDNQ,C,G,H,ILVM,FYW,P,ST'
     #aa_nr = 'KREDQN,C,G,H,ILV,M,F,Y,W,P,STA'
     #aa_nr = 'G,P,IV,FYW,A,LM,EQRK,ND,HS,T,C'
 
     # recommand parameter:
-    args = {'-p': '', '-v': '500', '-s': seeds, '-i': '', '-d': '', '-e': '1e-3', '-l': '-1', '-u': '-1', '-m': '1e-3', '-t': '-1', '-r': aa_nr,
+    args = {'-p': '', '-v': '500', '-s': seeds, '-i': '', '-d': '', '-e': '1e-3', '-l': '-1', '-u': '-1', '-m': '1e-3', '-t': '-1', '-r': aa_9,
             '-j': '1', '-F': 'T', '-o': '', '-D': '', '-O': 'wb', '-L': '-1', '-U': '-1', '-M': '120000000', '-c': '50000', '-a': '1', '-T': ''}
 
     N = len(argv)
@@ -183,6 +188,14 @@ if __name__ == '__main__':
         qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, ssd, nr, ncpu, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-s'], args['-r'], int(args['-a']), args['-T']
         #tmpdir = tmpdir and tmpdir or qry + '_sc_tmpdir'
         tmpdir = tmpdir and tmpdir or outfile + '_sc_tmpdir'
+
+        # check nr amino acid
+        if nr.strip() == 'aa9':
+            nr == aa9
+        elif nr.strip() == 'aa20':
+            nr == aa20
+        else:
+            pass
 
         chk /= (nr.count('/') + 1)
         flt = flt.upper()
