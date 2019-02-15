@@ -81,7 +81,7 @@ Make sure that you have the following installed
 
 **3. Cluster orthology relationships into groups:**
 
-SwiftOrtho implements two cluster algorithms including Markov Clustering and Affinity Aropagation in python. Here is an example of how to use it.
+SwiftOrtho implements two cluster algorithms: Markov Clustering, and Affinity Aropagation in Python. Here is an example of how to use it.
 
         $python SwiftOrtho/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
 
@@ -92,7 +92,7 @@ SwiftOrtho implements two cluster algorithms including Markov Clustering and Aff
         CO	A|a2	B|b2	1.41459539212
 		...
 
--a: algorithm to cluster. [mcl|apc]
+-a: algorithm to cluster. [mcl|apc].
 
 -I: inflation parameter only for mcl. 
 
@@ -110,6 +110,7 @@ If users prefer [MCL](https://micans.org/mcl "https://micans.org/mcl"), they can
         $cut -f2-4 input.fsa.sc.orth > input.fsa.sc.orth.xyz
         $mcl input.fsa.sc.orth.xyz --abc -I 1.5 -o input.fsa.sc.orth.mcl -te 4
 
+If the [MCL](https://micans.org/mcl "https://micans.org/mcl") cannot run due to insufficent memory, users can try my [MCL_lite](https://github.com/Rinoahu/MCL_lite) project which is another memory-efficent implementation of Markov Clustering Algorithm. The MCL_lite project is available at [https://github.com/Rinoahu/MCL_lite](https://github.com/Rinoahu/MCL_lite).
 
 ## Useful tools and pipeline
 
@@ -120,7 +121,7 @@ Run_all.py in directory scripts automatically implements the following steps:
 3. cluster orthology relationships into orthologous groups.
 4. perform a pan-genome analysis and estimate main features of pan-genome such as gene numbers of core|shared|specific, core size of pan-genome, openess...
 5. use conseved proteins to construct species phylogenetic tree.
-6. perform operonic clustering if the operonic information supplied.[optional]
+6. perform operon clustering if the operon information supplied.[optional]
 
 
 Requirement:
@@ -146,25 +147,25 @@ Usage:
 -a: number of multi-thread.
 
 Results:
-Severl files are generated:
+Several files are generated:
 1. test.fsa.sc
 
-	result of all-vs-all homologous search. see example above in Usage section.
+	Results of all-vs-all homology search. See example above in Usage.
 2. test.fsa.aln.trim
 
-    concatenation of trimmed aligned protein sequences of conserved genes.
+    Concatenation of trimmed aligned protein sequences of conserved genes.
 3. test.fsa.nwk
 
-    species phylogenetic tree in newick format. the tree is constructed from the aligned protein sequences of the conserved gene.
+    Species phylogenetic tree in newick format. the tree is constructed from the aligned protein sequences of the conserved gene.
 4. test.fsa.opc
 
-    orthology relationships. see an example above in Usage section.
+    Orthology relationships. See the example above in Usage.
 5. test.fsa.mcl
 
-    orthologous groups. see an example above in Usage section
+    Orthologous groups. See the example above in Usage.
 6. test.fsa.operon.mcl
 
-    grouped operons which reflect conservation of operons across multiple species. This file contains several rows. Each row stands for an conserved operonic group. In each row, there are operonic information from same or different species. For example:
+    Grouped operons which reflect conservation of operons across multiple species. This file contains several rows. Each row contains operonic information from the same or different species. For example:
 
     	A1-->A2-->A3	B1<--B2<--B3	C1<--C2<--C3
     	A4<--A5<--A6	B4<--B5<--B6	C4<--C5<--C6

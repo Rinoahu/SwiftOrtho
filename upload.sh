@@ -17,7 +17,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'add original amino acid alphabet support'
+git commit -m 'change readme'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master
