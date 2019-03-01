@@ -525,6 +525,8 @@ except:
 
 f = open(ots, 'r')
 for i in f:
+    if not Sips:
+        break
     # get ot pair
     qid, sid, sco = i.split('\t')[:3]
     #qid, sid = map(int, [qid, sid])
