@@ -191,9 +191,9 @@ if __name__ == '__main__':
 
         # check nr amino acid
         if nr.strip() == 'aa9':
-            nr = aa9
+            nr = aa_9
         elif nr.strip() == 'aa20':
-            nr = aa20
+            nr = aa_20
         else:
             pass
 
