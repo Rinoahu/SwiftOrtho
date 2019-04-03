@@ -15,9 +15,10 @@ Make sure that you have the following installed
     4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")
 	5. [Biopython](http://biopython.org/ "http://biopython.org/")
     6. [sklearn](http://scikit-learn.org/stable/ "http://scikit-learn.org/stable/")
-    7. Install packages via pip:
+    7. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")
+    8. Install packages via pip:
 
-        $ pip install -U rpython networkx scipy numpy biopython sklearn
+        $ pip install -U rpython networkx scipy numpy biopython sklearn cffi
 
 2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional)
 
@@ -32,7 +33,7 @@ Make sure that you have the following installed
 
 **1. All-to-all homologous search:**
 
-    $python SwiftOrtho/bin/find_hit.py -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
+    $python SwiftOrtho/bin/find_hit.py -p blastp -i input.fsa -d input.fsa -o input.fsa.sc -e 1e-5 -s 111111
 
 -i|-d: protein sequences in fasta format. The identifier of each protein sequence in intput.fsa should be like this: >xxx|yyyy where xxx is the taxon code and yyyy is a sequence identifier. For example:
 
