@@ -14,9 +14,8 @@ Make sure that you have the following installed
     3. [numpy](http://www.numpy.org/ "http://www.numpy.org/")
     4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")
 	5. [Biopython](http://biopython.org/ "http://biopython.org/")
-    6. [sklearn](http://scikit-learn.org/stable/ "http://scikit-learn.org/stable/")
-    7. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")
-    8. Install packages via pip:
+    6. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")
+    7. Install packages via pip:
 
         $ pip install -U rpython networkx scipy numpy biopython sklearn cffi
 
