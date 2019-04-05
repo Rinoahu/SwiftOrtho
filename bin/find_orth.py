@@ -6,7 +6,7 @@
 
 # this is the py version of blast
 import sys
-import networkx as nx
+#import networkx as nx
 from math import log10
 import os
 from commands import getoutput

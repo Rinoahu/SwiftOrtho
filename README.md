@@ -9,15 +9,15 @@ SwiftOrtho is orthology analysis tool which identifies orthologs, paralogs and c
 Make sure that you have the following installed
 
 1. Python2.7 (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ) or [PyPy2.7](http://pypy.org/download.html "http://pypy.org/download.html")(v5.10 or greater) and Packages:
-    1. [Networkx](https://networkx.github.io/ "https://networkx.github.io/")
-    2. [RPython](https://pypi.python.org/pypi/rpython/0.1.4 "https://pypi.python.org/pypi/rpython/0.1.4")
-    3. [numpy](http://www.numpy.org/ "http://www.numpy.org/")
-    4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")
-	5. [Biopython](http://biopython.org/ "http://biopython.org/")
-    6. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")
+    1. [Networkx](https://networkx.github.io/ "https://networkx.github.io/")>=2.0
+    2. [RPython](https://pypi.python.org/pypi/rpython/0.1.4 "https://pypi.python.org/pypi/rpython/0.1.4")>=0.2.1
+    3. [numpy](http://www.numpy.org/ "http://www.numpy.org/")>=1.15.2
+    4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")>=1.1.0
+	5. [Biopython](http://biopython.org/ "http://biopython.org/")>=1.68
+    6. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")>=1.11.5
     7. Install packages via pip:
 
-        $ pip install -U rpython networkx scipy numpy biopython sklearn cffi
+        $ pip install -U rpython networkx scipy numpy biopython cffi
 
 2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional)
 
