@@ -17,7 +17,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'add a test bash script in example dir'
+git commit -m 'add required version of each package to README'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master
