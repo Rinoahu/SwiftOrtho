@@ -28,7 +28,7 @@ def fasta_parse(f):
 
 
 # blastp
-def blastp(start, end):
+def blastp0(start, end):
     # get the size of query sequence
     n = getoutput('grep -c \> %s' % qry).strip()
     N = int(n)
@@ -81,6 +81,62 @@ def blastp(start, end):
     del pool
     gc.collect()
 
+
+
+def blastp(start, end):
+    # get the size of query sequence
+    n = getoutput('grep -c \> %s' % qry).strip()
+    N = int(n)
+    cmds = []
+    Start, End = map(int, [start, end])
+    if Start < 0:
+        Start = 0
+    if End < 0:
+        End = N
+
+    Step = max(min(10000, abs(End - Start) // ncpu), 1)
+
+    sts = []
+    tmp_name = outfile.split(os.sep)[-1]
+    # check the tmpdir
+    os.system('mkdir -p %s' % tmpdir)
+
+    # for st in xrange(0, N, 10000):
+    for st in xrange(Start, End, Step):
+
+        ed = min(N, st + Step)
+        start, end = map(str, [st, ed])
+        cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o %s/%s.%012d -T %s' % (
+                fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st, tmpdir)
+
+        cmds.append(cmd)
+        sts.append(st)
+
+    Ncmd = len(cmds)
+    os.system('rm -f %s' % (outfile))
+    for i in xrange(0, Ncmd, ncpu):
+        pool = mp.Pool(ncpu)
+        pool.map(main, cmds[i:i + ncpu])
+        pool.close()
+        del pool
+        gc.collect()
+        #Parallel(n_jobs=ncpu)(delayed(main)(elem) for elem in cmds[i:i+ncpu])
+        for st in sts:
+            res = '%s/%s.%012d'%(tmpdir, tmp_name, st)
+            if not os.path.isfile(res):
+                continue
+            #os.system('cat /tmp/%s.%012d >> %s'%(outfile, st, outfile))
+            #os.system('cat /tmp/%s.%012d >> %s'%(tmp_name, st, outfile))
+            os.system('cat %s/%s.%012d >> %s' % (tmpdir, tmp_name, st, outfile))
+
+            #os.system('rm /tmp/%s.%012d'%(outfile, st))
+            #os.system('rm /tmp/%s.%012d'%(tmp_name, st))
+            os.system('rm %s/%s.%012d' % (tmpdir, tmp_name, st))
+
+    #pool.terminate()
+    #pool.close()
+    #del pool
+    #gc.collect()
 
 
 # print the manual
