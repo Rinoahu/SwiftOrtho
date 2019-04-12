@@ -188,7 +188,7 @@ if __name__ == '__main__':
     # compile the core of search
     if not os.path.isfile(fsearch):
         from rpython.translator.goal import translate
-        trans = os.path.dirname(translate.__file__) + '/translate.py'
+        trans = os.path.dirname(translate.__file__) + '/translate.py -c --cc=\"gcc -Ofast -mssse3 -msse2 -msse4 -msse4.1 -msse4.2 -mavx2 -mavx -g -Wall -ffast-math\" --make-jobs=4'
         os.system('cd %s/../lib/ && %s %s fsearch.py' %
                   (here, sys.executable, trans))
         #os.system('cd %s/../core/ && %s %s fsearch.py'%(here, sys.executable, trans))

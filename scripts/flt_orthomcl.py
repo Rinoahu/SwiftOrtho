@@ -38,6 +38,6 @@ def get_com(G):
         flag += 1
 
 
-f = open(qry, 'r')
-for i in f:
+#f = open(qry, 'r')
+#for i in f:
 
