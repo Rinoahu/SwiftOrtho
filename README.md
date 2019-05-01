@@ -15,7 +15,7 @@ Make sure that you have the following installed
 
 ## Download
 
-    $git clone https://github.com/Rinoahu/SwiftOrtho_3k
+    $git clone https://github.com/Rinoahu/SwiftOrtho
 
 ## Install and Test
 
