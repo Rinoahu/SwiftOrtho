@@ -3,7 +3,7 @@
 a=ref.fsa
 
 #python=pypy
-python=python3.6
+#python=python3.6
 #python=/home/xiaoh/Downloads/compiler/intel/intelpython27/envs/intelpython/bin/python3.5
 #python=python
 
