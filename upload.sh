@@ -1,6 +1,7 @@
 #!/bin/bash
 #cd SwiftOrtho
 #cd FastClust
+rm -rf ./pypy
 rm -f ./lib/fsearch-c
 rm -rf ./tmpdir ./bin/__pycache__
 find ./ -name *un~ | xargs rm
@@ -17,7 +18,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'rewrite source code to python3'
+git commit -m 'improved README'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master

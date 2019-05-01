@@ -8,23 +8,24 @@ SwiftOrtho is orthology analysis tool which identifies orthologs, paralogs and c
 
 Make sure that you have the following installed
 
-1. Python2.7 (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ) or [PyPy2.7](http://pypy.org/download.html "http://pypy.org/download.html")(v5.10 or greater) and Packages:
-    1. [Networkx](https://networkx.github.io/ "https://networkx.github.io/")(version>=2.0)
-    2. [RPython](https://pypi.python.org/pypi/rpython/0.1.4 "https://pypi.python.org/pypi/rpython/0.1.4")(version>=0.2.1)
-    3. [numpy](http://www.numpy.org/ "http://www.numpy.org/")(version>=1.15.2)
-    4. [scipy](https://www.scipy.org/ "https://www.scipy.org/")(version>=1.1.0)
-	5. [Biopython](http://biopython.org/ "http://biopython.org/")(version>=1.68)
-    6. [cffi](https://cffi.readthedocs.io/en/latest/ "https://cffi.readthedocs.io/en/latest/")(version>=1.11.5)
-    7. Install packages via pip:
+1. Python 2.7 or 3.7 (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ) or [PyPy2.7](http://pypy.org/download.html "http://pypy.org/download.html")(v5.10 or greater).
 
-        $ pip install -U rpython networkx scipy numpy biopython cffi
-
-2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional)
+2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional).
 
 
 ## Download
 
-    $ git clone https://github.com/Rinoahu/SwiftOrtho
+    $git clone https://github.com/Rinoahu/SwiftOrtho_3k
+
+## Install and Test
+
+    $cd SwiftOrtho
+    $bash ./install.sh
+    $cd example
+    $bash ./run.sh
+
+
+
 
 ## Usage
 
@@ -71,7 +72,7 @@ Make sure that you have the following installed
         CO	A|a2	B|b2	1.41459539212
         ...
 
-    Col 1: orthology relationship, one of OT(ortholog), CO(co-ortholog) and IP(in-paralog).
+    Col 1: orthology relationship, one of OT(ortholog), CO(co-ortholog), or IP(in-paralog).
     Col 2: identifier of gene in species A.
     Col 3: identifier of gene in species B.
     Col 4: weight of orthology relationship.
@@ -83,7 +84,11 @@ Make sure that you have the following installed
 
 SwiftOrtho implements two cluster algorithms: Markov Clustering, and Affinity Aropagation in Python. Here is an example of how to use it.
 
+        # use MCL
         $python SwiftOrtho/bin/find_cluster.py -i input.fsa.sc.orth -a mcl -I 1.5 > input.fsa.sc.orth.mcl
+        # use APC
+        $python SwiftOrtho/bin/find_cluster.py -i input.fsa.sc.orth -a apc -I 1.5 > input.fsa.sc.orth.apc
+
 
 -i: input file. Input file contains all the orthology relationships. For example:
 
@@ -104,7 +109,7 @@ SwiftOrtho implements two cluster algorithms: Markov Clustering, and Affinity Ar
 		A|a5	A|a6
 		... 
 
-If users prefer [MCL](https://micans.org/mcl "https://micans.org/mcl"), they can follow the steps below:
+If users want to use the original [MCL](https://micans.org/mcl "https://micans.org/mcl") for clustering, they can follow the steps below:
 
 
         $cut -f2-4 input.fsa.sc.orth > input.fsa.sc.orth.xyz
