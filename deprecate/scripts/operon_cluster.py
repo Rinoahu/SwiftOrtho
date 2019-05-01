@@ -8,8 +8,6 @@ import sys
 import networkx as nx
 
 # the binary search algorithm
-
-
 def bisect(xs, y, key=lambda x: x):
     N = len(xs)
     L, R = None, None
@@ -137,7 +135,7 @@ def operon_clust(f, groups):
     N_ops = len(operons)
     G = nx.Graph()
     # for i in operons:
-    for i0 in range(N_ops):
+    for i0 in xrange(N_ops):
         i = operons[i0]
 
         sp0 = '-->' in i and '-->' or '<--'
@@ -161,38 +159,38 @@ def operon_clust(f, groups):
             score = 2. * cv0 * cv1 / (cv0 + cv1)
             # score = N_shr
             if N_shr > 2 and max(cv1, cv0) > .5:
-                # print i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score
+                #print i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score
                 #opt = [i, j, sp0.join(map(str, group0)), sp1.join(map(str, group1)), score]
                 opt = [i, j, score]
-                print('\t'.join(map(str, opt)))
+                print '\t'.join(map(str, opt))
                 G.add_edge(i0, j0, w=score)
 
     return G
 
 
 def manual_print():
-    print('This script is used to cluster operons')
-    print('Usage:')
-    print('  python this.py -g foo.gene.groups -p foo.operon')
-    print('Parameters:')
-    print(' -g: protein/gene groups file. Each row contains the names of genes which belong to the same protein group/family.')
-    print(' -p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3.')
+    print 'This script is used to cluster operons'
+    print 'Usage:'
+    print '  python this.py -g foo.gene.groups -p foo.operon'
+    print 'Parameters:'
+    print ' -g: protein/gene groups file. Each row contains the names of genes which belong to the same protein group/family.'
+    print ' -p: operonic annotation file. The 1st column of this file should be like x0-->x1-->x2-->x3 or x0<--x1<--x2<--x3.'
 
 
 if __name__ == '__main__':
 
     argv = sys.argv
-    # recommand parameter:
+	# recommand parameter:
     args = {'-g': '', '-p': ''}
 
     N = len(argv)
-    for i in range(1, N):
+    for i in xrange(1, N):
         k = argv[i]
         if k in args:
-            v = argv[i + 1]
+    	    v = argv[i + 1]
             args[k] = v
         elif k[:2] in args and len(k) > 2:
-            args[k[:2]] = k[2:]
+    	    args[k[:2]] = k[2:]
         else:
             continue
 

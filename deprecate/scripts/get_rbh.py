@@ -4,9 +4,8 @@
 import sys
 
 if len(sys.argv[1:]) < 1:
-    print('python this.py foo.blast8')
+    print 'python this.py foo.blast8'
     raise SystemExit()
-
 
 def blastparse(f):
     flag = None
@@ -28,8 +27,6 @@ def blastparse(f):
         yield out
 
 # find rbh
-
-
 def get_rbh(hits):
     out = {}
     for hit in hits:
@@ -45,7 +42,8 @@ def get_rbh(hits):
         else:
             out[stx] = [qid, sid, sco]
 
-    return list(out.values())
+    return out.values()
+
 
 
 rbh_dict = set()
@@ -59,9 +57,12 @@ for hits in blastparse(f):
             qid, sid = sid, qid
         key = qid + '\t' + sid
         if key in rbh_dict:
-            print(key)
+            print key
             rbh_dict.remove(key)
         else:
             rbh_dict.add(key)
 
 f.close()
+
+
+

@@ -28,8 +28,9 @@ for i in f:
     else:
         j = i[:-1].strip().split(' ')
 
+
     j.sort()
-    # qry_set.add(tuple(j))
+    #qry_set.add(tuple(j))
     if tuple(j) in qry_set:
         sN += 1
     rN += 1
@@ -37,7 +38,8 @@ for i in f:
 f.close()
 
 
-# print qN, sN, rN
+#print qN, sN, rN
 
-print('qry %f' % (sN * 100. / qN) + '%', qry)
-print('ref %f' % (sN * 100. / rN) + '%', ref)
+print 'qry %f'%(sN*100. / qN) + '%', qry
+print 'ref %f'%(sN*100. / rN) + '%', ref
+

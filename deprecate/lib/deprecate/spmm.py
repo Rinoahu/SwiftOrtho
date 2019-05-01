@@ -76,7 +76,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
     R = xr.shape[0]
     D = yr.shape[0]
     nnz = int(1. * x.size * y.size / (D-1))
-    print('nnz size', nnz)
+    print 'nnz size', nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     n_size = nnz
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(n_size, xc.dtype), np.empty(n_size, dtype=x.dtype)
@@ -88,7 +88,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
     index = np.zeros(yr.size, yr.dtype)
     flag = 0
     zptr = 0
-    for i in range(R-1):
+    for i in xrange(R-1):
 
         # get ith row of a
         kst, ked = xr[i], xr[i + 1]
@@ -98,7 +98,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
 
         ks = 0
         nz = 0
-        for k in range(kst, ked):
+        for k in xrange(kst, ked):
             x_col, x_val = xc[k], x[k]
 
             # get row of b
@@ -107,7 +107,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
                 continue
 
             nz += jed - jst
-            for j in range(jst, jed):
+            for j in xrange(jst, jed):
                 y_col, y_val = yc[j], y[j]
                 data[y_col] += x_val * y_val
                             
@@ -129,7 +129,7 @@ def csrmm_ori(xr, xc, x, yr, yc, y):
             z = resize(z, n_size)
             flag += 2
 
-        for pt in range(ks):
+        for pt in xrange(ks):
             idx = index[pt]
             #mx_col = max(mx_col, idx)
             val = data[idx]
@@ -158,7 +158,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     D = yr.shape[0]
     chk = x.size + y.size
     nnz = chk
-    print('nnz size', nnz)
+    print 'nnz size', nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
     data = np.zeros(D-1, dtype=x.dtype)
@@ -169,7 +169,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
     index = np.zeros(yr.size, yr.dtype)
     flag = 0
     zptr = 0
-    for i in range(R-1):
+    for i in xrange(R-1):
 
         # get ith row of a
         kst, ked = xr[i], xr[i + 1]
@@ -179,7 +179,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
 
         ks = 0
         nz = 0
-        for k in range(kst, ked):
+        for k in xrange(kst, ked):
             x_col, x_val = xc[k], x[k]
 
             # get row of b
@@ -190,7 +190,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             nz += jed - jst
             flag += 2
 
-            for j in range(jst, jed):
+            for j in xrange(jst, jed):
             #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
                 y_col_val = data[y_col] + x_val * y_val
@@ -211,7 +211,7 @@ def csrmm_msav(xr, xc, x, yr, yc, y):
             z = resize(z, nnz)
             flag += 2
 
-        for pt in range(ks):
+        for pt in xrange(ks):
         #for pt in prange(ks):
             y_col = index[pt]
             #mx_col = max(mx_col, idx)
@@ -260,7 +260,7 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
     index = np.zeros(nnz1, yr.dtype)
     flag = 0
     zptr = 0
-    for i in range(R-1):
+    for i in xrange(R-1):
 
         # get ith row of a
         kst, ked = xr[i], xr[i + 1]
@@ -270,7 +270,7 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
 
         ks = 0
         nz = 0
-        for k in range(kst, ked):
+        for k in xrange(kst, ked):
             x_col, x_val = xc[k], x[k]
 
             # get row of b
@@ -281,7 +281,7 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
             nz += jed - jst
             flag += 2
 
-            for j in range(jst, jed):
+            for j in xrange(jst, jed):
             #for j in prange(jst, jed):
                 y_col, y_val = yc[j], y[j]
                 y_col_val = data[y_col] + x_val * y_val
@@ -306,7 +306,7 @@ def csrmm_sp(Xr, Xc, X, yr, yc, y, xrst, xred, cpu=1):
             z = resize(z, nnz)
             flag += 2
 
-        for pt in range(ks):
+        for pt in xrange(ks):
         #for pt in prange(ks):
             y_col = index[pt]
             #mx_col = max(mx_col, idx)
@@ -343,7 +343,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
     yr, yc, y = b.indptr, b.indices, b.data
 
     #print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
-    print('a nnz', a.nnz, 'b nnz', b.nnz)
+    print 'a nnz', a.nnz, 'b nnz', b.nnz
 
     st = time()
     #if use_jit:
@@ -363,11 +363,11 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         zr, zc, z, flag = csrmm(xr, xc, x, yr, yc, y)
         zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     else:
-        print('using threads')
+        print 'using threads'
         N, D = a.shape
         step = N // cpu + 1
         threads = []
-        for i in range(0, N, step):
+        for i in xrange(0, N, step):
             start, end = i, min(i+step, N)
             t = worker(csrmm_sp, (xr, xc, x, yr, yc, y, start, end, cpu))
             t.start()
@@ -377,7 +377,7 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
         #offset = 0
         #for t in threads:
         flag = 0
-        for i in range(0, N, step):
+        for i in xrange(0, N, step):
             start, end = i, min(i+step, N)
             t = threads[i//step]
             t.join()
@@ -404,8 +404,8 @@ def csrmm_ez(a, b, mm='msav', cpu=1):
        #print 'threads is', threads
         #flag = sum([elem[-1] for elem in threads])
 
-    print('total operation', flag)
-    print('csrmm cpu', time() - st)
+    print 'total operation', flag
+    print 'csrmm cpu', time() - st
     #print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
     #print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
     #zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
@@ -420,13 +420,13 @@ def csr_by_csc(xr, xc, x, yc, yr, y):
     C = yc.size
     chk = x.size + y.size
     nnz = chk
-    print('nnz size', nnz)
+    print 'nnz size', nnz
     # zr, zc, z = np.zeros(R, 'int32'), np.empty(nnz*5, 'int32'), np.empty(nnz*5, dtype=x.dtype)
     zr, zc, z = np.zeros(R, xr.dtype), np.empty(nnz, xc.dtype), np.empty(nnz, dtype=x.dtype)
 
     ptr = 0
     flag = 0
-    for i in range(R-1):
+    for i in xrange(R-1):
 
         # get ith row of a
         rst, red = xr[i], xr[i + 1]
@@ -436,7 +436,7 @@ def csr_by_csc(xr, xc, x, yc, yr, y):
             #flag += 1
             continue
         #flag += 2
-        for j in range(C-1):
+        for j in xrange(C-1):
             # get row of b
             cst, ced = yc[j], yc[j+1]
             #flag += 2
@@ -478,7 +478,7 @@ def csr_by_csc(xr, xc, x, yc, yr, y):
                 flag += 1
         zr[i+1] = ptr
 
-    print('final_ptr', ptr)
+    print 'final_ptr', ptr
     return zr, zc[:ptr], z[:ptr], flag
     #zmtx = sps.csr_matrix((z[:zptr], zc[:zptr], zr), shape=(a.shape[0], b.shape[1]))
     #return zmtx
@@ -490,7 +490,7 @@ def cscmm_ez(a, c, use_jit=True):
     b = c.tocsc()
     yc, yr, y = b.indptr, b.indices, b.data
 
-    print('a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10])
+    print 'a shape', a.shape, 'b shape', b.shape, 'yc size', yc[:10], yc.size, yc.max(), yc[-1], 'yr', yr.size, yr[:10]
 
 
     st = time()
@@ -501,10 +501,10 @@ def cscmm_ez(a, c, use_jit=True):
 
     zr, zc, z, flag = csr_by_csc(xr, xc, x, yc, yr, y)
 
-    print('total operation', flag)
-    print('csrmm cpu', time() - st)
-    print('zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size) 
-    print('zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size)
+    print 'total operation', flag
+    print 'csrmm cpu', time() - st
+    print 'zr min', zr.min(), 'zc max', zr.max(), 'zr size', zr.size 
+    print 'zc min', zc.min(), 'zc max', zc.max(), 'zc size', zc.size
     zmtx = sps.csr_matrix((z, zc, zr), shape=(a.shape[0], b.shape[1]))
     return zmtx
 
@@ -517,12 +517,12 @@ if __name__ == '__main__':
     st = time()
     try:
         a, b = sys.argv[1:3]
-        x, y = list(map(sps.load_npz, [a, b]))
+        x, y = map(sps.load_npz, [a, b])
         z = sps.vstack([x, y], format='csr')
         z = sps.hstack([z, z], format='csr')
         #sps.save_npz('tmp.npz', z)
         x = y = z
-        print('x shape', x.shape, x.nnz)
+        print 'x shape', x.shape, x.nnz
         try:
             cpu = int(eval(sys.argv[3]))
         except:
@@ -543,38 +543,38 @@ if __name__ == '__main__':
         #raise SystemExit()
         y = x
     #sps.save_npz('tmp.npz', x)
-    print('random matrix', time() - st)
+    print 'random matrix', time() - st
 
     #small = sps.random(100, 100, .01, format='csr')
     #small_xy = csrmm_ez(small, small)
 
     st = time()
     y2 = csrmm_ez(x, y, 'msav', cpu=cpu)
-    print('my sparse parallel', time() - st, y2.shape, y2.nnz)
+    print 'my sparse parallel', time() - st, y2.shape, y2.nnz
     del y2
-    print('')
+    print ''
 
 
 
     st = time()
     y0 = csrmm_ez(x, y, 'msav')
-    print('my sparse msav', time() - st, y0.shape, y0.nnz)
+    print 'my sparse msav', time() - st, y0.shape, y0.nnz
     del y0
-    print('')
+    print ''
 
 
     st = time()
     y1 = csrmm_ez(x, y, 'ori')
-    print('my sparse ori', time() - st, y1.shape, y1.nnz)
+    print 'my sparse ori', time() - st, y1.shape, y1.nnz
     del y1
-    print('')
+    print ''
 
 
     st = time()
     y3 = x * y
-    print('scipy csr', time() - st, y3.shape, y3.nnz)
+    print 'scipy csr', time() - st, y3.shape, y3.nnz
     del y3
-    print('')
+    print ''
 
     #dif = y2 - y3
     #print dif.max(), dif.min(), 'my fast parallel nnz', y2.nnz, 'scipy nnz', y3.nnz

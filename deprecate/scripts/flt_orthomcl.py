@@ -24,13 +24,12 @@ for i in f:
         id2n[sid] = flag
         n2id[flag] = sid
         flag += 1
-
-    qn, sn = list(map(id2n.get, [qid, sid]))
+       
+    qn, sn = map(id2n.get, [qid, sid])
     if not G.has_edge(qn, sn):
-        G.add_edge(qn, sn)
+       G.add_edge(qn, sn)
 
 f.close()
-
 
 def get_com(G):
     n2c = []
@@ -40,4 +39,5 @@ def get_com(G):
 
 
 #f = open(qry, 'r')
-# for i in f:
+#for i in f:
+

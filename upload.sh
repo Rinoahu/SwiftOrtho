@@ -17,7 +17,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'fixed a bug'
+git commit -m 'rewrite source code to python3'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master

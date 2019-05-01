@@ -31,7 +31,7 @@ def fnv(data, start, end, bit=32):
     else:
         a, b, c = 0xcbf29ce484222325, 0x100000001b3, 0xffffffffffffffff
 
-    for i in range(start, end):
+    for i in xrange(start, end):
         s = ord(data[i])
         a ^= s
         a *= b
@@ -110,7 +110,7 @@ class array:
         return v
 
     def __getslice__(self, i, j):
-        return [self.__getitem__(elem) for elem in range(i, j)]
+        return [self.__getitem__(elem) for elem in xrange(i, j)]
 
     def __setitem__(self, i, v):
         j = pack(self.dtype, v)
@@ -165,10 +165,10 @@ class Counter:
         self.data[i] = j
 
     def values(self):
-        return list(self.data.values())
+        return self.data.values()
 
     def keys(self):
-        return list(self.data.keys())
+        return self.data.keys()
 
 
 MIN, MED, MAX = 7, 23, 41
@@ -183,7 +183,7 @@ def swap_u(x, i, j):
 
 # in-place sort
 def insort_u(x, l, r, key=lambda x: x):
-    for i in range(l, r):
+    for i in xrange(l, r):
         v = x[i]
         pivot = key(v)
         j = i - 1
@@ -249,7 +249,7 @@ def swap(x, i, j):
 
 # in-place sort
 def insort(x, l, r, key=lambda x: x):
-    for i in range(l, r):
+    for i in xrange(l, r):
         v = x[i]
         pivot = key(v)
         j = i - 1
@@ -311,7 +311,7 @@ def qsort(x, key=lambda x: x):
 
 B62 = {('B', 'N'): 3, ('S', 'W'): -3, ('G', 'G'): 6, ('X', 'D'): -1, ('X', 'Z'): -1, ('A', 'N'): -2, ('A', 'Y'): -2, ('W', 'Q'): -2, ('V', 'N'): -3, ('F', 'K'): -3, ('C', 'Z'): -3, ('V', 'X'): -1, ('G', 'E'): -2, ('E', 'D'): 2, ('F', 'Z'): -3, ('W', 'P'): -4, ('H', 'B'): 0, ('I', 'T'): -1, ('F', 'D'): -3, ('E', 'Z'): 4, ('K', 'V'): -2, ('C', 'Y'): -2, ('G', 'D'): -1, ('T', 'N'): 0, ('W', 'W'): 11, ('Y', 'X'): -1, ('E', 'M'): -2, ('S', 'S'): 4, ('X', 'C'): -2, ('X', 'H'): -1, ('K', 'C'): -3, ('E', 'F'): -3, ('Y', 'I'): -1, ('Z', 'P'): -1, ('A', 'K'): -1, ('A', 'B'): -2, ('Q', 'P'): -1, ('F', 'G'): -3, ('D', 'S'): 0, ('Z', 'Q'): 3, ('D', 'X'): -1, ('V', 'T'): 0, ('H', 'P'): -2, ('P', 'V'): -2, ('I', 'Q'): -3, ('Y', 'K'): -2, ('W', 'T'): -2, ('H', 'F'): -1, ('P', 'D'): -1, ('Q', 'R'): 1, ('D', 'Q'): 0, ('K', 'Q'): 1, ('Z', 'S'): 0, ('D', 'F'): -3, ('X', 'G'): -1, ('X', 'L'): -1, ('G', 'Z'): -2, ('V', 'W'): -3, ('T', 'C'): -1, ('A', 'F'): -2, ('T', 'H'): -2, ('A', 'Q'): -1, ('Q', 'T'): -1, ('V', 'F'): -1, ('F', 'C'): -2, ('C', 'R'): -3, ('V', 'P'): -2, ('H', 'T'): -2, ('E', 'L'): -3, ('F', 'R'): -3, ('I', 'G'): -4, ('Z', 'V'): -2, ('Y', 'V'): -1, ('T', 'A'): 0, ('T', 'V'): 0, ('Q', 'V'): -2, ('S', 'K'): 0, ('X', 'K'): -1, ('X', 'P'): -2, ('K', 'K'): 5, ('E', 'N'): 0, ('N', 'T'): 0, ('A', 'H'): -2, ('A', 'C'): 0, ('V', 'S'): -2, ('A', 'Z'): -1, ('M', 'Z'): -1, ('Q', 'H'): 0, ('V', 'B'): -3, ('P', 'X'): -2, ('H', 'S'): -1, ('Q', 'Y'): -1, ('H', 'X'): -1, ('P', 'N'): -2, ('I', 'Y'): -1, ('P', 'G'): -2, ('F', 'N'): -3, ('H', 'N'): 1, ('K', 'H'): -1, ('N', 'W'): -4, ('S', 'Y'): -2, ('W', 'N'): -4, ('D', 'Y'): -3, ('E', 'Q'): 2, ('K', 'Y'): -2, ('S', 'G'): 0, ('X', 'T'): 0, ('Y', 'S'): -2, ('G', 'R'): -2, ('A', 'L'): -1, ('L', 'Z'): -3, ('A', 'G'): 0, ('Y', 'B'): -3, ('T', 'K'): -1, ('T', 'P'): -1, ('M', 'V'): 1, ('Q', 'L'): -2, ('E', 'S'): 0, ('H', 'W'): -2, ('I', 'D'): -3, ('K', 'F'): -3, ('L', 'X'): -1, ('N', 'A'): -2, ('T', 'I'): -1, ('Q', 'N'): 0, ('K', 'W'): -3, ('W', 'B'): -4, ('S', 'C'): -1, ('X', 'S'): 0, ('N', 'B'): 3, ('X', 'X'): -1, ('Z', 'L'): -3, ('Y', 'Y'): 7, ('G', 'V'): -3, ('L', 'V'): 1, ('A', 'R'): -1, ('Z', 'M'): -1, ('M', 'R'): -1, ('N', 'I'): -3, ('D', 'C'): -3, ('P', 'P'): 7, ('D', 'H'): -1, ('Q', 'Q'): 5, ('I', 'V'): 3, ('P', 'F'): -4, ('I', 'A'): -1, ('F', 'F'): 6, ('K', 'T'): -1, ('L', 'T'): -1, ('Q', 'B'): 0, ('S', 'Q'): 0, ('X', 'A'): 0, ('W', 'F'): 1, ('D', 'A'): -2, ('E', 'Y'): -2, ('K', 'A'): -1, ('X', 'W'): -2, ('Q', 'S'): 0, ('A', 'D'): -2, ('L', 'R'): -2, ('T', 'S'): 1, ('A', 'V'): 0, ('T', 'X'): 0, ('M', 'N'): -2, ('Q', 'D'): 0, ('E', 'R'): 0, ('S', 'X'): 0, ('E', 'P'): -1, ('V', 'V'): 4, ('D', 'N'): 1, ('I', 'S'): -2, ('P', 'M'): -2, ('H', 'D'): -1, ('Z', 'B'): 1, ('F', 'B'): -3, ('E', 'E'): 5, ('I', 'L'): 2, ('K', 'N'): 0, ('L', 'P'): -3, ('N', 'L'): -3, ('Y', 'L'): -1, ('T', 'Q'): -1, ('Q', 'F'): -3, ('Z', 'H'): 0, ('S', 'M'): -1, ('X', 'E'): -1, ('W', 'Z'): -3, ('Q', 'W'): -2, ('Z', 'D'): 1, ('G', 'N'): 0, ('L', 'Y'): -1, ('A', 'X'): 0, ('L', 'N'): -3, ('A', 'S'): 1, ('Z', 'E'): 4, ('D', 'T'): -1, ('S', 'T'): 1, ('P', 'Z'): -1, ('P', 'S'): -1, ('V', 'R'): -3, ('D', 'K'): -1, ('P', 'H'): -2, ('H', 'C'): -3, ('Q', 'I'): -3, ('H', 'H'): 8, ('I', 'I'): 4, ('L', 'W'): -2, ('L', 'L'): 4, ('Z', 'G'): -2, ('D', 'R'): -2, ('S', 'I'): -2, ('X', 'I'): -1, ('D', 'I'): -3, ('E', 'A'): -1, ('K', 'I'): -3, ('Q', 'K'): 1, ('G', 'B'): -1, ('T', 'D'): -1, ('A', 'W'): -3, ('Y', 'R'): -2, ('M', 'F'): 0, ('S', 'P'): -1, ('Z', 'I'): -3, ('H', 'Q'): 0, ('E', 'X'): -1, ('F', 'S'): -2, ('I', 'P'): -3, ('E', 'C'): -4, ('H', 'G'): -2, ('P', 'E'): -1, ('Q', 'M'): 0, ('H', 'L'): -3, ('Z', 'Z'): 4, ('L', 'B'): -4, ('T', 'B'): -1, ('L', 'S'): -2, ('L', 'H'): -3, ('N', 'Q'): 0, ('C', 'F'): -2, ('T', 'Y'): -2, ('K', 'G'): -2, ('S', 'E'): 0, ('X', 'M'): -1, ('Y', 'E'): -2, ('W', 'R'): -3, ('V', 'M'): 1, ('N', 'R'): 0, ('C', 'V'): -1, ('G', 'F'): -3, ('F', 'Y'): 3, ('L', 'Q'): -2, ('M', 'Y'): -1, ('A', 'P'): -1, ('D', 'G'): -1, ('C', 'L'): -1, ('L', 'F'): 0, ('D', 'W'): -4, ('M', 'B'): -3, ('S', 'L'): -2, ('P', 'R'): -2, ('P', 'K'): -1, ('Y', 'G'): -3, ('C', 'K'): -3, ('H', 'K'): -1, ('Q', 'A'): -1, ('I', 'F'): 0, ('K', 'D'): -1, ('N', 'C'): -3, ('L', 'D'): -4, ('F', 'V'): -1, ('D', 'Z'): 1, ('S', 'A'): 1, ('X', 'Q'): -1, ('W', 'V'): -3, ('E', 'I'): -3, ('V', 'I'): 3, ('Q', 'C'): -3, ('T', 'G'): -2, ('B', 'P'): -2, ('T', 'L'): -1, ('L', 'M'): 2, ('A', 'T'): 0, ('C', 'H'): -3, ('C', 'A'): 0, ('Y', 'Z'): -2, ('S', 'Z'): 0, ('P', 'Y'): -3, ('S', 'H'): -1, ('B', 'Q'): 0, ('H', 'Y'): 2, ('I', 'X'): -1, ('E', 'K'): 1, ('C', 'G'): -3, ('I', 'C'): -1, ('Q', 'E'): 2, ('K', 'R'): 2, ('Z', 'R'): 0, ('T', 'E'): -1, ('B', 'R'): -1, ('L', 'K'): -2, ('M', 'W'): -1, ('N', 'Y'): -2, ('B', 'S'): 0, ('E', 'B'): 1, ('Y', 'M'): -1, ('V', 'E'): -2, ('N', 'Z'): 0, ('Z', 'T'): -1, ('Y', 'D'): -3, ('B', 'T'): -1, ('F', 'Q'): -3, ('G', 'Y'): -3, ('L', 'I'): 2, ('M', 'Q'): 0, ('R', 'A'): -1, ('C', 'D'): -3, ('S', 'V'): -2, ('D', 'D'): 6, ('S', 'D'): 0, ('P', 'C'): -3, ('G', 'X'): -1, ('R', 'B'): -1, ('C', 'C'): 9, ('W', 'K'): -3, ('I', 'N'): -3, ('B', 'V'): -3, ('K', 'L'): -2, ('M', 'X'): -1, ('N', 'K'): 0, ('L', 'G'): -4, ('M', 'S'): -1, ('R', 'C'): -3, ('X', 'B'): -1, ('Z', 'W'): -3, ('D', 'B'): 4, ('B', 'W'): -4, ('X', 'Y'): -1, ('R', 'D'): -2, ('V', 'A'): 0, ('W', 'I'): -3, ('B', 'X'): -1, ('T', 'T'): 5, ('F', 'M'): 0, ('L', 'E'): -3, ('M', 'M'): 5, ('R', 'E'): 0, ('W', 'H'): -2, ('S', 'R'): -1, ('E', 'W'): -3, ('P', 'Q'): -1, ('B', 'Y'): -3, ('H', 'A'): -2, ('N', 'D'): 1, ('E', 'H'): 0, ('R', 'F'): -3, ('I', 'K'): -3, ('K', 'Z'): 1, ('N', 'E'): 0, ('T', 'M'): -1, ('B', 'Z'): 1, ('T', 'R'): -1, ('M', 'T'): -1, ('G', 'S'): 0, ('L', 'C'): -1, ('R', 'G'): -2, ('N', 'H'): 1, ('X', 'F'): -1, ('N', 'F'): -3, ('Y', 'Q'): -1, ('N', 'P'): -2, ('R', 'H'): 0, ('W', 'M'): -1, ('C', 'N'): -3, ('V', 'L'): 1, ('F', 'I'): 0, ('G', 'Q'): -2, ('L', 'A'): -1, ('M', 'I'): 1, ('R', 'I'): -3, ('W', 'L'): -2, ('Q', 'G'): -2, ('S', 'N'): 1, ('D', 'L'): -4, ('F', 'X'): -1, ('I', 'R'): -3, ('P', 'B'): -2, ('C', 'M'): -1, ('H', 'E'): 0, ('Y', 'W'): 2, ('G', 'P'): -2, ('W', 'C'): -2, ('Z', 'K'): 1, ('M', 'P'): -2, ('N', 'S'): 1, ('G', 'W'): -2, ('M', 'K'): -1, ('R', 'K'): 2, ('D', 'E'): 2, ('K', 'E'): 1, ('R', 'L'): -2, ('A', 'I'): -1, ('V', 'Y'): -1, ('W', 'A'): -3, ('Y', 'F'): 3, ('T', 'W'): -2, ('V', 'H'): -3, ('F', 'E'): -3, ('M', 'E'): -2, ('R', 'M'): -1, ('C', 'X'): -2, ('E', 'T'): -1, ('H', 'R'): 0, ('P', 'I'): -3, ('F', 'T'): -2, ('B', 'A'): -2, ('Z', 'N'): 0, ('H', 'I'): -3, ('G', 'T'): -2, ('I', 'H'): -3, ('R', 'N'): 0, ('C', 'W'): -2, ('W', 'G'): -2, ('K', 'B'): 0, ('Y', 'H'): 2, ('B', 'B'): 4, ('T', 'Z'): -1, ('M', 'L'): 2, ('G', 'K'): -2, ('M', 'G'): -3, ('K', 'S'): 0, ('E', 'V'): -2, ('X', 'N'): -1, ('N', 'N'): 6, ('B', 'C'): -3, ('V', 'K'): -2, ('N', 'X'): -1, ('R', 'P'): -2, ('A', 'M'): -1, ('W', 'E'): -3, ('V', 'Z'): -2, ('F', 'W'): 1, ('B', 'D'): 4, ('Z', 'A'): -1, ('V', 'D'): -3, ('F', 'A'): -2, ('G', 'I'): -4, ('M', 'A'): -1, ('R', 'Q'): 1, ('C', 'T'): -1, ('W', 'D'): -4, ('H', 'V'): -3, ('S', 'F'): -2, ('P', 'T'): -1, ('F', 'P'): -4, ('I', 'Z'): -3, ('B', 'E'): 1, ('C', 'E'): -4, ('H', 'M'): -2, ('I', 'E'): -3, ('G', 'H'): -2, ('R', 'R'): 5, ('K', 'P'): -1, ('C', 'S'): -1, ('B', 'F'): -3, ('Z', 'C'): -3, ('D', 'V'): -3, ('M', 'H'): -2, ('M', 'C'): -1, ('R', 'S'): -1, ('D', 'M'): -3, ('X', 'R'): -1, ('K', 'M'): -1, ('B', 'G'): -1, ('C', 'I'): -1, ('V', 'G'): -3, ('R', 'T'): -1, ('A', 'A'): 4, ('V', 'Q'): -2, ('W', 'Y'): 2, ('Y', 'N'): -2, ('B', 'H'): 0, ('C', 'B'): -3, ('G', 'M'): -3, ('C', 'P'): -3, ('W', 'X'): -2, ('H', 'Z'): 0, ('S', 'B'): 0, ('E', 'G'): -2, ('I', 'W'): -3, ('P', 'A'): -1, ('F', 'L'): 0, ('B', 'I'): -3, ('Z', 'F'): -3, ('G', 'L'): -4, ('R', 'V'): -3, ('T', 'F'): -2, ('C', 'Q'): -3, ('Y', 'P'): -3, ('M', 'D'): -3, ('G', 'C'): -3, ('R', 'W'): -3, ('Y', 'A'): -2, ('X', 'V'): -1, ('N', 'V'): -3, ('B', 'K'): 0, ('Z', 'X'): -1, ('N', 'G'): 0, ('V', 'C'): -1, ('R', 'X'): -1, ('A', 'E'): -1, ('Q', 'X'): -1, ('N', 'M'): -2, ('B', 'L'): -4, ('Z', 'Y'): -2, ('D', 'P'): -1, ('G', 'A'): 0, ('R', 'Y'): -2, ('P', 'W'): -4, ('Y', 'C'): -2, ('P', 'L'): -3, ('F', 'H'): -1, ('I', 'B'): -3, ('B', 'M'): -3, ('I', 'M'): 1, ('Y', 'T'): -2, ('R', 'Z'): 0, ('K', 'X'): -1, ('Q', 'Z'): 3, ('W', 'S'): -3}
 def dict2mat(B62):
-    b62 = [[-4] * 256 for elem in range(256)]
+    b62 = [[-4] * 256 for elem in xrange(256)]
     for a, b in B62:
         score = B62[(a, b)]
         A = [a, a.lower()]
@@ -390,7 +390,7 @@ def k2n(s, st=-1, ed=-1, scale=-1, code=aa_nr_tbl):
 
     Scale = 1
     n = 0
-    for i in range(st, ed):
+    for i in xrange(st, ed):
         c = ord(s[i])
         n += code[c] * Scale
         Scale *= scale
@@ -405,7 +405,7 @@ def seq2n(s, k=5, scale=-1, code=aa_nr_tbl):
     n = k2n(s, 0, k)
     Scale = int(pow(scale, k-1))
     yield n
-    for i in range(k, len(s)):
+    for i in xrange(k, len(s)):
         c = ord(s[i])
         n //= scale
         n += code[c] * Scale
@@ -421,7 +421,7 @@ def n2s(n, k=-1, scale=-1, code=nr_aa):
         #k = int(log(n) / log(10)) + 1
         k = int(log10(n))
     s = []
-    for i in range(k):
+    for i in xrange(k):
         j = n % scale
         s.append(code[j])
         n //= scale
@@ -438,12 +438,12 @@ def spseeds_fnv(seq, step=1, scale=-1, code=aa_nr_tbl, max_weight=-1, ssps='1111
     # set offset for the k2n
     base = int(pow(scale, mw))
     L, S = len(seq), len(spaces)
-    for s in range(S):
+    for s in xrange(S):
         space = spaces[s]
         k = len(space)
-        for i in range(0, L-k+1, step):
+        for i in xrange(0, L-k+1, step):
             seg, n, b, c = True, 0x811c9dc5, 0x01000193, 0xffffffff
-            for j in range(k):
+            for j in xrange(k):
                 ij = i+j
                 if seq[ij] == 'x' or seq[ij] == 'X':
                     seg = False
@@ -471,12 +471,12 @@ def spseeds_nm(seq, step=1, scale=-1, code=aa_nr_tbl, max_weight=-1, ssps='11111
     # set offset for the k2n
     base = int(pow(scale, mw))
     L, S = len(seq), len(spaces)
-    for s in range(S):
+    for s in xrange(S):
         space = spaces[s]
         k = len(space)
-        for i in range(0, L-k+1, step):
+        for i in xrange(0, L-k+1, step):
             seg, n, Scale = True, 0, 1
-            for j in range(k):
+            for j in xrange(k):
                 ij = i+j
                 if seq[ij] == 'x' or seq[ij] == 'X':
                     seg = False
@@ -501,14 +501,14 @@ def kmer_slw(seqs, k=5, scale=-1, code=aa_nr_tbl):
     idx = 0
     total = 0
     for hd, sq in seqs:
-        for i in range(len(sq)-k+1):
+        for i in xrange(len(sq)-k+1):
             key = k2n(sq, i, i + k, scale, code)
             try:
                 tbl[key].append([idx, i])
             except:
                 tbl[key] = [[idx, i]]
             if total % 1000000 == 0:
-                print(total, len(tbl))
+                print total, len(tbl)
             total += 1
 
         idx += 1
@@ -520,7 +520,7 @@ def kmer(seqs, k=5, scale=-1, code=aa_nr_tbl):
     if scale == -1:
         scale = Max(code) + 1
 
-    tbl = [[] for elem in range(int(pow(10, k)))]
+    tbl = [[] for elem in xrange(int(pow(10, k)))]
     #tbl = {}
     idx = 0
     total = 0
@@ -531,7 +531,7 @@ def kmer(seqs, k=5, scale=-1, code=aa_nr_tbl):
 
             i += 1
             if total % 10000000 == 0:
-                print(total, len(tbl))
+                print total, len(tbl)
             total += 1
 
         idx += 1
@@ -542,7 +542,7 @@ def kmer(seqs, k=5, scale=-1, code=aa_nr_tbl):
 def reverse(seq):
     N = len(seq)
     end = N - 1
-    for i in range(N//2):
+    for i in xrange(N//2):
         seq[i], seq[end-i] = seq[end-i], seq[i]
     #return seq
 
@@ -550,7 +550,7 @@ def reverse(seq):
 def reverse_char(seq):
     N = len(seq)
     end = N - 1
-    for i in range(N//2):
+    for i in xrange(N//2):
         seq[i], seq[end-i] = seq[end-i], seq[i]
 
 
@@ -564,7 +564,7 @@ def lis(seq, key = lambda x: x[0]):
     L, M[0] = 1, 0
 
     # Looping over the sequence starting from the second element
-    for i in range(1, N):
+    for i in xrange(1, N):
         lower = 0
         upper = L
         if key(seq[M[upper-1]]) < key(seq[i]):
@@ -585,7 +585,7 @@ def lis(seq, key = lambda x: x[0]):
     # Building the result: [seq[M[L-1]], seq[P[M[L-1]]], seq[P[P[M[L-1]]]], ...]
     result = []
     pos = M[L-1]
-    for elem in range(L):
+    for elem in xrange(L):
         result.append(seq[pos])
         pos = P[pos]
 
@@ -654,7 +654,7 @@ def pack(dtype, value):
 
     val = intmask(value)
     string = [''] * n
-    for i in range(n):
+    for i in xrange(n):
         string[i] = chr(val & 0xFF)
         #val = val >> 8
         val >>= 8
@@ -675,7 +675,7 @@ def upack(dtype, string):
         n = int(dtype)
 
     val = 0
-    for i in range(n-1, -1, -1):
+    for i in xrange(n-1, -1, -1):
         val <<= 8
         val += ord(string[i])
 
@@ -685,7 +685,7 @@ def upack(dtype, string):
 # lis for 2 neighbor val list
 def lis2(seq):
     n = len(seq)
-    sst = [intmask(seq[elem]) for elem in range(1, n, 2)]
+    sst = [intmask(seq[elem]) for elem in xrange(1, n, 2)]
     if len(seq) <= 2:
         return seq
 
@@ -693,7 +693,7 @@ def lis2(seq):
     M, P = [-1] * N, [-1] * N
     L, M[0] = 1, 0
     # Looping over the sequence starting from the second element
-    for i in range(1, N):
+    for i in xrange(1, N):
         lower = 0
         upper = L
         if sst[M[upper-1]] < sst[i]:
@@ -715,7 +715,7 @@ def lis2(seq):
     # Building the result: [seq[M[L-1]], seq[P[M[L-1]]], seq[P[P[M[L-1]]]], ...]
     result = []
     pos = M[L-1]
-    for elem in range(L):
+    for elem in xrange(L):
         result.extend([seq[pos*2+1], seq[pos*2]])
         pos = P[pos]
 
@@ -730,7 +730,7 @@ def Max(L):
         return L[0]
     else:
         flag = L[0]
-        for i in range(1, n):
+        for i in xrange(1, n):
             flag = L[i] > flag and L[i] or flag
     return flag
 
@@ -741,7 +741,7 @@ def Min(L):
         return L[0]
     else:
         flag = L[0]
-        for i in range(1, n):
+        for i in xrange(1, n):
             flag = L[i] < flag and L[i] or flag
     return flag
 
@@ -774,18 +774,18 @@ bit2e = lambda D, sqi, sqj, bit: D * len(sqi) * len(sqj) * pow(2, -bit)
 def swat(s0, s1, mch=2, go=-11, ge=-1, mat=b62, kbound=32):
     l0 = len(s0) + 1
     l1 = len(s1) + 1
-    score = [[0] * l0 for elem in range(l1)]
-    trace = [['*'] * l0 for elem in range(l1)]
-    for i in range(1, l0):
+    score = [[0] * l0 for elem in xrange(l1)]
+    trace = [['*'] * l0 for elem in xrange(l1)]
+    for i in xrange(1, l0):
         #score[0][i] = go + i * ge
         trace[0][i] = '-'
-    for i in range(1, l1):
+    for i in xrange(1, l1):
         #score[i][0] = go + i * ge
         trace[i][0] = '|'
 
     i_max = j_max = maxscore = 0
-    for i in range(1, l1):
-        for j in range(1, l0):
+    for i in xrange(1, l1):
+        for j in xrange(1, l0):
             I = score[i][j-1] + (trace[i][j-1] == '-' and ge or go)
             c1, c0 = s1[i-1], s0[j-1]
             M = score[i-1][j-1] + mat[ord(c1)][ord(c0)]
@@ -826,7 +826,7 @@ def swat(s0, s1, mch=2, go=-11, ge=-1, mat=b62, kbound=32):
         elif trace[i][j] == '*':
             break
         else:
-            print('next')
+            print 'next'
     al0.reverse()
     al1.reverse()
     return ''.join(al0), ''.join(al1), j, j_max, i, i_max, score2bit(maxscore)
@@ -914,7 +914,7 @@ def Diag(s0, s1, k=4, scale=-1, code=aa_nr_tbl, kbound=32):
 # qst: start of qry, sst: start of ref
 def max_idx(a, n=4):
     idx = 0
-    for i in range(1, n):
+    for i in xrange(1, n):
         if a[idx] < a[i]:
             idx = i
     return idx
@@ -939,12 +939,12 @@ def kswat_st0(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b6
     l0 = abs(qed - qst) + 1
     l1 = abs(sed - sst) + 1
 
-    score = score != [[]] and score or [[0] * l0 for elem in range(l1)]
-    trace = trace != [[]] and trace or [['*'] * l0 for elem in range(l1)]
-    for i in range(1, l0):
+    score = score != [[]] and score or [[0] * l0 for elem in xrange(l1)]
+    trace = trace != [[]] and trace or [['*'] * l0 for elem in xrange(l1)]
+    for i in xrange(1, l0):
         score[0][i] = 0
         trace[0][i] = '-'
-    for i in range(1, l1):
+    for i in xrange(1, l1):
         score[i][0] = 0
         trace[i][0] = '|'
         start, end = max(0, i-kbound-1), min(i+kbound+1, l0-1)
@@ -953,9 +953,9 @@ def kswat_st0(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b6
 
 
     i_max = j_max = maxscore = 0
-    for i in range(1, l1):
+    for i in xrange(1, l1):
         start, end = max(1, i-kbound), min(i+kbound, l0)
-        for j in range(start, end):
+        for j in xrange(start, end):
             I = score[i][j-1] + (trace[i][j-1] == '-' and ge or go)
             c1, c0 = s1[(i-1)*ssp+sst], s0[(j-1)*qsp+qst]
             M = score[i-1][j-1] + mat[ord(c1)][ord(c0)]
@@ -1018,7 +1018,7 @@ def kswat_st0(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b6
     AL = len(al0)
     idy = mis = gap = 0
     op = -1
-    for idx in range(AL):
+    for idx in xrange(AL):
         if al0[idx] == al1[idx]:
             idy += 1.
         else:
@@ -1060,13 +1060,13 @@ def kswat_st(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b62
     l0 = abs(qed - qst) + 1
     l1 = abs(sed - sst) + 1
 
-    score = score != [[]] and score or [[0] * l0 for elem in range(l1)]
-    trace = trace != [[]] and trace or [['*'] * l0 for elem in range(l1)]
-    for i in range(1, l0):
+    score = score != [[]] and score or [[0] * l0 for elem in xrange(l1)]
+    trace = trace != [[]] and trace or [['*'] * l0 for elem in xrange(l1)]
+    for i in xrange(1, l0):
         #score[0][i] = go + i * ge
         score[0][i] = 0
         trace[0][i] = '-'
-    for i in range(1, l1):
+    for i in xrange(1, l1):
         #score[i][0] = go + i * ge
         score[i][0] = 0
         trace[i][0] = '|'
@@ -1076,9 +1076,9 @@ def kswat_st(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b62
 
 
     i_max = j_max = maxscore = 0
-    for i in range(1, l1):
+    for i in xrange(1, l1):
         start, end = max(1, i-kbound), min(i+kbound, l0)
-        for j in range(start, end):
+        for j in xrange(start, end):
             I = score[i][j-1] + (trace[i][j-1] == '-' and ge or go)
             c1, c0 = s1[(i-1)*ssp+sst], s0[(j-1)*qsp+qst]
             M = score[i-1][j-1] + mat[ord(c1)][ord(c0)]
@@ -1141,7 +1141,7 @@ def kswat_st(S0, S1, qst=0, qed=-1, sst=0, sed=-1, mch=2, go=-11, ge=-1, mat=b62
     AL = len(al0)
     idy = mis = gap = 0
     op = -1
-    for idx in range(AL):
+    for idx in xrange(AL):
         if al0[idx] == al1[idx]:
             idy += 1.
         else:
@@ -1169,10 +1169,10 @@ def kswat_st_long(sqi, sqj, qi, qj, chk=4096, score=[[]], trace=[[]], al0=[], al
     li, lj = len(sqi), len(sqj)
     j = qj
 
-    score = score != [[]] and score or [[0] * 4100 for elem in range(4100)]
-    trace = trace != [[]] and trace or [['*'] * 4100 for elem in range(4100)]
+    score = score != [[]] and score or [[0] * 4100 for elem in xrange(4100)]
+    trace = trace != [[]] and trace or [['*'] * 4100 for elem in xrange(4100)]
 
-    for i in range(qi, li, chk):
+    for i in xrange(qi, li, chk):
         i, ied, j, jed = max(0, i), max(0, i+chk), max(0, j), max(0, j+chk)
         idy, aln, mis, gap, qst, qed, sst, sed, bit = kswat_st(sqi[i:ied], sqj[j:jed], qst=0, sst=0, score=score, trace=trace, al0=al0, al1=al1)
         qst += i
@@ -1194,7 +1194,7 @@ def ungap_kswat_st(s0, s1, starts, score_mat, trace_mat, dropX=30):
     Aln0, Aln1 = [], []
     first = 0
     last = N - 4
-    for i in range(0, N-2, 2):
+    for i in xrange(0, N-2, 2):
         qst, sst, qed, sed = start[i:i+4]
         if (i//2) % 2 == 0:
             if first < i < last:
@@ -1215,7 +1215,7 @@ def index0(f):
     fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
     N = fasta.size
     idx = []
-    for i in range(N):
+    for i in xrange(N):
         if fasta.getitem(i) == '>':
             j = i - 1
             if i == 0 or fasta.getitem(j) == '\n':
@@ -1226,7 +1226,7 @@ def index(f):
     fasta = rmmap.mmap(f.fileno(), 0, access=rmmap.ACCESS_READ)
     N = fasta.size
     idx = [0]
-    for i in range(N):
+    for i in xrange(N):
         if fasta.getitem(i) == '>':
             j = i - 1
             if i > 0 and fasta.getitem(j) == '\n':
@@ -1294,7 +1294,7 @@ class Fasta:
         # get the start of all sequences
         self.soas = [r_uint32(0)] * (M + 1)
 
-        for i in range(start, end):
+        for i in xrange(start, end):
             hd, sq = self[i]
             j = i - start
             self.soas[j+1] = r_uint32(intmask(self.soas[j]) + len(sq))
@@ -1311,12 +1311,12 @@ class Fasta:
         self.threshold = mu
         rgc.collect()
 
-        for i in range(1, NC):
+        for i in xrange(1, NC):
             v0, v1 = self.start[i-1], self.start[i]
             self.start[i] = uint32(intmask(v0) + intmask(v1))
 
         self.locus = [r_uint32(0)] * self.start[NC-1]
-        for i in range(start, end):
+        for i in xrange(start, end):
             hd, sq = self[i]
             j = i - start
             off = intmask(self.soas[j])
@@ -1337,7 +1337,7 @@ class Fasta:
         self.memory = memory
         self.L = len(self.locus) - 1
         if self.memory:
-            self.hdseqs = [self[elem] for elem in range(self.offset, self.offend)]
+            self.hdseqs = [self[elem] for elem in xrange(self.offset, self.offend)]
 
 
     # build database on disk
@@ -1346,7 +1346,7 @@ class Fasta:
         N = self.N
         Start = 0 if start == -1 else start
         End = N if end == -1 else end
-        for i in range(Start, End, chk):
+        for i in xrange(Start, End, chk):
             start, end = i, min(i+chk, End)
             idx = i // chk
             self.build_msav(space=space, nr=nr, step=step, start=start, end=end, ht=ht)
@@ -1360,9 +1360,9 @@ class Fasta:
         chk = 1024 * 128
         _o = open(name+'.idx', 'wb')
         N = len(self.locus)
-        for i in range(0, N, chk):
+        for i in xrange(0, N, chk):
             j = min(i+chk, N)
-            out = ''.join([pack('i', self.locus[elem]) for elem in range(i, j)])
+            out = ''.join([pack('i', self.locus[elem]) for elem in xrange(i, j)])
             _o.write(out)
             del out
             rgc.collect()
@@ -1371,9 +1371,9 @@ class Fasta:
 
         _o = open(name+'.soas', 'wb')
         N = len(self.soas)
-        for i in range(0, N, chk):
+        for i in xrange(0, N, chk):
             j = min(i+chk, N)
-            out = ''.join([pack('i', self.soas[elem]) for elem in range(i, j)])
+            out = ''.join([pack('i', self.soas[elem]) for elem in xrange(i, j)])
             _o.write(out)
             del out
             rgc.collect()
@@ -1383,9 +1383,9 @@ class Fasta:
 
         _o = open(name+'.bin', 'wb')
         N = len(self.start)
-        for i in range(0, N, chk):
+        for i in xrange(0, N, chk):
             j = min(i+chk, N)
-            out = ''.join([pack('i', self.start[elem]) for elem in range(i, j)])
+            out = ''.join([pack('i', self.start[elem]) for elem in xrange(i, j)])
             _o.write(out)
             del out
             rgc.collect()
@@ -1417,7 +1417,7 @@ class Fasta:
         if memory:
             N = locus_dsk.size
             self.locus = [r_uint32(0)] * (N // 4)
-            for i in range(0, N, 4):
+            for i in xrange(0, N, 4):
                 j = locus_dsk.getslice(i, 4)
                 v = uint32(unpack('i', j))
                 self.locus[i//4] = v
@@ -1447,7 +1447,7 @@ class Fasta:
         self.NC = int(nc)
 
         # read the sequence to the memory
-        self.hdseqs = [self[elem] for elem in range(self.offset, self.offend)]
+        self.hdseqs = [self[elem] for elem in xrange(self.offset, self.offend)]
 
         # get max weight
         self.mw = int(mw)
@@ -1466,7 +1466,7 @@ class Fasta:
         if memory:
             N = start_dsk.size
             self.start = [uint32(0)] * (N // 4)
-            for i in range(0, N, 4):
+            for i in xrange(0, N, 4):
                 j = start_dsk.getslice(i, 4)
                 v = unpack('i', j)
                 self.start[i//4] = uint32(v)
@@ -1483,7 +1483,7 @@ class Fasta:
         N = soas_dsk.size
         self.soas = [r_uint32(0)] * (N // 4)
 
-        for i in range(0, N, 4):
+        for i in xrange(0, N, 4):
             j = soas_dsk.getslice(i, 4)
             v = uint32(unpack('i', j))
             self.soas[i//4] = v
@@ -1627,7 +1627,7 @@ class Fasta:
             else:
                 cum += i
                 thr = i
-        for i in range(len(s2a)):
+        for i in xrange(len(s2a)):
             hist_c[i] = hist_c[i] > thr and -1 or 1
 
         hits = {}
@@ -1635,7 +1635,7 @@ class Fasta:
             start, end = self.get_bin_mem(i)
             count = end - start
             if hist_c[qst] > 0:
-                for j in range(start, end):
+                for j in xrange(start, end):
                     hd, sst = self.get_loc_mem(j)
                     k0 = (qst-sst) // kbound // 2
                     try:
@@ -1683,13 +1683,13 @@ class Fasta:
 
     def get_locs(self, start, count):
         bins = self.locus_dsk.getslice(start*4, count*4)
-        for j in range(0, len(bins), 4):
+        for j in xrange(0, len(bins), 4):
             x = unpack('i', bins[j:j+4])
             idx = bisect(self.soas, x)
             yield idx+self.offset, x-intmask(self.soas[idx])
 
     def get_locs_m(self, start, end):
-        for i in range(start, end):
+        for i in xrange(start, end):
             x = intmask(self.locus[i])
             idx = bisect(self.soas, x)
             yield idx+self.offset, x-intmask(self.soas[idx])
@@ -1703,11 +1703,11 @@ class Fasta:
 
         ql = len(seq)
         kscs, sc = [0] * (ql-self.mink+1), 0
-        for i in range(self.mink):
+        for i in xrange(self.mink):
             c = ord(seq[i])
             sc += b62[c][c]
         kscs[0] = sc
-        for i in range(1, ql-self.mink+1):
+        for i in xrange(1, ql-self.mink+1):
             c0, c1 = ord(seq[i-1]), ord(seq[i-1+self.mink])
             sc = kscs[i-1] - b62[c0][c0] + b62[c1][c1]
             kscs[i] = sc
@@ -1720,7 +1720,7 @@ class Fasta:
 
         #print 'find_seq_yyy', seq[:10]
 
-        hist = [[kscs[qst], qst, 0] for qst in range(len(kscs))]
+        hist = [[kscs[qst], qst, 0] for qst in xrange(len(kscs))]
         get_bin = self.get_bin_mem
         for i, qst in s2a:
             #print 'find_query', i, qst, hist[qst][2], self.scale, self.code, self.mw, self.space, self.NC, seq
@@ -1734,7 +1734,7 @@ class Fasta:
         qsort(hist, key=lambda x:-x[0])
         hist_c = [-1] * ql
         cum = 0
-        for i in range(len(hist)):
+        for i in xrange(len(hist)):
             if cum > thr:
                 break
             else:
@@ -1806,18 +1806,18 @@ class Fasta:
         # get kmer blosum62 score
         ql = len(seq)
         kscs, sc = [0] * (ql-self.mink+1), 0
-        for i in range(self.mink):
+        for i in xrange(self.mink):
             c = ord(seq[i])
             sc += b62[c][c]
         kscs[0] = sc
-        for i in range(1, ql-self.mink+1):
+        for i in xrange(1, ql-self.mink+1):
             c0, c1 = ord(seq[i-1]), ord(seq[i-1+self.mink])
             sc = kscs[i-1] - b62[c0][c0] + b62[c1][c1]
             kscs[i] = sc
 
         s2a = [elem for elem in spseeds(seq, scale=self.scale, code=self.code, max_weight=self.mw, ssps=self.space, mod=self.NC)]
         # find the threshold of hit
-        hist = [[kscs[qst], qst, 0] for qst in range(len(kscs))]
+        hist = [[kscs[qst], qst, 0] for qst in xrange(len(kscs))]
         get_bin = self.get_bin
         for i, qst in s2a:
             start, end = get_bin(i)
@@ -1828,7 +1828,7 @@ class Fasta:
         qsort(hist, key=lambda x:-x[0])
         hist_c = [-1] * ql
         cum = 0
-        for i in range(len(hist)):
+        for i in xrange(len(hist)):
             if cum > thr:
                 break
             else:
@@ -1932,7 +1932,7 @@ def entropy(S):
     for c in s:
         counts[c] += 1.
     ent = 0
-    for j in list(counts.values()):
+    for j in counts.values():
         #j = counts[i]
         freq = j / n
         ent -= freq * log(freq)
@@ -1955,7 +1955,7 @@ def seg(S, minent=2.2, window=12.):
     if ent < minent:
         mask[0] = 1
 
-    for i in range(1, n - winsize + 1):
+    for i in xrange(1, n - winsize + 1):
         # update the counts
         pre_chr = s[i - 1]
         cur_chr = s[i + 11]
@@ -1979,14 +1979,14 @@ def seg(S, minent=2.2, window=12.):
 
     Nws = max(0, n-winsize)
     if mask[Nws] == 1:
-        for i in range(Nws, n):
+        for i in xrange(Nws, n):
             mask[i] = 1
 
     Xs = 'x' * winsize
     output = ''
     st = 0
 
-    for i in range(n):
+    for i in xrange(n):
         if st >= n:
             break
         if mask[st] == 0:
@@ -2000,7 +2000,7 @@ def seg(S, minent=2.2, window=12.):
     masked = ''
     st, ed = 0, 0
 
-    for i in range(n):
+    for i in xrange(n):
         if ed >= n:
             break
         elif output[i] == 'x':
@@ -2018,8 +2018,8 @@ def seg(S, minent=2.2, window=12.):
 
 # extract batch of sequences
 def get_batch_sequences(seqs, st, ed, chk=500000):
-    for i in range(st, ed, chk):
-        output = [seqs[j] for j in range(i, min(ed, i+chk))]
+    for i in xrange(st, ed, chk):
+        output = [seqs[j] for j in xrange(i, min(ed, i+chk))]
         if output:
             yield output
 
@@ -2048,8 +2048,8 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
     D = len(DB)
     st = min(max(0, st), N)
     ed = min(ed < 0 and D or ed, N)
-    score_mat = [[0]*4100 for elem in range(4100)]
-    trace_mat = [['*']*4100 for elem in range(4100)]
+    score_mat = [[0]*4100 for elem in xrange(4100)]
+    trace_mat = [['*']*4100 for elem in xrange(4100)]
     ST = st
     nst = 0
     KDB = {}
@@ -2059,7 +2059,7 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
     for a, b in DB.makedb(ref, space=ssd, nr=nr, step=step, memory=True, start=rst, end=red, ht=ht, chk=chk):
 
         DB.threshold = thr < 1 and DB.threshold or thr
-        for i in range(st, ed):
+        for i in xrange(st, ed):
             hdi, Sqi = seqs[i]
             if flt == 'T':
                 sqi, mask = seg(Sqi)
@@ -2096,7 +2096,7 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
     fa = open('%s/%d.tmp.array'%(tmpdir, st), 'rb')
     ACCESS=rmmap.ACCESS_READ
     array = rmmap.mmap(fa.fileno(), 0, access=ACCESS)
-    for i in range(st, ed):
+    for i in xrange(st, ed):
         if i not in KDB:
             continue
         # get the query sequence
@@ -2111,10 +2111,10 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
         hits = []
 
         lsts = len(starts)
-        for j in range(0, lsts, 2):
+        for j in xrange(0, lsts, 2):
             nst, lhb = starts[j:j+2]
             string = array.getslice(nst, lhb)
-            for k in range(0, lhb, 16):
+            for k in xrange(0, lhb, 16):
                 #a0, a1, a2, a3 = unpack('iiii', string[k:k+16])
                 a0, a1, a2, a3 = unpack('IIII', string[k:k+16])
                 hits.append([a0, a1, a2, a3])
@@ -2192,30 +2192,30 @@ def blastp(qry, ref, expect=1e-5, v=500, max_miss=1e-3, st=-1, ed=-1, rst=-1, re
 
 # print the manual
 def manual_print():
-    print('Usage:')
-    print('  fsearch -p blastp -i qry.fsa -d db.fsa')
-    print('Parameters:')
-    print('  -p: program')
-    print('  -i: query sequences in fasta format')
-    print('  -l: start index of query sequences')
-    print('  -u: end index of query sequences')
-    print('  -L: start index of reference')
-    print('  -U: end index of reference')
-    print('  -d: ref database')
-    print('  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against')
-    print('  -o: output file')
-    print('  -O: write mode of output file. w: overwrite, a: append')
-    print('  -s: spaced seed in format: 1111,1110,1001.. etc')
-    print('  -r: reduced amino acid alphabet in format: AST,CFILMVY,DN,EQ,G,H,KR,P,W')
-    print('  -v: number of hits to show')
-    print('  -e: expect value')
-    print('  -m: max ratio of pseudo hits that will trigger stop')
-    print('  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database')
-    print('  -t: filter high frequency kmers whose counts > t')
-    print('  -F: Filter query sequence')
-    print('  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity')
-    print('  -c: chunck size of reference. default is 50K which mean 50K sequences from reference will be used as database')
-    print('  -T: tmpdir to store tmp file. default ./tmpdir')
+    print 'Usage:'
+    print '  fsearch -p blastp -i qry.fsa -d db.fsa'
+    print 'Parameters:'
+    print '  -p: program'
+    print '  -i: query sequences in fasta format'
+    print '  -l: start index of query sequences'
+    print '  -u: end index of query sequences'
+    print '  -L: start index of reference'
+    print '  -U: end index of reference'
+    print '  -d: ref database'
+    print '  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against'
+    print '  -o: output file'
+    print '  -O: write mode of output file. w: overwrite, a: append'
+    print '  -s: spaced seed in format: 1111,1110,1001.. etc'
+    print '  -r: reduced amino acid alphabet in format: AST,CFILMVY,DN,EQ,G,H,KR,P,W'
+    print '  -v: number of hits to show'
+    print '  -e: expect value'
+    print '  -m: max ratio of pseudo hits that will trigger stop'
+    print '  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database'
+    print '  -t: filter high frequency kmers whose counts > t'
+    print '  -F: Filter query sequence'
+    print '  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity'
+    print '  -c: chunck size of reference. default is 50K which mean 50K sequences from reference will be used as database'
+    print '  -T: tmpdir to store tmp file. default ./tmpdir'
 
 
 def entry_point(argv):
@@ -2236,7 +2236,7 @@ def entry_point(argv):
     args = {'-p':'', '-v':'500', '-s':seeds, '-i':'', '-d':'', '-e':'1e-3', '-l':'-1', '-u':'-1', '-m':'1e-3', '-t':'-1', '-r':aa_nr, '-j':'4', '-F':'T', '-o':'', '-D':'', '-O':'wb', '-L':'-1', '-U':'-1', '-M':'-1', '-c':'50000', '-T':'./tmpdir'}
     N = len(argv)
 
-    for i in range(1, N):
+    for i in xrange(1, N):
         k = argv[i]
         if k in args:
             v = argv[i+1]
@@ -2263,7 +2263,7 @@ def entry_point(argv):
         try:
             qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-T']
         except:
-            print('blastp')
+            print 'blastp'
             manual_print()
             return 0
 
@@ -2297,7 +2297,7 @@ def entry_point(argv):
                     else:
                         continue
                 else:
-                    print(m8.strip())
+                    print m8.strip()
 
         if outfile and len(m8s) > 0:
             _o.write(''.join(m8s))

@@ -8,13 +8,13 @@ import os
 # do the core gene find
 # python this_script.py -i foo.pep.fsa -g foo.ortholog [-r taxon]
 def manual_print():
-    print 'This script is used to find orthologs in other species by given a reference, then extract sequences of these orthologs and do a msa, finally, concatenate all the msa.'
-    print 'Usage:'
-    print '  python this.py -i foo.pep.fsa -g foo.ortholg [-r taxon]'
-    print 'Parameters:'
-    print ' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'
-    print ' -g: orthologs file in the format:\n     O\txxxx|yyyy\tXXXX|YYYY\t...: xxxx/XXXX is taxon name and yyyy/YYYY is unique identifier in that taxon'
-    print ' -r: taxonomy name used as reference [optional]'
+    print('This script is used to find orthologs in other species by given a reference, then extract sequences of these orthologs and do a msa, finally, concatenate all the msa.')
+    print('Usage:')
+    print('  python this.py -i foo.pep.fsa -g foo.ortholg [-r taxon]')
+    print('Parameters:')
+    print(' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon')
+    print(' -g: orthologs file in the format:\n     O\txxxx|yyyy\tXXXX|YYYY\t...: xxxx/XXXX is taxon name and yyyy/YYYY is unique identifier in that taxon')
+    print(' -r: taxonomy name used as reference [optional]')
 
 
 argv = sys.argv
@@ -22,7 +22,7 @@ argv = sys.argv
 args = {'-i': '', '-g': '', '-r': ''}
 
 N = len(argv)
-for i in xrange(1, N):
+for i in range(1, N):
     k = argv[i]
     if k in args:
         v = argv[i + 1]
@@ -53,12 +53,12 @@ for i in f:
 f.close()
 
 # if taxon not specified, then choose the taxon with most genes
-taxon_hf = taxon_ct.items()
-taxon_hf.sort(key=lambda x:x[1])
+taxon_hf = list(taxon_ct.items())
+taxon_hf.sort(key=lambda x: x[1])
 taxon_N = len(taxon_hf)
 taxon_max = taxon_hf[-1]
 taxon = taxon == '' and taxon_max[0] or taxon
-#print 'taxon is', taxon, taxon_N
+# print 'taxon is', taxon, taxon_N
 
 # get the ortholog
 # find ortholog in all tax
@@ -87,32 +87,32 @@ for i in f:
 
 f.close()
 
-taxon_N = max([len(elem) for elem in ortholog.itervalues()])
-#print ortholog
+taxon_N = max([len(elem) for elem in ortholog.values()])
+# print ortholog
 orths = []
-for i in ortholog.keys():
+for i in list(ortholog.keys()):
     j = ortholog[i]
     if len(j) == taxon_N:
         orths.append(j)
     del ortholog[i]
 
-#print orths[:10], taxon_N
+# print orths[:10], taxon_N
 orths_set = set()
 for i in orths:
     orths_set.update(i)
-#print orths_set, 'hello'
+# print orths_set, 'hello'
 
 seqs_dict = {}
 for i in SeqIO.parse(fas, 'fasta'):
     if i.id in orths_set:
         seqs_dict[i.id] = i
 
-#print len(seqs)
+# print len(seqs)
 #raise SystemExit()
 
 # write the seq to file
 orths_N = len(orths)
-for i in xrange(orths_N):
+for i in range(orths_N):
     j = orths[i]
     seqs = [seqs_dict[elem] for elem in j]
     _o = open('./alns_tmp/%d.fsa' % i, 'w')
@@ -122,16 +122,17 @@ for i in xrange(orths_N):
 
 #raise SystemExit()
 # use the muscle to aln
-for i in xrange(orths_N):
+for i in range(orths_N):
     # break
-    os.system('muscle -in ./alns_tmp/%d.fsa -out ./alns_tmp/%d.fsa.aln -fasta -quiet' % (i, i))
+    os.system(
+        'muscle -in ./alns_tmp/%d.fsa -out ./alns_tmp/%d.fsa.aln -fasta -quiet' % (i, i))
     #os.system('/home/zhans/tools/tree_tools/trimal/source/trimal -in ./alns_tmp/%d.fsa.aln -out ./alns_tmp/%d.fsa.aln.trim -automated1' % (i, i))
 
 
 #N = len([elem for elem in os.listdir('./tmpdir') if elem.endswith('.trim')])
 # print 'total N', N
 tree = {}
-for i in xrange(orths_N):
+for i in range(orths_N):
     #seqs = SeqIO.parse('./alns_tmp/%d.fsa.aln.trim' % i, 'fasta')
     seqs = SeqIO.parse('./alns_tmp/%d.fsa.aln' % i, 'fasta')
     for j in seqs:
@@ -146,15 +147,15 @@ for i in xrange(orths_N):
 
 #flag = 0
 N = len(tree)
-L = len(''.join(tree.values()[0]))
-#print ' %d %d' % (N, L)
+L = len(''.join(list(tree.values())[0]))
+# print ' %d %d' % (N, L)
 for i in tree:
-    hd = '>'+i
+    hd = '>' + i
     #hd = i
     sq = ''.join(tree[i])
-    #print hd, sq
-    print hd
-    print sq 
+    # print hd, sq
+    print(hd)
+    print(sq)
 
 
 os.system('rm -rf alns_tmp')

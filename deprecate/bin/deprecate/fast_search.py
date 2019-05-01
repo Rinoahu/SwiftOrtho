@@ -4,39 +4,39 @@
 import multiprocessing as mp
 import os
 import sys
-from subprocess import getoutput
+from commands import getoutput
 
 
 # print the manual
 def manual_print():
-    print('Usage:')
-    print('  make database:')
-    print('    python fast_search.py -p makedb -i db.fsa [-s 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]')
-    print('  search:')
-    print('    python fast_search.py -p blastp -i qry.fsa -d db.fsa')
-    print('Parameters:')
-    print('  -p: program')
-    print('  -i: query sequences in fasta format')
-    print('  -l: start index of query sequences')
-    print('  -u: end index of query sequences')
-    print('  -L: start index of reference')
-    print('  -U: end index of reference')
-    print('  -d: ref database')
-    print('  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against')
-    print('  -o: output file')
-    print('  -O: write mode of output file. w: overwrite, a: append')
-    print('  -s: spaced seed in format: 1111,1110,1001.. etc')
-    print('  -r: reduced amino acid alphabet in format: AST,CFILMVY,DN,EQ,G,H,KR,P,W')
-    print('  -v: number of hits to show')
-    print('  -e: expect value')
-    print('  -m: max ratio of pseudo hits that will trigger stop')
-    print('  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database')
-    print('  -t: filter high frequency kmers whose counts > t')
-    print('  -F: filter query sequence')
-    print('  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity')
-    print('  -c: chunck size of reference. default is 100K which means 100K sequences from reference will be used as database')
-    print('  -a: number of processors to use')
-    print('  -T: tmpdir to store tmp file. default ./tmpdir')
+    print 'Usage:'
+    print '  make database:'
+    print '    python fast_search.py -p makedb -i db.fsa [-s 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]'
+    print '  search:'
+    print '    python fast_search.py -p blastp -i qry.fsa -d db.fsa'
+    print 'Parameters:'
+    print '  -p: program'
+    print '  -i: query sequences in fasta format'
+    print '  -l: start index of query sequences'
+    print '  -u: end index of query sequences'
+    print '  -L: start index of reference'
+    print '  -U: end index of reference'
+    print '  -d: ref database'
+    print '  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against'
+    print '  -o: output file'
+    print '  -O: write mode of output file. w: overwrite, a: append'
+    print '  -s: spaced seed in format: 1111,1110,1001.. etc'
+    print '  -r: reduced amino acid alphabet in format: AST,CFILMVY,DN,EQ,G,H,KR,P,W'
+    print '  -v: number of hits to show'
+    print '  -e: expect value'
+    print '  -m: max ratio of pseudo hits that will trigger stop'
+    print '  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database'
+    print '  -t: filter high frequency kmers whose counts > t'
+    print '  -F: filter query sequence'
+    print '  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity'
+    print '  -c: chunck size of reference. default is 100K which means 100K sequences from reference will be used as database'
+    print '  -a: number of processors to use'
+    print '  -T: tmpdir to store tmp file. default ./tmpdir'
 
 
 def main(cmd):
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     args = {'-p':'', '-v':'500', '-s':seeds, '-i':'', '-d':'', '-e':'1e-3', '-l':'-1', '-u':'-1', '-m':'1e-3', '-t':'-1', '-r':aa_nr, '-j':'1', '-F':'T', '-o':'', '-D':'', '-O':'wb', '-L':'-1', '-U':'-1', '-M':'120000000', '-c':'50000', '-a':'1', '-T': './tmpdir'}
 
     N = len(argv)
-    for i in range(1, N):
+    for i in xrange(1, N):
         k = argv[i]
         if k in args:
             try:
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         n = getoutput('grep -c \> %s'%qry).strip()
         N = int(n)
         cmds = []
-        Start, End = list(map(int, [start, end]))
+        Start, End = map(int, [start, end])
         if Start < 0:
             Start = 0
         if End < 0:
@@ -131,9 +131,9 @@ if __name__ == '__main__':
         os.system('mkdir -p %s'%tmpdir)
 
         #for st in xrange(0, N, 10000):
-        for st in range(Start, End, Step):
+        for st in xrange(Start, End, Step):
             ed = min(N, st+Step)
-            start, end = list(map(str, [st, ed]))
+            start, end = map(str, [st, ed])
             #cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o /tmp/%s.%012d'%(fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, outfile, st)
             #cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o /tmp/%s.%012d'%(fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmp_name, st)
             #cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o %s/%s.%012d'%(fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st)
@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
         Ncmd = len(cmds)
         os.system('rm -f %s'%(outfile))
-        for i in range(0, Ncmd, ncpu):
+        for i in xrange(0, Ncmd, ncpu):
             pool.map(main, cmds[i:i+ncpu])
             for st in sts:
                 #os.system('cat /tmp/%s.%012d >> %s'%(outfile, st, outfile))

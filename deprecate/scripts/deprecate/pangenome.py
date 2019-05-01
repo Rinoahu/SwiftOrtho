@@ -2,7 +2,7 @@
 import sys
 import os
 import itertools
-
+from itertools import izip
 #import matplotlib.pyplot as plt
 from Bio import SeqIO
 import scipy as np
@@ -31,13 +31,13 @@ except:
 # do the core gene find
 # python this_script.py -i foo.pep.fsa -c foo.mcl [-l .5] [-u .95]
 def manual_print():
-    print('Usage:')
-    print('  python this_script.py -i foo.pep.fsa -g foo.mcl [-l .05] [-u .95]')
-    print('Parameters:')
-    print(' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier')
-    print(' -g: protein/gene groups file. The proteins of each raw belong to the same protein/gene group')
-    print(' -l: threshold for specific genes')
-    print(' -u: threshold for core genes')
+    print 'Usage:'
+    print '  python this_script.py -i foo.pep.fsa -g foo.mcl [-l .05] [-u .95]'
+    print 'Parameters:'
+    print ' -i: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier'
+    print ' -g: protein/gene groups file. The proteins of each raw belong to the same protein/gene group'
+    print ' -l: threshold for specific genes'
+    print ' -u: threshold for core genes'
 
 
 argv = sys.argv
@@ -45,7 +45,7 @@ argv = sys.argv
 args = {'-i':'', '-g':'', '-l':.05, '-u':.95}
 
 N = len(argv)
-for i in range(1, N):
+for i in xrange(1, N):
     k = argv[i]
     if k in args:
         v = argv[i+1]
@@ -152,14 +152,14 @@ for i in SeqIO.parse(fas, 'fasta'):
 _o0.close()
 _o1.close()
 
-print('#' * 80)
-print('# Statistics and profile of pan-genome:')
-print('# The methods can be found in Hu X, et al. Trajectory and genomic determinants of fungal-pathogen speciation and host adaptation.')
+print '#' * 80
+print '# Statistics and profile of pan-genome:'
+print '# The methods can be found in Hu X, et al. Trajectory and genomic determinants of fungal-pathogen speciation and host adaptation.'
 
-print('#')
-print('# statistic of core, shared and specific genes:')
-print('\t'.join(['# Feature', 'core', 'shared', 'specific', 'taxon']))
-print('\t'.join(map(str, ['# Number', core, shar, spec, N])))
+print '#'
+print '# statistic of core, shared and specific genes:'
+print '\t'.join(['# Feature', 'core', 'shared', 'specific', 'taxon'])
+print '\t'.join(map(str, ['# Number', core, shar, spec, N]))
 #print flag, N
 
 #_o.close()
@@ -174,12 +174,12 @@ mat = np.asarray(mat, dtype='int8')
 #print mat
 def pan_feature0(x, ts=.05, tc=.95):
     n, d = x.shape
-    idx = list(range(d))
+    idx = range(d)
     index = []
     cores = []
     specs = []
     panzs = []
-    for i in range(1, d+1):
+    for i in xrange(1, d+1):
         j = i+1
         Ts = ts < 1 and max(ts*j, 1) or ts
         Tc = tc < 1 and tc * j or tc
@@ -202,15 +202,15 @@ def pan_feature0(x, ts=.05, tc=.95):
 
 def pan_feature1(x, size=100, ts=.05, tc=.95):
     n, d = x.shape 
-    idx = list(range(d))
+    idx = range(d)
     index = []
     cores = []
     specs = []
     panzs = []
-    for itr in range(size):
+    for itr in xrange(size):
         shuffle(idx)
         y = mat[:, idx[0]]
-        for i in range(1, d-1):
+        for i in xrange(1, d-1):
             j = i+1
             Ts = ts < 1 and max(ts*j, 1) or ts
             Tc = tc < 1 and tc * j or tc
@@ -230,20 +230,20 @@ def pan_feature1(x, size=100, ts=.05, tc=.95):
 def pan_feature(x, size=150, ts=.05, tc=.95):
     n, d = x.shape 
     #size = min(size, d*(d-1)/2)
-    idx = list(range(d))
+    idx = range(d)
     index = []
     cores = []
     specs = []
     panzs = []
     idxs = []
     seed(42)
-    for i in range(size):
+    for i in xrange(size):
         shuffle(idx)
         idxs.append(idx[:])
 
     ys = x[:, [elem[0] for elem in idxs]]
     #for i in xrange(1, d-1):
-    for i in range(1, d):
+    for i in xrange(1, d):
         j = i + 1
         Ts = ts < 1 and max(ts*j, 1) or ts
         Tc = tc < 1 and tc * j or tc
@@ -303,7 +303,7 @@ def pan_feature(x, size=150, ts=.05, tc=.95):
 index, cores, specs, panzs = pan_feature(mat)
 
 for a, b in zip(index, specs):
-    print(a, b)
+    print a, b
 
 #raise SystemExit()
 
@@ -349,11 +349,11 @@ def find_med(coreN):
             med[i] = [j]
     for i in med:
         med[i] = np.median(med[i])
-    return np.asarray(list(med.items()), 'int64')
+    return np.asarray(med.items(), 'int64')
 
 
 def fit_curve(f, X, Y, alpha=.05):
-    x, y = list(map(np.asarray, [X, Y]))
+    x, y = map(np.asarray, [X, Y])
     pars, pcov = curve_fit(f, x, y)
     n = len(y)
     p = len(pars)
@@ -373,13 +373,13 @@ pm = '\xc2\xb1'
 # print 'the core N', coreN.tolist()
 #popt, pcov = curve_fit(Fc, coreN[:, 0], coreN[:, 1])
 #popt, conf = fit_curve(Fc, num, coreN[:, 1])\
-print('#')
-print('# \xcf\x89(core size of pan-genome) and 95% confidence interval:')
+print '#'
+print '# \xcf\x89(core size of pan-genome) and 95% confidence interval:'
 popt, conf = fit_curve(Fc, index, cores)
 #print 'Kc\tTauc\tOmega', popt, conf
-print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
+print '# \xce\xbac\t\xcf\x84c\t\xcf\x89'
 #print pm
-print('# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)]))
+print '# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)])
 
 
 # the specific parameter
@@ -390,12 +390,12 @@ print('# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)]))
 #popt, pcov = curve_fit(Fs, spcN[:, 0], spcN[:, 1])
 #popt, conf = fit_curve(Fs, spcN[:, 0], spcN[:, 1])
 
-print('#')
-print('# \xce\xb8(new gene number for everay new genome sequenced) and 95% confidence interval:')
+print '#'
+print '# \xce\xb8(new gene number for everay new genome sequenced) and 95% confidence interval:'
 popt, conf = fit_curve(Fs, index, specs)
 #print '# Ks\tTaus\tTheta', popt, conf
-print('# \xce\xbas\t\xcf\x84s\t\xce\xb8')
-print('# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)]))
+print '# \xce\xbas\t\xcf\x84s\t\xce\xb8'
+print '# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)])
 
 
 
@@ -414,26 +414,26 @@ print('# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)]))
 #popt, pcov = curve_fit(pgene, pan_size[:, 0], pan_size[:, 1])
 #popt, conf = fit_curve(pgene, pan_size[:, 0], pan_size[:, 1])
 
-print('#')
-print('# \xce\xba(size and openess of pan-genome, open if \xce\xb3 > 0) and 95% confidence interval:')
+print '#'
+print '# \xce\xba(size and openess of pan-genome, open if \xce\xb3 > 0) and 95% confidence interval:'
 popt, conf = fit_curve(pgene, index, panzs)
 #print 'pan-size, k, gamma', popt, conf
-print('# \xce\xba\t\xce\xb3')
-print('# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)]))
+print '# \xce\xba\t\xce\xb3'
+print '# '+'\t'.join([str(a)+pm+str(b) for a, b in zip(popt, conf)])
 
-print('#')
-print('# Type and frequency of each gene group in different species:')
-print('#'*80)
+print '#'
+print '# Type and frequency of each gene group in different species:'
+print '#'*80
 header = ['#family', 'type'] + taxon_list
 #_o = open('pan.npy', 'wb')
-print('\t'.join(header))
+print '\t'.join(header)
 #for i in outputs:
 #    print '\t'.join(map(str, i))
 f = open('type.txt', 'r')
 #mat = np.memmap('pan.npy', mode='r+', shape=(flag, N), dtype='int32')
-for i, j in zip(f, fp):
+for i, j in izip(f, fp):
     out = i[:-1] + '\t' + '\t'.join(map(str, j))
-    print(out)
+    print out
 
 f.close()
 os.system('rm pan.npy type.txt')

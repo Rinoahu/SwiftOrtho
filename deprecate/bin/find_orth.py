@@ -9,14 +9,7 @@ import sys
 #import networkx as nx
 from math import log10
 import os
-
-#from subprocess import getoutput
-if sys.version_info.major == 2:
-    from commands import getoutput
-else:
-    from subprocess import getoutput
-
-
+from commands import getoutput
 from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 from collections import Counter
 import io
@@ -26,31 +19,30 @@ import io
 
 # print the manual
 def manual_print():
-    print('Usage:')
-    # print '    python find_orth.py -i foo.sc [-c .5] [-y 50] [-n no]'
-    print('    python %s -i foo.sc [-c .5] [-y 50] [-n no]' % sys.argv[0])
-    print('Parameters:')
-    print('  -i: tab-delimited file which contain 14 columns')
-    print('  -c: min coverage of sequence [0~1]')
-    print('  -y: identity [0~100]')
-    print(
-        '  -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no')
-    print('  -a: cpu number for sorting. Default: 1')
-    print('  -t: keep tmpdir[y|n]. Default: n')
-    print('  -T: tmpdir for sort command. Default: ./tmp/')
+    print 'Usage:'
+    #print '    python find_orth.py -i foo.sc [-c .5] [-y 50] [-n no]'
+    print '    python %s -i foo.sc [-c .5] [-y 50] [-n no]' % sys.argv[0]
+    print 'Parameters:'
+    print '  -i: tab-delimited file which contain 14 columns'
+    print '  -c: min coverage of sequence [0~1]'
+    print '  -y: identity [0~100]'
+    print '  -n: normalization score [no|bsr|bal]. bsr: bit sore ratio; bal:  bit score over anchored length. Default: no'
+    print '  -a: cpu number for sorting. Default: 1'
+    print '  -t: keep tmpdir[y|n]. Default: n'
+    print '  -T: tmpdir for sort command. Default: ./tmp/'
+
 
 
 argv = sys.argv
 # recommand parameter:
-args = {'-i': '', '-c': .5, '-y': 0, '-n': 'no',
-        '-t': 'n', '-a': '4', '-T': './tmp/'}
+args = {'-i':'', '-c':.5, '-y':0, '-n':'no', '-t':'n', '-a':'4', '-T': './tmp/'}
 
 N = len(argv)
-for i in range(1, N):
+for i in xrange(1, N):
     k = argv[i]
     if k in args:
         try:
-            v = argv[i + 1]
+            v = argv[i+1]
         except:
             break
         args[k] = v
@@ -59,13 +51,12 @@ for i in range(1, N):
     else:
         continue
 
-if args['-i'] == '':
+if args['-i']=='':
     manual_print()
     raise SystemExit()
 
 try:
-    qry, coverage, identity, norm, tmpdir, cpu, tmpsrt = args[
-        '-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a']), args['-T']
+    qry, coverage, identity, norm, tmpdir, cpu, tmpsrt = args['-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a']), args['-T']
 except:
     manual_print()
     raise SystemExit()
@@ -73,21 +64,19 @@ except:
 
 # make tmp dir for sort command
 if tmpsrt != '/tmp/' or tmpsrt != '/tmp':
-    os.system('mkdir -p %s' % tmpsrt)
+    os.system('mkdir -p %s'%tmpsrt)
 
 
 #qry = sys.argv[1]
 qry = os.path.abspath(qry)
 fn = qry.split(os.sep)[-1]
-os.system('mkdir -p %s_tmp/' % qry)
-os.system('ln -sf %s %s_tmp/' % (qry, qry))
+os.system('mkdir -p %s_tmp/'%qry)
+os.system('ln -sf %s %s_tmp/'%(qry, qry))
 qry = qry + '_tmp/' + fn
 
 # blast parser, return list contains blast results with the same query id
 # remove the duplicated pairs or qid-sid
-
-
-def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}):
+def blastparse0(f, coverage = .5, identity = 0., norm='no', len_dict = {}):
     output = {}
     #len_dict = {}
     flag = None
@@ -98,11 +87,10 @@ def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}):
         qid, sid = j[:2]
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
-        idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = list(
-            map(float, j[2:12]))
+        idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
         # the fastclust seq search format
         if len(j) > 13:
-            qln, sln = list(map(float, j[12:14]))
+            qln, sln = map(float, j[12:14])
         else:
             if qid in len_dict:
                 qln = len_dict[qid]
@@ -115,17 +103,18 @@ def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}):
                 sln = max(sst, sed)
                 len_dict[sid] = sln
 
-        qcv = (1. + abs(qed - qst)) / qln
-        scv = (1. + abs(sed - sst)) / sln
-        if qcv < coverage or scv < coverage or idy < identity:
+
+        qcv = (1.+abs(qed-qst))/qln
+        scv = (1.+abs(sed-sst))/sln
+        if qcv<coverage or scv<coverage or idy<identity:
             continue
 
         if flag != qid:
             if output:
-                yield list(output.values())
+                yield output.values()
 
             mbsc = score
-            # print 'max bit score is', mbsc, qid, sid
+            #print 'max bit score is', mbsc, qid, sid
             output = {}
             length = aln
             flag = qid
@@ -145,15 +134,15 @@ def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}):
             else:
                 Score = score
 
-            if key not in output or output[key][-1] < Score:
+            if key not in output or output[key][-1]<Score:
                 output[key] = [qid, sid, Score]
 
     if output:
-        yield list(output.values())
+        yield output.values()
 
 
 # parse blast -m8 format (12 cols) or swiftOrtho -sc format (16 cols)
-def blastparse(f, coverage=.5, identity=0., norm='no'):
+def blastparse(f, coverage = .5, identity = 0., norm='no'):
     output = {}
     len_dict = {}
     flag = None
@@ -162,21 +151,20 @@ def blastparse(f, coverage=.5, identity=0., norm='no'):
     mbs_dict = {}
     for i in f:
         j = i[: -1].split('\t')
-        # if len(j) != 12 or len(j) != 16:
+        #if len(j) != 12 or len(j) != 16:
         #    continue
 
         qid, sid = j[:2]
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
         try:
-            idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = list(
-                map(float, j[2:12]))
+            idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = map(float, j[2:12])
         except:
             continue
         # the fastclust seq search format
         if len(j) > 13:
             try:
-                qln, sln = list(map(float, j[12:14]))
+                qln, sln = map(float, j[12:14])
             except:
                 continue
         else:
@@ -186,16 +174,17 @@ def blastparse(f, coverage=.5, identity=0., norm='no'):
                 qln = max(qst, qed)
                 len_dict[qid] = qln
 
-        qcv = (1. + abs(qed - qst)) / qln
-        # if qcv<coverage or scv<coverage or idy<identity:
-        if qcv < coverage or idy < identity:
+
+        qcv = (1.+abs(qed-qst))/qln
+        #if qcv<coverage or scv<coverage or idy<identity:
+        if qcv<coverage or idy<identity:
             continue
 
         if flag != qid:
             if output:
-                yield list(output.values())
+                yield output.values()
 
-            # print 'max bit score is', mbsc, qid, sid
+            #print 'max bit score is', mbsc, qid, sid
             output = {}
             length = aln
             flag = qid
@@ -222,16 +211,18 @@ def blastparse(f, coverage=.5, identity=0., norm='no'):
             else:
                 Score = score
 
-            if key not in output or output[key][-1] < Score:
+            if key not in output or output[key][-1]<Score:
                 output[key] = [qid, sid, Score]
 
     if output:
-        yield list(output.values())
+        yield output.values()
+
+
 
 
 # distinguish IP and O
 # return the IP and O
-def get_IPO0(hits, l2n={}):
+def get_IPO0(hits, l2n = {}):
     # get max of each species
     sco_max = Counter()
     out_max = 0
@@ -245,12 +236,12 @@ def get_IPO0(hits, l2n={}):
             out_max = max(out_max, sco)
 
     visit = set()
-    ips, ots, cos = [], [], []
+    ips, ots, cos  = [], [], []
     for hit in hits:
         qid, sid, sco = hit
         if sid not in l2n:
             continue
-        x, y = list(map(l2n.get, [qid, sid]))
+        x, y = map(l2n.get, [qid, sid])
         sco = float(sco)
         if sid in visit:
             continue
@@ -262,13 +253,13 @@ def get_IPO0(hits, l2n={}):
         out = [x, y, sco]
         if qtx == stx:
             if sco >= out_max:
-                # ips.append(hit)
+                #ips.append(hit)
                 ips.append(out)
             else:
                 continue
         else:
             if sco >= sco_max[stx]:
-                # ots.append(hit)
+                #ots.append(hit)
                 ots.append(out)
             else:
                 cos.append(out)
@@ -281,8 +272,6 @@ def get_IPO0(hits, l2n={}):
     return IPs, OTs, COs
 
 # get qIP, qOT and qCO
-
-
 def get_qIPO(hits):
     # get max of each species
     sco_max = Counter()
@@ -297,7 +286,7 @@ def get_qIPO(hits):
             out_max = max(out_max, sco)
 
     visit = set()
-    ips, ots, cos = [], [], []
+    ips, ots, cos  = [], [], []
     for hit in hits:
         qid, sid, sco = hit
         sco = float(sco)
@@ -312,7 +301,7 @@ def get_qIPO(hits):
         out = '\t'.join([qid, sid, str(sco)]) + '\n'
         if qtx == stx:
             if sco >= out_max and qid != sid:
-                # if sco >= out_max:
+            #if sco >= out_max:
 
                 ips.append(out)
                 outr = '\t'.join([sid, qid, str(sco)]) + '\n'
@@ -325,12 +314,10 @@ def get_qIPO(hits):
             else:
                 cos.append(out)
 
-    # return IPs, OTs, COs
+    #return IPs, OTs, COs
     return ips, ots, cos
 
 # get IP and OT
-
-
 def get_IPO(f):
     flag = None
     output = []
@@ -343,7 +330,7 @@ def get_IPO(f):
             elif len(output) == 3:
                 yield output[0], output[1], output[2], 0
             else:
-                # continue
+                #continue
                 pass
             flag = j[:2]
             output = [qid, sid, float(score)]
@@ -351,7 +338,7 @@ def get_IPO(f):
             output.append(float(score))
 
     if len(output) == 4:
-        # yield output[0], output[1], sum(output[2:4]) / 2., 1
+        #yield output[0], output[1], sum(output[2:4]) / 2., 1
         yield output[0], output[1], max(output[2:4]), 1
     elif len(output) == 3:
         yield output[0], output[1], output[2], 0
@@ -370,10 +357,10 @@ _oqots = open(qot, 'w')
 qco = qry + '.qCOs.txt'
 _oqcos = open(qco, 'w')
 
-# for i in blastparse(f, coverage, identity, norm, len_dict):
+#for i in blastparse(f, coverage, identity, norm, len_dict):
 for i in blastparse(f, coverage, identity, norm):
     IPs, OTs, COs = get_qIPO(i)
-    # print IPs, OTs, COs, l2n
+    #print IPs, OTs, COs, l2n
     _oqips.writelines(IPs)
     _oqots.writelines(OTs)
     _oqcos.writelines(COs)
@@ -383,10 +370,7 @@ _oqots.close()
 _oqcos.close()
 
 # correct search results
-
-
-def correct(s, m, l=None, r=None, sep=b'\n'):
-    # sep=sep.encode()
+def correct(s, m, l=None, r=None, sep='\n'):
     if not l and not r:
         return s.rfind(sep, 0, m) + 1
     M = s.rfind(sep, l, m) + 1
@@ -396,15 +380,11 @@ def correct(s, m, l=None, r=None, sep=b'\n'):
         M = s.find(sep, m, r) + 1
         return M
 
-
-def binary_search(s, p, key=lambda x: x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
+def binary_search(s, p, key=lambda x:x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
     #mx = chr(255)
-    sep = sep.encode()
-    if type(p) == str:
-        p = p.encode()
     n = len(s)
     #pn = len(p)
-    R = R == -1 and n - 1 or R
+    R = R == -1 and n-1 or R
     l = correct(s, L, sep=sep)
     r = correct(s, R, sep=sep)
     # find left
@@ -415,8 +395,6 @@ def binary_search(s, p, key=lambda x: x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
             break
         t = s[m: s.find(sep, m)]
         pat = key(t)
-        #print(pat, p, type(p)==str, type(p.encode()))
-        #print(pat, p)
         if pat >= p:
             r = m
         else:
@@ -425,7 +403,7 @@ def binary_search(s, p, key=lambda x: x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
     left = m - 1
     while left >= 0:
         start = s.rfind(sep, 0, left)
-        line = s[start + 1: left]
+        line = s[start+1: left]
         if key(line) == p:
             left = start
         else:
@@ -442,8 +420,8 @@ def binary_search(s, p, key=lambda x: x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
         try:
             target = key(s[right: end])
         except:
-            target = None
-        # if key(s[right: end]) == p:
+            target = None 
+        #if key(s[right: end]) == p:
         if target == p:
             right = end + 1
         else:
@@ -460,8 +438,7 @@ def binary_search(s, p, key=lambda x: x.split('\t', 1)[0], L=0, R=-1, sep='\n'):
 inots = set()
 # sort qots
 qotsrt = qot + '.srt'
-os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s' %
-          (tmpsrt, cpu, qot, qotsrt, qot))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qot, qotsrt, qot))
 
 ots = qry + '.OTs.txt'
 _oots = open(ots, 'w')
@@ -477,15 +454,14 @@ for qid, sid, sco, lab in get_IPO(f):
 
 _oots.close()
 f.close()
-os.system('rm %s' % qotsrt)
+os.system('rm %s'%qotsrt)
 
 
 ###############################################################################
 # get IPs
 ###############################################################################
 qipsrt = qip + '.srt'
-os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s' %
-          (tmpsrt, cpu, qip, qipsrt, qip))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qip, qipsrt, qip))
 
 ipqa = {}
 IPqA = {}
@@ -517,7 +493,7 @@ for qid, sid, sco, lab in get_IPO(f):
 
 _oips.close()
 f.close()
-os.system('rm %s' % qipsrt)
+os.system('rm %s'%qipsrt)
 
 for k in IPqA:
     a, b = k in ipqa and ipqa[k] or IPqA[k]
@@ -529,44 +505,40 @@ for k in IPqA:
 # get COs
 ###############################################################################
 qcosrt = qco + '.srt'
-os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s' %
-          (tmpsrt, cpu, qco, qcosrt, qco))
+os.system('export LC_ALL=C && sort -T %s --parallel=%s %s -o %s && rm %s'%(tmpsrt, cpu, qco, qcosrt, qco))
 
 
 cos = qry + '.COs.txt'
 _ocos = open(cos, 'w')
 
-fqcosrt = open(qcosrt, 'rb')
+fqcosrt= open(qcosrt, 'r')
 try:
-    Sqco = mmap(fqcosrt.fileno(), 0, access=ACCESS_READ)
+    Sqco = mmap(fqcosrt.fileno(), 0, access = ACCESS_READ)
 except:
     Sqco = ''
 
-fips = open(ips, 'rb')
+fips = open(ips,  'r')
 try:
-    Sips = mmap(fips.fileno(), 0, access=ACCESS_READ)
+    Sips = mmap(fips.fileno(), 0, access = ACCESS_READ)
 except:
     Sips = ''
-
 
 f = open(ots, 'r')
 for i in f:
     if not Sips:
         break
     # get ot pair
-    #print(i, str(i).split('\t'))
     qid, sid, sco = i.split('\t')[:3]
     #qid, sid = map(int, [qid, sid])
     # get ip of ot
-    # print(type(b'\t'))
-    st, ed, qpairs = binary_search(Sips, qid, lambda x: x.split(b'\t', 2)[0])
-    qips = [elem.split(b'\t')[1] for elem in qpairs]
-    st, ed, spairs = binary_search(Sips, sid, lambda x: x.split(b'\t', 2)[0])
-    sips = [elem.split(b'\t')[1] for elem in spairs]
+    st, ed, qpairs = binary_search(Sips, qid, lambda x: x.split('\t', 2)[0])
+    qips = [elem.split('\t')[1] for elem in qpairs]
+    st, ed, spairs = binary_search(Sips, sid, lambda x: x.split('\t', 2)[0])
+    sips = [elem.split('\t')[1] for elem in spairs]
     if not qpairs and not spairs:
         continue
-    qips.append(qid.encode())
-    sips.append(sid.encode())
+    qips.append(qid)
+    sips.append(sid)
     visit = set()
     for qip in qips:
         for sip in sips:
@@ -576,22 +548,19 @@ for i in f:
                 else:
                     continue
 
-                st, ed, pairs = binary_search(
-                    Sqco, [qip, sip], lambda x: x.split(b'\t', 3)[:2])
+                st, ed, pairs = binary_search(Sqco, [qip, sip], lambda x: x.split('\t', 3)[:2])
                 if pairs:
-                    xyzs = [elem.split(b'\t') for elem in pairs]
+                    xyzs = [elem.split('\t') for elem in pairs]
                     x, y = xyzs[0][:2]
                     sco = max([float(elem[2]) for elem in xyzs])
-                    #print(x.decode(), y.decode(), sco)
-                    _ocos.write(
-                        '\t'.join([x.decode(), y.decode(), str(sco)]) + '\n')
+                    _ocos.write('\t'.join([x, y, str(sco)]) + '\n')
                     #_ocos.write(pairs[0]+'\n')
                 else:
                     continue
-
+                   
 _ocos.close()
 f.close()
-os.system('rm %s' % qcosrt)
+os.system('rm %s'%qcosrt)
 
 
 ###############################################################################
@@ -599,7 +568,7 @@ os.system('rm %s' % qcosrt)
 ###############################################################################
 f = open(ips, 'r')
 for i in f:
-    # print 'all_IP\t' + i[:-1]
+    #print 'all_IP\t' + i[:-1]
     #x, y, score = i[:-1].split('\t')
     #x, y = map(int, [x, y])
     #qid, sid = n2l[x], n2l[y]
@@ -610,10 +579,10 @@ for i in f:
     avg = IPqA[tax]
     score = float(score)
     try:
-        out = list(map(str, ['IP', qid, sid, score / avg]))
+        out = map(str, ['IP', qid, sid, score/avg])
     except:
         continue
-    print('\t'.join(out))
+    print '\t'.join(out)
 
 f.close()
 IPqA.clear()
@@ -626,7 +595,7 @@ def get_sam_tax0(f, n2l):
     visit = set()
     for i in f:
         x, y, sco = i[:-1].split('\t')
-        x, y = list(map(int, [x, y]))
+        x, y = map(int, [x, y])
 
         if (x, y) not in visit:
             visit.add((x, y))
@@ -647,8 +616,6 @@ def get_sam_tax0(f, n2l):
         yield out
 
 # get orthology relationship with same tax name
-
-
 def get_sam_tax(f):
     flag = None
     out = []
@@ -671,8 +638,6 @@ def get_sam_tax(f):
         yield out
 
 # normal co or ot
-
-
 def n_co_ot(out):
     avgs = {}
     for qid, sid, sco in out:
@@ -690,6 +655,7 @@ def n_co_ot(out):
         stx = sid.split('|')[0]
         avg = avgs[stx]
         yield [qid, sid, sco / avg]
+
 
 
 # normal co or ot
@@ -718,7 +684,7 @@ f = open(ots, 'r')
 for i in get_sam_tax(f):
     for j in n_co_ot(i):
         out = '\t'.join(map(str, j))
-        print('OT\t' + out)
+        print 'OT\t' + out
 
 f.close()
 
@@ -726,13 +692,14 @@ f = open(cos, 'r')
 for i in get_sam_tax(f):
     for j in n_co_ot(i):
         out = '\t'.join(map(str, j))
-        print('CO\t' + out)
+        print 'CO\t' + out
 
 f.close()
 
 
 if tmpdir == 'n':
-    os.system('rm -rf %s_tmp/' % qry)
+    os.system('rm -rf %s_tmp/'%qry)
 
 if tmpsrt != '/tmp/' or tmpsrt != '/tmp':
-    os.system('rm -rf %s' % tmpsrt)
+    os.system('rm -rf %s'%tmpsrt)
+

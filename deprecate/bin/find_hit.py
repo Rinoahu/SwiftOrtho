@@ -5,18 +5,9 @@ import multiprocessing as mp
 #from sklearn.externals.joblib import Parallel, delayed
 import os
 import sys
-#from subprocess import getoutput
-if sys.version_info.major == 2:
-    from commands import getoutput
-else:
-    from subprocess import getoutput
+from commands import getoutput
 from sys import argv
 import gc
-
-try:
-    from commands import getoutput
-except:
-    from subprocess import getoutput
 
 
 # parse fasta
@@ -42,7 +33,7 @@ def blastp0(start, end):
     n = getoutput('grep -c \> %s' % qry).strip()
     N = int(n)
     cmds = []
-    Start, End = list(map(int, [start, end]))
+    Start, End = map(int, [start, end])
     if Start < 0:
         Start = 0
     if End < 0:
@@ -57,30 +48,29 @@ def blastp0(start, end):
     os.system('mkdir -p %s' % tmpdir)
 
     # for st in xrange(0, N, 10000):
-    for st in range(Start, End, Step):
+    for st in xrange(Start, End, Step):
 
         ed = min(N, st + Step)
-        start, end = list(map(str, [st, ed]))
+        start, end = map(str, [st, ed])
         cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o %s/%s.%012d -T %s' % (
-            fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st, tmpdir)
+                fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st, tmpdir)
 
         cmds.append(cmd)
         sts.append(st)
 
     Ncmd = len(cmds)
     os.system('rm -f %s' % (outfile))
-    for i in range(0, Ncmd, ncpu):
+    for i in xrange(0, Ncmd, ncpu):
         pool.map(main, cmds[i:i + ncpu])
         #Parallel(n_jobs=ncpu)(delayed(main)(elem) for elem in cmds[i:i+ncpu])
 
         for st in sts:
-            res = '%s/%s.%012d' % (tmpdir, tmp_name, st)
+            res = '%s/%s.%012d'%(tmpdir, tmp_name, st)
             if not os.path.isfile(res):
                 continue
             #os.system('cat /tmp/%s.%012d >> %s'%(outfile, st, outfile))
             #os.system('cat /tmp/%s.%012d >> %s'%(tmp_name, st, outfile))
-            os.system('cat %s/%s.%012d >> %s' %
-                      (tmpdir, tmp_name, st, outfile))
+            os.system('cat %s/%s.%012d >> %s' % (tmpdir, tmp_name, st, outfile))
 
             #os.system('rm /tmp/%s.%012d'%(outfile, st))
             #os.system('rm /tmp/%s.%012d'%(tmp_name, st))
@@ -92,13 +82,13 @@ def blastp0(start, end):
     gc.collect()
 
 
+
 def blastp(start, end):
     # get the size of query sequence
     n = getoutput('grep -c \> %s' % qry).strip()
     N = int(n)
-
     cmds = []
-    Start, End = list(map(int, [start, end]))
+    Start, End = map(int, [start, end])
     if Start < 0:
         Start = 0
     if End < 0:
@@ -112,80 +102,77 @@ def blastp(start, end):
     os.system('mkdir -p %s' % tmpdir)
 
     # for st in xrange(0, N, 10000):
-    for st in range(Start, End, Step):
+    for st in xrange(Start, End, Step):
 
         ed = min(N, st + Step)
-        start, end = list(map(str, [st, ed]))
+        start, end = map(str, [st, ed])
         cmd = '%s -p blastp -i %s -d %s -e %s -v %s -l %s -u %s -L %s -U %s -m %s -t %s -j %s -F %s -D %s -O %s -M %s -c %s -s %s -r %s -o %s/%s.%012d -T %s' % (
-            fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st, tmpdir)
+                fsearch, qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, ref_idx, wrt, ht, chk, ssd, nr, tmpdir, tmp_name, st, tmpdir)
 
         cmds.append(cmd)
         sts.append(st)
 
     Ncmd = len(cmds)
     os.system('rm -f %s' % (outfile))
-    for i in range(0, Ncmd, ncpu):
+    for i in xrange(0, Ncmd, ncpu):
         pool = mp.Pool(ncpu)
         pool.map(main, cmds[i:i + ncpu])
         pool.close()
         del pool
         gc.collect()
-
         #Parallel(n_jobs=ncpu)(delayed(main)(elem) for elem in cmds[i:i+ncpu])
         for st in sts:
-            res = '%s/%s.%012d' % (tmpdir, tmp_name, st)
+            res = '%s/%s.%012d'%(tmpdir, tmp_name, st)
             if not os.path.isfile(res):
                 continue
             #os.system('cat /tmp/%s.%012d >> %s'%(outfile, st, outfile))
             #os.system('cat /tmp/%s.%012d >> %s'%(tmp_name, st, outfile))
-            os.system('cat %s/%s.%012d >> %s' %
-                      (tmpdir, tmp_name, st, outfile))
+            os.system('cat %s/%s.%012d >> %s' % (tmpdir, tmp_name, st, outfile))
 
             #os.system('rm /tmp/%s.%012d'%(outfile, st))
             #os.system('rm /tmp/%s.%012d'%(tmp_name, st))
             os.system('rm %s/%s.%012d' % (tmpdir, tmp_name, st))
 
-    # pool.terminate()
-    # pool.close()
+    #pool.terminate()
+    #pool.close()
     #del pool
-    # gc.collect()
+    #gc.collect()
 
 
 # print the manual
 def manual_print():
-    print('Usage:')
-    # print '  make database:'
-    # print '    python find_hit.py -p makedb -i db.fsa [-s
-    # 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]'
-    print('  search:')
-    # print '    python find_hit.py -p blastp -i qry.fsa -d db.fsa'
-    print('    python %s -p blastp -i qry.fsa -d db.fsa' % sys.argv[0])
-    print('Parameters:')
-    print('  -p: program')
-    print('  -i: query sequences in fasta format')
-    print('  -l: start index of query sequences')
-    print('  -u: end index of query sequences')
-    print('  -L: start index of reference')
-    print('  -U: end index of reference')
-    print('  -d: ref database')
-    print('  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against')
-    print('  -o: output file')
-    print('  -O: write mode of output file. w: overwrite, a: append')
-    print('  -s: spaced seed in comma separated format: 1111,1110,1001')
-    print('''  -r: reduced amino acid alphabet. Available value is:
+    print 'Usage:'
+    #print '  make database:'
+    #print '    python find_hit.py -p makedb -i db.fsa [-s 1110100010001011,11010110111] [-r AST,CFILMVY,DN,EQ,G,H,KR,P,W]'
+    print '  search:'
+    #print '    python find_hit.py -p blastp -i qry.fsa -d db.fsa'
+    print '    python %s -p blastp -i qry.fsa -d db.fsa'%sys.argv[0]
+    print 'Parameters:'
+    print '  -p: program'
+    print '  -i: query sequences in fasta format'
+    print '  -l: start index of query sequences'
+    print '  -u: end index of query sequences'
+    print '  -L: start index of reference'
+    print '  -U: end index of reference'
+    print '  -d: ref database'
+    print '  -D: index of ref, if this parameter is specified, only this part of formatted ref will be searched against'
+    print '  -o: output file'
+    print '  -O: write mode of output file. w: overwrite, a: append'
+    print '  -s: spaced seed in comma separated format: 1111,1110,1001'
+    print '''  -r: reduced amino acid alphabet. Available value is:
       1. aa9, the default setting which stands for AST,CFILMVY,DN,EQ,G,H,KR,P,W
       2. aa20, the fast setting which stands for the original alphabet of 20 amino acids
-      3. user defined alphabet. The 20 amino acids in comma separated format,for example: AST,CFIL,MVY,DN,EQ,G,H,KR,P,W''')
-    print('  -v: number of hits to show')
-    print('  -e: expect value')
-    print('  -m: max ratio of pseudo hits that will trigger stop')
-    print('  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database')
-    print('  -t: filter high frequency kmers whose counts > t')
-    print('  -F: filter query sequence')
-    print('  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity')
-    print('  -c: chunck size of reference. default is 100K which means 100K sequences from reference will be used as database')
-    print('  -a: number of processors to use')
-    print('  -T: tmpdir to store tmp file. default ./tmpdir')
+      3. user defined alphabet. The 20 amino acids in comma separated format,for example: AST,CFIL,MVY,DN,EQ,G,H,KR,P,W'''
+    print '  -v: number of hits to show'
+    print '  -e: expect value'
+    print '  -m: max ratio of pseudo hits that will trigger stop'
+    print '  -j: distance between start sites of two neighbor seeds, greater will reduce the size of database'
+    print '  -t: filter high frequency kmers whose counts > t'
+    print '  -F: filter query sequence'
+    print '  -M: bucket size of hash table, reduce this parameter will reduce memory usage but decrease sensitivity'
+    print '  -c: chunck size of reference. default is 100K which means 100K sequences from reference will be used as database'
+    print '  -a: number of processors to use'
+    print '  -T: tmpdir to store tmp file. default ./tmpdir'
 
 
 def main(cmd):
@@ -201,8 +188,7 @@ if __name__ == '__main__':
     # compile the core of search
     if not os.path.isfile(fsearch):
         from rpython.translator.goal import translate
-        trans = os.path.dirname(
-            translate.__file__) + '/translate.py -c --cc=\"gcc -O3 -mssse3 -msse2 -msse4 -msse4.1 -msse4.2 -mavx2 -mavx -ffast-math\" --make-jobs=4'
+        trans = os.path.dirname(translate.__file__) + '/translate.py -c --cc=\"gcc -Ofast -mssse3 -msse2 -msse4 -msse4.1 -msse4.2 -mavx2 -mavx -g -Wall -ffast-math\" --make-jobs=4'
         os.system('cd %s/../lib/ && %s %s fsearch.py' %
                   (here, sys.executable, trans))
         #os.system('cd %s/../core/ && %s %s fsearch.py'%(here, sys.executable, trans))
@@ -227,7 +213,7 @@ if __name__ == '__main__':
             '-j': '1', '-F': 'T', '-o': '', '-D': '', '-O': 'wb', '-L': '-1', '-U': '-1', '-M': '120000000', '-c': '50000', '-a': '1', '-T': ''}
 
     N = len(argv)
-    for i in range(1, N):
+    for i in xrange(1, N):
         k = argv[i]
         if k in args:
             try:
@@ -251,13 +237,11 @@ if __name__ == '__main__':
             manual_print()
             raise SystemExit()
     else:
-
         manual_print()
         raise SystemExit()
 
     try:
-        qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, ssd, nr, ncpu, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(
-            args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-s'], args['-r'], int(args['-a']), args['-T']
+        qry, ref, exp, bv, start, end, rstart, rend, miss, thr, step, flt, outfile, ref_idx, wrt, ht, chk, ssd, nr, ncpu, tmpdir = args['-i'], args['-d'], float(args['-e']), int(args['-v']), int(args['-l']), int(args['-u']), int(args['-L']), int(args['-U']), float(args['-m']), int(args['-t']), int(args['-j']), args['-F'], args['-o'], args['-D'], args['-O'], int(args['-M']), int(args['-c']), args['-s'], args['-r'], int(args['-a']), args['-T']
         #tmpdir = tmpdir and tmpdir or qry + '_sc_tmpdir'
         tmpdir = tmpdir and tmpdir or outfile + '_sc_tmpdir'
 
@@ -270,9 +254,8 @@ if __name__ == '__main__':
             pass
 
         chk /= (nr.count('/') + 1)
-        chk = int(chk)
         flt = flt.upper()
-        print('chk size', chk)
+        print 'chk size', chk
     except:
         manual_print()
         raise SystemExit()
@@ -316,7 +299,7 @@ if __name__ == '__main__':
                 l_chr = sum(map(len, [hd, sq]))
                 if flag_chr > max_chr:
                     _o.close()
-                    outfile = '%s/%d.sc' % (ref_dir, flag_idx)
+                    outfile = '%s/%d.sc'%(ref_dir, flag_idx)
                     #blastp(start=start, end=end)
 
                     # add suffix to query file
@@ -337,21 +320,22 @@ if __name__ == '__main__':
                     flag_chr = l_chr
 
                 flag_chr += l_chr
-                _o.write('>%s\n%s\n' % (hd, sq))
+                _o.write('>%s\n%s\n'%(hd, sq))
 
             _o.close()
             if os.path.getsize(ref) > 0:
-                outfile = '%s/%d.sc' % (ref_dir, flag_idx)
+                outfile = '%s/%d.sc'%(ref_dir, flag_idx)
                 blastp(start=start, end=end)
 
             # merge all file
             #os.system('sort -m -k15,15n -k12,12nr %s/*.sc > %s && rm -rf %s/'%(ref_dir, OUTFILE, ref_dir))
-            os.system("sort -m -k15,15n -k12,12nr %s/*.sc | awk '{if(c[$1]<%s) print $0;c[$1]+=1}'  > %s && rm -rf %s/" % (
-                ref_dir, bv, OUTFILE, ref_dir))
+            os.system("sort -m -k15,15n -k12,12nr %s/*.sc | awk '{if(c[$1]<%s) print $0;c[$1]+=1}'  > %s && rm -rf %s/"%(ref_dir, bv, OUTFILE, ref_dir))
 
-        # if not 'clean':
+        #if not 'clean':
         if 'clean':
             os.system('rm -rf %s' % tmpdir)
     else:
         manual_print()
         raise SystemExit()
+
+

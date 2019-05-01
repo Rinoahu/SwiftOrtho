@@ -4,18 +4,22 @@ from Bio import SeqIO
 import networkx as nx
 from collections import Counter
 import os
-from commands import getoutput
+#from subprocess import getoutput
+if sys.version_info.major == 2:
+    from commands import getoutput
+else:
+    from subprocess import getoutput
 
 
 # do the core gene find
 def manual_print():
-    print 'This script used reciprocal best hits to identify orthologs between species and a given species, then extract sequences of these orthologs and do a msa, finally, concatenate all the msa.'
-    print 'Usage:'
-    print '  python this.py -i foo.m8 -f foo.fsa [-r taxon]\n'
-    print 'Parameters:'
-    print ' -i: blast -m8 or fastclust sc format:\n     xxxx|yyyy\tXXXX|YYYY\t...: xxxx/XXXX is taxon name and yyyy/YYYY is unique identifier in that taxon'
-    print ' -f: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon'
-    print ' -r: taxonomy name used as reference [optional]'
+    print('This script used reciprocal best hits to identify orthologs between species and a given species, then extract sequences of these orthologs and do a msa, finally, concatenate all the msa.')
+    print('Usage:')
+    print('  python this.py -i foo.m8 -f foo.fsa [-r taxon]\n')
+    print('Parameters:')
+    print(' -i: blast -m8 or fastclust sc format:\n     xxxx|yyyy\tXXXX|YYYY\t...: xxxx/XXXX is taxon name and yyyy/YYYY is unique identifier in that taxon')
+    print(' -f: protein/gene fasta file. The header should be like xxxx|yyyy: xxxx is taxon name and yyyy is unqiue identifier in that taxon')
+    print(' -r: taxonomy name used as reference [optional]')
 
 
 argv = sys.argv
@@ -23,7 +27,7 @@ argv = sys.argv
 args = {'-i': '', '-f': '', '-r': ''}
 
 N = len(argv)
-for i in xrange(1, N):
+for i in range(1, N):
     k = argv[i]
     if k in args:
         try:
@@ -57,7 +61,7 @@ for i in f:
 f.close()
 
 # if taxon not specified, then choose the taxon with most genes
-taxon_hf = taxon_ct.items()
+taxon_hf = list(taxon_ct.items())
 taxon_hf.sort(key=lambda x: x[1], reverse=True)
 taxon_N = len(taxon_hf)
 taxon_max = taxon_hf[0]
@@ -92,7 +96,7 @@ def m8parse(f):
 
 Orth = orth
 #os.system('mkdir -p ./alns_tmp/')
-os.system('mkdir -p %s_alns_tmp/'%Orth)
+os.system('mkdir -p %s_alns_tmp/' % Orth)
 
 f = open(orth, 'r')
 ortholog = {}
@@ -108,7 +112,7 @@ for i in m8parse(f):
         else:
             continue
 
-    for qid, sid in Os.itervalues():
+    for qid, sid in Os.values():
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         if qid not in ortholog:
             ortholog[qid] = [-1] * taxon_N * 2
@@ -117,7 +121,7 @@ for i in m8parse(f):
         sidx = taxon_idx[stx] * 2
         ortholog[qid][sidx] = sid
         #ortholog[qid][sidx + 1] = 1
-        #print 'ortho', ortholog[qid]
+        # print 'ortho', ortholog[qid]
 
 f.close()
 
@@ -134,38 +138,36 @@ for i in m8parse(f):
         else:
             continue
 
-    #if Os:
+    # if Os:
     #   print 'yes', Os.values(), len(ortholog)
 
-    for qid, sid in Os.itervalues():
+    for qid, sid in Os.values():
         if qid not in ortholog:
-            #print 'no found', qid
+            # print 'no found', qid
             continue
 
         qtx, stx = qid.split('|')[0], sid.split('|')[0]
         sidx = taxon_idx[stx] * 2
         if ortholog[qid][sidx] == sid:
             ortholog[qid][sidx + 1] = 1
-            #print 'yes match', ortholog[qid][sidx], sid
+            # print 'yes match', ortholog[qid][sidx], sid
 
-        #else:
+        # else:
         #   print 'not match', ortholog[qid][sidx], sid
 
-        #print 'ortho', ortholog[qid]
+        # print 'ortho', ortholog[qid]
 
 
 f.close()
 
 
-
-
-#print 'taxon N is', taxon_N
+# print 'taxon N is', taxon_N
 
 # print ortholog
 orths = []
 orths_set = set()
 # for i in ortholog.keys():
-for j in ortholog.values():
+for j in list(ortholog.values()):
     # j = ortholog[i]
     orth = [a for a, b in zip(j[::2], j[1::2]) if b == 1]
     # print orth, taxon, j
@@ -175,7 +177,7 @@ for j in ortholog.values():
         orths_set.update(orth)
     else:
         continue
-        #print rate, len(orth), taxon_N
+        # print rate, len(orth), taxon_N
 
 seqs_dict = {}
 for i in SeqIO.parse(fas, 'fasta'):
@@ -187,7 +189,7 @@ for i in SeqIO.parse(fas, 'fasta'):
 
 # write the seq to file
 orths_N = len(orths)
-for i in xrange(orths_N):
+for i in range(orths_N):
     j = orths[i]
     seqs = [seqs_dict[elem] for elem in j]
     #_o = open('./alns_tmp/%d.fsa' % i, 'w')
@@ -208,14 +210,14 @@ elif not getoutput('type muscle').endswith('not found'):
     #cmd = 'muscle -in %s_alns_tmp/%d.fsa -out %s_alns_tmp/%d.fsa.aln -fasta -quiet' % (Orth, i, Orth, i)
     cmd = 'muscle -in %s_alns_tmp/%d.fsa -out %s_alns_tmp/%d.fsa.aln -fasta -quiet'
 else:
-    print 'only support famsa|mafft|muscle'
+    print('only support famsa|mafft|muscle')
     raise SystemExit()
 
 
-for i in xrange(orths_N):
+for i in range(orths_N):
     # break
     #os.system('muscle -in %s_alns_tmp/%d.fsa -out %s_alns_tmp/%d.fsa.aln -fasta -quiet' % (Orth, i, Orth, i))
-    os.system(cmd%(Orth, i, Orth, i))
+    os.system(cmd % (Orth, i, Orth, i))
     # os.system('/home/zhans/tools/tree_tools/trimal/source/trimal -in ./alns_tmp/%d.fsa.aln -out ./alns_tmp/%d.fsa.aln.trim -automated1' % (i, i))
 
 
@@ -224,7 +226,7 @@ for i in xrange(orths_N):
 
 taxon_set = set(taxon_ct.keys())
 tree = {}
-for i in xrange(orths_N):
+for i in range(orths_N):
     # seqs = SeqIO.parse('./alns_tmp/%d.fsa.aln.trim' % i, 'fasta')
     #seqs = SeqIO.parse('./alns_tmp/%d.fsa.aln' % i, 'fasta')
     seqs = SeqIO.parse('%s_alns_tmp/%d.fsa.aln' % (Orth, i), 'fasta')
@@ -249,15 +251,15 @@ for i in xrange(orths_N):
 
 # flag = 0
 N = len(tree)
-L = len(''.join(tree.values()[0]))
+L = len(''.join(list(tree.values())[0]))
 # print ' %d %d' % (N, L)
 for i in tree:
     hd = '>' + i
     # hd = i
     sq = ''.join(tree[i])
     # print hd, sq
-    print hd
-    print sq
+    print(hd)
+    print(sq)
 
 
 #os.system('rm -rf %s_alns_tmp'%Orth)
