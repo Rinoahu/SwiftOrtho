@@ -118,6 +118,16 @@ If users want to use the original [MCL](https://micans.org/mcl "https://micans.o
 If the [MCL](https://micans.org/mcl "https://micans.org/mcl") cannot run due to insufficent memory, users can try my [MCL_lite](https://github.com/Rinoahu/MCL_lite) project which is another memory-efficent implementation of Markov Clustering Algorithm. The MCL_lite project is available at [https://github.com/Rinoahu/MCL_lite](https://github.com/Rinoahu/MCL_lite).
 
 ## Useful tools and pipeline
+The merge.py in scripts directory is used to merge multiple fasta files into a single one and add a label to gene identifier for each species.
+
+Usage:
+$python scripts/merge.py dir_name > merge.fasta
+
+dir_name is the directory that contains all the fasta files.
+
+
+
+
 
 Run_all.py in directory scripts automatically implements the following steps:
 
