@@ -18,7 +18,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'add a new script that can merge multiple fasta files into a single one'
+git commit -m 'clean example directory'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master
