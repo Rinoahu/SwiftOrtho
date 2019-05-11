@@ -33,7 +33,7 @@ $python ../scripts/run_all.py -i $a -p $a\.operon -s 1111111111 -a 2
 
 fn=$a\_results/ref.fsa.pan
 
-echo $fn
+#echo $fn
 if [[ -s $fn ]]; then
     echo 'pass test 2'
 else

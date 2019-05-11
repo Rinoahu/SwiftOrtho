@@ -1,1 +1,0 @@
-/home/xiaoh/Dropbox/genome/my_bioinformatic_scripts/postdoc_bioscript/orthomcl_fast/SwiftOrtho/example/ref.fsa.sc
