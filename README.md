@@ -221,3 +221,8 @@ Several files are generated:
         group_000000003 Specific        2       0       0       0       0
         group_000000004 Specific        3       0       0       0       0
 		...
+
+
+## Citation
+To cite our work, please refer to:
+    SwiftOrtho: a Fast, Memory-Efficient, Multiple Genome Orthology Classifier. Xiao Hu, Iddo Friedberg. bioRxiv 543223; doi: https://doi.org/10.1101/543223
