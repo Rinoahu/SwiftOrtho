@@ -224,6 +224,7 @@ Several files are generated:
 
 
 ## Citation
+
 To cite our work, please refer to:
 
-    SwiftOrtho: a Fast, Memory-Efficient, Multiple Genome Orthology Classifier. Xiao Hu, Iddo Friedberg. bioRxiv 543223; doi: https://doi.org/10.1101/543223
+> SwiftOrtho: a Fast, Memory-Efficient, Multiple Genome Orthology Classifier. Xiao Hu, Iddo Friedberg. bioRxiv 543223; doi: https://doi.org/10.1101/543223
