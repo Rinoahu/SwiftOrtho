@@ -19,11 +19,27 @@ $python ../bin/find_cluster.py -i $a.sc.orth -a apc -I 1.5 > $a.sc.orth_apc
 
 $python ../bin/find_cluster.py -i $a.sc.orth -a mcl -I 1.5 > $a.sc.orth_mcl
 
-echo 'test 1 finished'
+fn=$a.sc.orth_mcl
+
+if [[ -s $fn ]]; then
+    echo 'pass test 1'
+else
+    echo 'not pass test 1'
+fi
 
 $python ../scripts/run_all.py -i $a -p $a\.operon -s 1111111111 -a 2
 
-echo 'test 2 finished'
+#echo 'test 2 finished'
+
+fn=$a\_results/ref.fsa.pan
+
+echo $fn
+if [[ -s $fn ]]; then
+    echo 'pass test 2'
+else
+    echo 'not pass test 2'
+fi
+
 
 
 
