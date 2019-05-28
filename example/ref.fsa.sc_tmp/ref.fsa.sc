@@ -1,1 +1,0 @@
-/home/wdct/tmp/SwiftOrtho/example/ref.fsa.sc
