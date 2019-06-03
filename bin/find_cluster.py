@@ -30,6 +30,9 @@ except:
 
 from cffi import FFI
 
+os.environ['CC'] = 'gcc'
+os.environ['CXX'] = 'g++'
+
 # mmap based array
 ffi = FFI()
 ffi.cdef("""
