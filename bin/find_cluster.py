@@ -61,7 +61,7 @@ try:
 void *offset(void *mapped, size_t offset) {
     return (void*)((char*)mapped + offset);
 }
-""")
+""", flags='CC=gcc CXX=g++')
 
     globals().update({n: getattr(C, n) for n in dir(C)})
 except:
