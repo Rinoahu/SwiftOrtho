@@ -10,7 +10,9 @@ Make sure that you have the following installed
 
 1. Python 2.7 or 3.7 (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ) or [PyPy2.7](http://pypy.org/download.html "http://pypy.org/download.html")(v5.10 or greater).
 
-2. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional).
+2. [GCC](https://gcc.gnu.org/) 6.0 or above.
+
+3. [MCL](https://micans.org/mcl "https://micans.org/mcl")(optional).
 
 
 ## Download
