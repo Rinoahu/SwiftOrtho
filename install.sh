@@ -1,7 +1,8 @@
 #!/bin/bash
 
-#python install -U networkx scipy numpy biopython cffi
-python -mpip install -U pip networkx==2.0 cffi==1.12.2 biopython==1.73 numpy==1.12.1 scipy==1.2.1
+# install python packages
+#python -mpip install -U pip networkx==2.0 cffi==1.12.2 biopython==1.73 numpy==1.12.1 scipy==1.2.1
+conda install networkx=2.0 cffi=1.12.2 biopython=1.73 numpy=1.12.1 scipy=1.2.1
 
 rm -rf ./pypy
 # 1. download portable pypy
