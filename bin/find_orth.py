@@ -17,6 +17,9 @@ else:
     from subprocess import getoutput
 
 
+os.environ['CC'] = 'gcc'
+os.environ['CXX'] = 'g++'
+
 from mmap import mmap, ACCESS_WRITE, ACCESS_READ
 from collections import Counter
 import io
