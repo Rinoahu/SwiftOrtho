@@ -23,7 +23,8 @@ mkdir install_dir
 ./install_dir/bin/pypy -mpip install -U pip rpython
 
 #pypy/bin/pypy ./bin/find_hit.py &> /dev/null
-./install_dir/bin/pypy ../bin/find_hit.py &> /dev/null
+#./install_dir/bin/pypy ../bin/find_hit.py &> /dev/null
+./install_dir/bin/pypy ../bin/find_hit.py
 
 
 
