@@ -148,15 +148,8 @@ _o.close()
 # os.system(cmd)
 
 #cmd = 'nohup mcl %s_results/%s.xyz --abc -I 1.5 -o %s_results/%s.grp -te %s > %s_results/log'%(fas, sfx, fas, sfx, np, fas)
-
-# using original mcl algorithm to do mcl clustering.
-if alg == 'mcl':
-    cmd = 'nohup mcl %s_results/%s.xyz --abc -te %s -I %s -o %s_results/%s.grp' % (
-        fas, sfx, np, ifl, fas, sfx)
-else:
-    cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.grp' % (
-        pyc, here, fas, sfx, alg, ifl, fas, sfx)
-
+cmd = 'nohup %s %s/../bin/find_cluster.py -i %s_results/%s.xyz -a %s -I %s > %s_results/%s.grp' % (
+    pyc, here, fas, sfx, alg, ifl, fas, sfx)
 os.system(cmd)
 
 # recover header from number
