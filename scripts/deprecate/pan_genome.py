@@ -146,10 +146,8 @@ for i in f:
 
     #_o0.write('\t'.join(output[:2])+'\n')
 
-    #output_3 = ''.join([pack('i', elem).decode() for elem in counts])
-    output_3 = b''.join([pack('i', elem) for elem in counts])
-    #_o1.write(output_3.encode())
-    _o1.write(output_3)
+    output_3 = ''.join([pack('i', elem).decode() for elem in counts])
+    _o1.write(output_3.encode())
 
     #_o1.write(''.join([pack('i', elem) for elem in counts]))
     # print '\t'.join(map(str, output))
@@ -446,11 +444,10 @@ pm = '\xc2\xb1'
 #popt, pcov = curve_fit(Fc, coreN[:, 0], coreN[:, 1])
 #popt, conf = fit_curve(Fc, num, coreN[:, 1])\
 print('#')
-print('# ω (core size of pan-genome) and 95% confidence interval:')
+print('# \xcf\x89(core size of pan-genome) and 95% confidence interval:')
 popt, conf = fit_curve(Fc, index, cores)
 # print 'Kc\tTauc\tOmega', popt, conf
-#print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
-print('#\tκc\tτc\tω')
+print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
 # print pm
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
@@ -464,10 +461,10 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 #popt, conf = fit_curve(Fs, spcN[:, 0], spcN[:, 1])
 
 print('#')
-print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
+print('# \xce\xb8(new gene number for everay new genome sequenced) and 95% confidence interval:')
 popt, conf = fit_curve(Fs, index, specs)
 # print '# Ks\tTaus\tTheta', popt, conf
-print('# κs\tτs\ttg(θ)')
+print('# \xce\xbas\t\xcf\x84s\ttg(\xce\xb8)')
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 
@@ -486,10 +483,10 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 #popt, conf = fit_curve(pgene, pan_size[:, 0], pan_size[:, 1])
 
 print('#')
-print('# κ (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
+print('# \xce\xba(size and openess of pan-genome, open if \xce\xb3 > 0) and 95% confidence interval:')
 popt, conf = fit_curve(pgene, index, panzs)
 # print 'pan-size, k, gamma', popt, conf
-print('# κ\tγ')
+print('# \xce\xba\t\xce\xb3')
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 print('#')
