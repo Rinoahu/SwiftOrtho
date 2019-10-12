@@ -435,7 +435,8 @@ def fit_curve(f, X, Y, alpha=.05):
     return pars, conf
 
 #pm = '+/-'
-pm = '\xc2\xb1'
+#pm = '\xc2\xb1'
+pm = '±'
 #spcN = [elem for elem in coreN if elem[0] == 1] + spcN
 
 # estimate the parameters
