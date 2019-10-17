@@ -18,7 +18,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'fixed the unicode bugs in pan_genome.py'
+git commit -m 'fixed a bug in find_ortho.py'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master

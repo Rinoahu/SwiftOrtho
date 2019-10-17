@@ -550,7 +550,7 @@ except:
 
 f = open(ots, 'r')
 for i in f:
-    if not Sips:
+    if not Sips or not Sqco:
         break
     # get ot pair
     #print(i, str(i).split('\t'))
