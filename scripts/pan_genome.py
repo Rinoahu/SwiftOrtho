@@ -436,7 +436,8 @@ def fit_curve(f, X, Y, alpha=.05):
 
 #pm = '+/-'
 #pm = '\xc2\xb1'
-pm = '±'
+#pm = '±'
+pm = chr(177)
 #spcN = [elem for elem in coreN if elem[0] == 1] + spcN
 
 # estimate the parameters
@@ -446,12 +447,22 @@ pm = '±'
 # print 'the core N', coreN.tolist()
 #popt, pcov = curve_fit(Fc, coreN[:, 0], coreN[:, 1])
 #popt, conf = fit_curve(Fc, num, coreN[:, 1])\
+
+# special symbol
+k_ = chr(954)
+t_ = chr(964)
+w_ = chr(969)
+
+
 print('#')
-print('# ω (core size of pan-genome) and 95% confidence interval:')
+#print('# ω (core size of pan-genome) and 95% confidence interval:')
+print('# ' + w_ +'(core size of pan-genome) and 95% confidence interval:')
 popt, conf = fit_curve(Fc, index, cores)
 # print 'Kc\tTauc\tOmega', popt, conf
 #print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
-print('#\tκc\tτc\tω')
+#print('#\tκc\tτc\tω')
+print('#\t%sc\t%sc\t%s'(k_, t_, w_))
+
 # print pm
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
@@ -463,12 +474,16 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 # print 'the spc N', spcN.tolist()
 #popt, pcov = curve_fit(Fs, spcN[:, 0], spcN[:, 1])
 #popt, conf = fit_curve(Fs, spcN[:, 0], spcN[:, 1])
+theta = chr(952)
 
 print('#')
-print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
+#print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
+print('# %s (new gene number for every new genome sequenced) and 95% confidence interval:'%theta)
 popt, conf = fit_curve(Fs, index, specs)
 # print '# Ks\tTaus\tTheta', popt, conf
-print('# κs\tτs\ttg(θ)')
+#print('# κs\tτs\ttg(θ)')
+print('# %ss\t%ss\ttg(%s)'%(k_, t_, theta))
+
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 
@@ -487,10 +502,15 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 #popt, conf = fit_curve(pgene, pan_size[:, 0], pan_size[:, 1])
 
 print('#')
-print('# κ (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
+#print('# κ (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
+print('# %s (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:'%k_)
+
 popt, conf = fit_curve(pgene, index, panzs)
 # print 'pan-size, k, gamma', popt, conf
-print('# κ\tγ')
+r_ = chr(947)
+#print('# κ\tγ')
+print('# %s\t%s'%(k_, r_))
+
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 print('#')
