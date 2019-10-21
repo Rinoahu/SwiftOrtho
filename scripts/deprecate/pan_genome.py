@@ -146,8 +146,10 @@ for i in f:
 
     #_o0.write('\t'.join(output[:2])+'\n')
 
-    output_3 = ''.join([pack('i', elem).decode() for elem in counts])
-    _o1.write(output_3.encode())
+    #output_3 = ''.join([pack('i', elem).decode() for elem in counts])
+    output_3 = b''.join([pack('i', elem) for elem in counts])
+    #_o1.write(output_3.encode())
+    _o1.write(output_3)
 
     #_o1.write(''.join([pack('i', elem) for elem in counts]))
     # print '\t'.join(map(str, output))
@@ -433,7 +435,9 @@ def fit_curve(f, X, Y, alpha=.05):
     return pars, conf
 
 #pm = '+/-'
-pm = '\xc2\xb1'
+#pm = '\xc2\xb1'
+#pm = '±'
+pm = chr(177)
 #spcN = [elem for elem in coreN if elem[0] == 1] + spcN
 
 # estimate the parameters
@@ -443,11 +447,22 @@ pm = '\xc2\xb1'
 # print 'the core N', coreN.tolist()
 #popt, pcov = curve_fit(Fc, coreN[:, 0], coreN[:, 1])
 #popt, conf = fit_curve(Fc, num, coreN[:, 1])\
+
+# special symbol
+k_ = chr(954)
+t_ = chr(964)
+w_ = chr(969)
+
+
 print('#')
-print('# \xcf\x89(core size of pan-genome) and 95% confidence interval:')
+#print('# ω (core size of pan-genome) and 95% confidence interval:')
+print('# %s (core size of pan-genome) and 95% confidence interval:'%w_)
 popt, conf = fit_curve(Fc, index, cores)
 # print 'Kc\tTauc\tOmega', popt, conf
-print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
+#print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
+#print('#\tκc\tτc\tω')
+print('#\t%sc\t%sc\t%s'%(k_, t_, w_))
+
 # print pm
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
@@ -459,12 +474,16 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 # print 'the spc N', spcN.tolist()
 #popt, pcov = curve_fit(Fs, spcN[:, 0], spcN[:, 1])
 #popt, conf = fit_curve(Fs, spcN[:, 0], spcN[:, 1])
+theta = chr(952)
 
 print('#')
-print('# \xce\xb8(new gene number for everay new genome sequenced) and 95% confidence interval:')
+#print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
+print('# %s (new gene number for every new genome sequenced) and 95% confidence interval:'%theta)
 popt, conf = fit_curve(Fs, index, specs)
 # print '# Ks\tTaus\tTheta', popt, conf
-print('# \xce\xbas\t\xcf\x84s\ttg(\xce\xb8)')
+#print('# κs\tτs\ttg(θ)')
+print('# %ss\t%ss\ttg(%s)'%(k_, t_, theta))
+
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 
@@ -483,10 +502,15 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 #popt, conf = fit_curve(pgene, pan_size[:, 0], pan_size[:, 1])
 
 print('#')
-print('# \xce\xba(size and openess of pan-genome, open if \xce\xb3 > 0) and 95% confidence interval:')
+#print('# κ (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
+print('# %s (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:'%k_)
+
 popt, conf = fit_curve(pgene, index, panzs)
 # print 'pan-size, k, gamma', popt, conf
-print('# \xce\xba\t\xce\xb3')
+r_ = chr(947)
+#print('# κ\tγ')
+print('# %s\t%s'%(k_, r_))
+
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 print('#')
