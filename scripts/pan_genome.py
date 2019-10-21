@@ -456,12 +456,12 @@ w_ = chr(969)
 
 print('#')
 #print('# ω (core size of pan-genome) and 95% confidence interval:')
-print('# ' + w_ +'(core size of pan-genome) and 95% confidence interval:')
+print('# %s (core size of pan-genome) and 95% confidence interval:'%w_)
 popt, conf = fit_curve(Fc, index, cores)
 # print 'Kc\tTauc\tOmega', popt, conf
 #print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
 #print('#\tκc\tτc\tω')
-print('#\t%sc\t%sc\t%s'(k_, t_, w_))
+print('#\t%sc\t%sc\t%s'%(k_, t_, w_))
 
 # print pm
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
