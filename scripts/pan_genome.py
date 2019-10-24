@@ -558,5 +558,5 @@ for i, j in zip(f, fp):
     print(out)
 
 f.close()
-#os.system('rm pan.npy type.txt')
+os.system('rm pan.npy type.txt')
 # print fp
