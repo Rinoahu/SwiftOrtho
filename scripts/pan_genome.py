@@ -381,8 +381,13 @@ index, cores, specs, panzs = pan_feature(mat, 100, ts, tc)
 # print 'cores', cores
 # print 'specs', specs
 
-#for a, b, c, d in zip(index, cores, specs, panzs):
-#    print('test', a, b, c, d)
+_o = open(mcl+'_xy.txt', 'w')
+for a, b, c, d in zip(index, cores, specs, panzs):
+    #print('test', a, b, c, d)
+    abcd = '\t'.join(map(str, [a, b, c, d]))
+    _o.write('%s\n'%abcd)
+
+_o.close()
 
 #raise SystemExit()
 
