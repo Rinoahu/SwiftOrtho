@@ -203,6 +203,7 @@ print('\t'.join(map(str, ['# Number', core, shar, spec, N])))
 
 #_o.close()
 # calculate the core, share and specific gene's profile
+#print('flag and N', flag, N)
 fp = np.memmap('pan.npy', mode='r+', shape=(flag, N), dtype='int32')
 
 # print 'fp is', fp[:]
@@ -244,7 +245,7 @@ def pan_feature0(x, ts=.05, tc=.95):
     return index, cores, specs, panzs
 
 
-def pan_feature1(x, size=100, ts=.05, tc=.95):
+def pan_feature1(x, size=20, ts=.05, tc=.95):
     n, d = x.shape
     idx = list(range(d))
     index = []
@@ -285,42 +286,65 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
         shuffle(idx)
         idxs.append(idx[:])
 
-    ys = x[:, [elem[0] for elem in idxs]]
+    #print('idxs', idxs)
+    ys = np.asarray(x[:, [elem[0] for elem in idxs]] > 0, 'int32')
+    #ys_0 = np.asarray(x[:, idxs[0][0]] > 0, 'int32')
+
     # for i in xrange(1, d-1):
     for i in range(1, d):
         j = i + 1
         Ts = ts < 1 and max(ts * j, 1) or ts
         Tc = tc < 1 and tc * j or tc
+        #Tc = max(1, Tc)
+        Ts = 1
+        Tc = j
 
-        yn = x[:, [elem[i] for elem in idxs]]
+
+        #print('iter', j, Ts, ts, Tc, tc)
+        #yn_0 = np.asarray(x[:, idxs[0][i]] > 0, 'int32')
+        #print('iter', j, ys_0.shape, Ts, Tc, 'core', ((ys_0+yn_0)>=Tc).sum(), 'specific', ((ys_0==0) & (yn_0>0)).sum(), 'before', (ys_0>0).sum(), 'after', ((ys_0+yn_0)>0).sum())
+        #ys_0 += yn_0
+
+        yn = np.asarray(x[:, [elem[i] for elem in idxs]] > 0, 'int32')
         if cpu == 1:
-            sp = np.asarray(evaluate('(ys<=0) & (yn>0)'), dtype='int8')
+            #ys = evaluate('ys + yn')
+            sp = np.asarray(evaluate('(ys == 0) & (yn > 0)'), dtype='int8')
             #sp = np.asarray(evaluate('(ys<=Ts) & (yn>0)'), dtype='int8')
             spec = evaluate('sum(sp, 0)')
 
-            ys = evaluate('ys+yn')
-            cr = np.asarray(evaluate('ys>=Tc'), dtype='int8')
+            ys = evaluate('ys + yn')
+
+            cr = np.asarray(evaluate('ys >= Tc'), dtype='int8')
             core = evaluate('sum(cr, 0)')
             #core = evaluate('sum(Ys>=Tc, 0)')
             #core = np.sum(ys>=Tc, 0)
             #spec = evaluate('sum((Ys<=Ts) & (Ys>0), 0)')
             #spec = np.sum((ys<=Ts) & (ys>0), 0)
-            pa = np.asarray(evaluate('ys>0'), dtype='int8')
+            pa = np.asarray(evaluate('ys > 0'), dtype='int8')
             panz = evaluate('sum(pa, 0)')
             #panz = np.sum(ys>0, 0)
         else:
-            sp = np.asarray(np.logical_and(ys <= 0, yn > 0), 'int8')
+            #ys = ys + yn
+            #sp = np.asarray((ys <= Ts) & (ys > 0), 'int8')
+            sp = np.asarray((ys == 0) & (yn > 0), 'int8')
             spec = sp.sum(0)
+
             ys = ys + yn
             cr = np.asarray(ys >= Tc, dtype='int8')
             core = cr.sum(0)
             pa = np.asarray(ys > 0, dtype='int8')
             panz = pa.sum(0)
 
-        cores.extend(core)
-        specs.extend(spec)
-        panzs.extend(panz)
-        index.extend([j] * size)
+        #print('means', j, np.mean(core), np.mean(spec), np.mean(panz))
+        #core=sorted(core)[::-1]
+        #spec=sorted(spec)[::-1]
+        #panz=sorted(panz)[::-1]
+        end = size
+
+        cores.extend(core[:end])
+        specs.extend(spec[:end])
+        panzs.extend(panz[:end])
+        index.extend(([j] * size)[:end])
 
         '''
         if i < d-1:
@@ -352,14 +376,14 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
     return index, cores, specs, panzs
 
 
-index, cores, specs, panzs = pan_feature(mat)
+index, cores, specs, panzs = pan_feature(mat, 100, ts, tc)
 
 # print 'index', index
 # print 'cores', cores
 # print 'specs', specs
 
-# for a, b in zip(index, specs):
-#    print a, b
+#for a, b, c, d in zip(index, cores, specs, panzs):
+#    print('test', a, b, c, d)
 
 #raise SystemExit()
 
@@ -377,15 +401,15 @@ def combs(N, M):
 
 
 def Fc(n, K_c, Tau_c, Omega):
-    # return K_c * np.exp(-n / Tau_c) + Omega
-    return K_c * np.exp(-n / max(1e-30, Tau_c)) + Omega
+    return K_c * np.exp(-n / Tau_c) + Omega
+    #return K_c * np.exp(-n / max(1e-30, Tau_c)) + Omega
 
 # estimate specific gene size
 
 
 def Fs(n, K_s, Tau_s, TgTheta):
-    # return K_s * np.exp(-n / Tau_s) + TgTheta
-    return K_s * np.exp(-n / max(1e-30, Tau_s)) + min(1e8, TgTheta)
+    return K_s * np.exp(-n / Tau_s) + TgTheta
+    #return K_s * np.exp(-n / max(1e-30, Tau_s)) + min(1e8, TgTheta)
 
 # pan-genome open test
 # alpah <= 1 is open
@@ -395,14 +419,13 @@ def Fs(n, K_s, Tau_s, TgTheta):
 
 # pan size
 
-
+# estimate how many new genes  will be found after a new sequenced genome
 def fpan(n, D, tgTheta, K_s, Tau_s):
     return D + tgTheta * (n - 1) + K_s * np.exp(-2. / Tau_s) * (1 - np.exp(-(n - 1.) / Tau_s)) / (1 - np.exp(-1. / Tau_s))
 
+
 # estimate pan-genome gene size
 # r > 0 : open
-
-
 def pgene(n, K, r):
     return K * n ** r
 
@@ -418,14 +441,21 @@ def find_med(coreN):
         med[i] = np.median(med[i])
     return np.asarray(list(med.items()), 'int64')
 
-
-def fit_curve(f, X, Y, alpha=.05):
+def fit_curve(f, X, Y, alpha=.05, bounds=None):
     x, y = list(map(np.asarray, [X, Y]))
-    try:
-        # print x, y
-        pars, pcov = curve_fit(f, x, y)
-    except:
-        pars, pcov = curve_fit(f, x, y, method='dogbox')
+    if bounds:
+        try:
+            # print x, y
+            pars, pcov = curve_fit(f, x, y, method='leastsq', bounds=bounds)
+        except:
+            pars, pcov = curve_fit(f, x, y, method='dogbox', bounds=bounds)
+
+    else:
+        try:
+            # print x, y
+            pars, pcov = curve_fit(f, x, y, method='leastsq')
+        except:
+            pars, pcov = curve_fit(f, x, y, method='dogbox')
 
     n = len(y)
     p = len(pars)
@@ -457,7 +487,7 @@ w_ = chr(969)
 print('#')
 #print('# ω (core size of pan-genome) and 95% confidence interval:')
 print('# ' + w_ + '(core size of pan-genome) and 95\% confidence interval:')
-popt, conf = fit_curve(Fc, index, cores)
+popt, conf = fit_curve(Fc, index, cores, bounds=([0, 0, 0], [np.inf, np.inf, np.inf]))
 # print 'Kc\tTauc\tOmega', popt, conf
 #print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
 #print('#\tκc\tτc\tω')
@@ -479,7 +509,7 @@ theta = chr(952)
 print('#')
 #print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
 print('# ' + theta + '(new gene number for every new genome sequenced) and 95% confidence interval:')
-popt, conf = fit_curve(Fs, index, specs)
+popt, conf = fit_curve(Fs, index, specs, bounds=([0, 0, 0], [np.inf, np.inf, np.inf]))
 # print '# Ks\tTaus\tTheta', popt, conf
 #print('# κs\tτs\ttg(θ)')
 print('# %ss\t%ss\ttg(%s)'%(k_, t_, theta))
@@ -528,5 +558,5 @@ for i, j in zip(f, fp):
     print(out)
 
 f.close()
-os.system('rm pan.npy type.txt')
+#os.system('rm pan.npy type.txt')
 # print fp

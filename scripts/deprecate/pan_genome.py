@@ -456,7 +456,7 @@ w_ = chr(969)
 
 print('#')
 #print('# ω (core size of pan-genome) and 95% confidence interval:')
-print('# %s (core size of pan-genome) and 95% confidence interval:'%w_)
+print('# ' + w_ + '(core size of pan-genome) and 95\% confidence interval:')
 popt, conf = fit_curve(Fc, index, cores)
 # print 'Kc\tTauc\tOmega', popt, conf
 #print('# \xce\xbac\t\xcf\x84c\t\xcf\x89')
@@ -478,7 +478,7 @@ theta = chr(952)
 
 print('#')
 #print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
-print('# %s (new gene number for every new genome sequenced) and 95% confidence interval:'%theta)
+print('# ' + theta + '(new gene number for every new genome sequenced) and 95% confidence interval:')
 popt, conf = fit_curve(Fs, index, specs)
 # print '# Ks\tTaus\tTheta', popt, conf
 #print('# κs\tτs\ttg(θ)')
@@ -503,7 +503,7 @@ print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
 print('#')
 #print('# κ (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
-print('# %s (size and openess of pan-genome, open if γ > 0) and 95% confidence interval:'%k_)
+print('# ' + k_ + '(size and openess of pan-genome, open if γ > 0) and 95% confidence interval:')
 
 popt, conf = fit_curve(pgene, index, panzs)
 # print 'pan-size, k, gamma', popt, conf
