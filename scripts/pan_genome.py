@@ -296,9 +296,8 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
         Ts = ts < 1 and max(ts * j, 1) or ts
         Tc = tc < 1 and tc * j or tc
         #Tc = max(1, Tc)
-        Ts = 1
-        Tc = j
-
+        #Ts = 1
+        #Tc = j
 
         #print('iter', j, Ts, ts, Tc, tc)
         #yn_0 = np.asarray(x[:, idxs[0][i]] > 0, 'int32')
@@ -308,8 +307,8 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
         yn = np.asarray(x[:, [elem[i] for elem in idxs]] > 0, 'int32')
         if cpu == 1:
             #ys = evaluate('ys + yn')
-            sp = np.asarray(evaluate('(ys == 0) & (yn > 0)'), dtype='int8')
-            #sp = np.asarray(evaluate('(ys<=Ts) & (yn>0)'), dtype='int8')
+            #sp = np.asarray(evaluate('(ys == 0) & (yn > 0)'), dtype='int8')
+            sp = np.asarray(evaluate('(ys <= Ts) & (yn > 0)'), dtype='int8')
             spec = evaluate('sum(sp, 0)')
 
             ys = evaluate('ys + yn')
@@ -325,8 +324,8 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
             #panz = np.sum(ys>0, 0)
         else:
             #ys = ys + yn
-            #sp = np.asarray((ys <= Ts) & (ys > 0), 'int8')
-            sp = np.asarray((ys == 0) & (yn > 0), 'int8')
+            sp = np.asarray((ys <= Ts) & (ys > 0), 'int8')
+            #sp = np.asarray((ys == 0) & (yn > 0), 'int8')
             spec = sp.sum(0)
 
             ys = ys + yn
