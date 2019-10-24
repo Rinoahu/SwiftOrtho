@@ -445,14 +445,14 @@ def fit_curve(f, X, Y, alpha=.05, bounds=None):
     if bounds:
         try:
             # print x, y
-            pars, pcov = curve_fit(f, x, y, method='leastsq', bounds=bounds)
+            pars, pcov = curve_fit(f, x, y, bounds=bounds)
         except:
             pars, pcov = curve_fit(f, x, y, method='dogbox', bounds=bounds)
 
     else:
         try:
             # print x, y
-            pars, pcov = curve_fit(f, x, y, method='leastsq')
+            pars, pcov = curve_fit(f, x, y)
         except:
             pars, pcov = curve_fit(f, x, y, method='dogbox')
 
