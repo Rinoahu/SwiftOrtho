@@ -375,7 +375,7 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
     return index, cores, specs, panzs
 
 
-index, cores, specs, panzs = pan_feature(mat, 100, ts, tc)
+index, cores, specs, panzs = pan_feature(mat, 20, ts, tc)
 
 # print 'index', index
 # print 'cores', cores
@@ -468,6 +468,7 @@ def fit_curve(f, X, Y, alpha=.05, bounds=None):
     conf = [tval * elem ** .5 for elem in np.diag(pcov)]
     return pars, conf
 
+params = []
 #pm = '+/-'
 #pm = '\xc2\xb1'
 #pm = '±'
@@ -500,6 +501,7 @@ print('#\t%sc\t%sc\t%s'%(k_, t_, w_))
 # print pm
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
+params.extend(popt)
 
 # the specific parameter
 # print 'the spc N', spcN
@@ -519,6 +521,7 @@ popt, conf = fit_curve(Fs, index, specs, bounds=([0, 0, 0], [np.inf, np.inf, np.
 print('# %ss\t%ss\ttg(%s)'%(k_, t_, theta))
 
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
+params.extend(popt)
 
 
 # the openness
@@ -547,6 +550,9 @@ print('# %s\t%s'%(k_, r_))
 
 print('# ' + '\t'.join([str(a) + pm + str(b) for a, b in zip(popt, conf)]))
 
+params.extend(popt)
+
+
 print('#')
 print('# Type and frequency of each gene group in different species:')
 print('#' * 80)
@@ -563,4 +569,71 @@ for i, j in zip(f, fp):
 
 f.close()
 os.system('rm pan.npy type.txt')
+
 # print fp
+#print(params)
+
+curdir = os.getcwd()
+
+# plot the pan-genome feature
+Rcmd = '''#!usr/bin/env Rscript
+dat<-read.delim('{fname}', sep='\\t', header=F)
+
+end = {end}
+y = dat$V2
+x = dat$V1
+
+# core genes
+a = {a0_}
+b = {b0_}
+c = {c0_}
+fc <- function(n)(a * exp(-n/b) + c)
+
+pdf("{path}/pan_curve.pdf")
+par(mfrow=c(2,2))
+
+plot(x,y, xlab='# of genomes', ylab='# of core genes', pch=19)
+lines(fc(1:end), col='red', lwd=3)
+
+# new genes per sequenced
+K_s = {a1_}
+Tau_s = {b1_}
+TgTheta = {c1_}
+fs <- function(n)(K_s * exp(-n / Tau_s) + TgTheta)
+
+y=dat$V3
+x=dat$V1
+
+plot(x,y, xlab='# of genomes', ylab='# of new genes', pch=19)
+lines(fs(1:end), col='blue', lwd=3)
+
+# pangenome size
+K={a2_}
+r={b2_}
+
+fp <- function(n)(K * n ** r)
+
+y=dat$V4
+x=dat$V1
+
+plot(x,y, xlab='# of genomes', ylab='size of pan-genome', pch=19)
+lines(fp(1:end), col='green', lwd=3)
+
+dev.off()
+
+'''.format(fname=curdir + '/' + mcl+'_xy.txt', a0_=params[0], b0_=params[1], c0_=params[2], a1_=params[3], b1_=params[4], c1_=params[5], a2_=params[6], b2_=params[7], end=max(index), path=curdir)
+
+#print(curdir + '/' + mcl+'_xy.txt')
+#print(Rcmd)
+
+if os.system('which Rscript') == 0:
+    #print('hello')
+    _o = open('./plot_pan.rs', 'w')
+    _o.write(Rcmd)
+    _o.close()
+    os.system('Rscript ./plot_pan.rs')
+    #os.system("R -e \'%s\'"%Rcmd)
+    os.system('rm ./plot_pan.rs')
+    os.system('rm {fname}'.format(fname=curdir + '/' + mcl+'_xy.txt'))
+
+
