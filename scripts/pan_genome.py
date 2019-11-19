@@ -324,7 +324,7 @@ def pan_feature(x, size=100, ts=.05, tc=.95):
             #panz = np.sum(ys>0, 0)
         else:
             #ys = ys + yn
-            sp = np.asarray((ys <= Ts) & (ys > 0), 'int8')
+            sp = np.asarray((ys <= Ts-1) & (yn > 0), 'int8')
             #sp = np.asarray((ys == 0) & (yn > 0), 'int8')
             spec = sp.sum(0)
 
@@ -512,7 +512,7 @@ theta = chr(952)
 
 print('#')
 #print('# θ (new gene number for every new genome sequenced) and 95% confidence interval:')
-print('# ' + theta + '(new gene number for every new genome sequenced) and 95% confidence interval:')
+print('# ' + theta + '(new gene number for each new sequenced genome) and 95% confidence interval:')
 popt, conf = fit_curve(Fs, index, specs, bounds=([0, 0, 0], [np.inf, np.inf, np.inf]))
 # print '# Ks\tTaus\tTheta', popt, conf
 #print('# κs\tτs\ttg(θ)')
