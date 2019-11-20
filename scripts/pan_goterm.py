@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
 	all_type = list(all_type)
 	all_type.sort()
-	hd = '\t'.join(['GOterm'] + all_type)
+	hd = '\t'.join(['GOterm', 'function'] + all_type)
 	print(hd)
 
 	keys = list(outputs.keys())
