@@ -150,8 +150,7 @@ if __name__ == '__main__':
 			if sid == 'unknown':
 				continue
 			namespace, name = tables[sid]['namespace'][0].strip(), tables[sid]['name'][0].strip()
-			
-  			output = [qid, sid, namespace, name]
+			output = [qid, sid, namespace, name]
 #			print '\t'.join(output)
 			try:
 				try:
