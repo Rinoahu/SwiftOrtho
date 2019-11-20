@@ -166,7 +166,7 @@ if __name__ == '__main__':
 	hd = '\t'.join(['GOterm'] + all_type)
 	print(hd)
 
-	keys = outputs.keys()
+	keys = list(outputs.keys())
 	keys.sort()
 	for key in keys:
 		#print('\t'.join(key) + '\t' + str(outputs[key]))
