@@ -18,7 +18,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'add goterm enrichment tool'
+git commit -m 'update the citation'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master
