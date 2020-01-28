@@ -79,7 +79,8 @@ if tmpsrt != '/tmp/' or tmpsrt != '/tmp':
 qry = os.path.abspath(qry)
 fn = qry.split(os.sep)[-1]
 os.system('mkdir -p %s_tmp/' % qry)
-os.system('ln -sf %s %s_tmp/' % (qry, qry))
+#os.system('ln -sf %s %s_tmp/' % (qry, qry))
+os.system('cd %s_tmp/ && ln -sfn %s' % (qry, qry))
 qry = qry + '_tmp/' + fn
 
 # blast parser, return list contains blast results with the same query id
