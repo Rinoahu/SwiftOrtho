@@ -67,6 +67,8 @@ Make sure that you have the following installed
 
 -y: threshold of alignment identity of pairwise sequences.
 
+-s: separator between taxa and sequence id. Default is |.
+
 \>: output file. It is a tabular text file that contains 4 columns in the following format:
 
         OT	A|a1	B|b1	1.33510402833

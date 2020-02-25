@@ -37,12 +37,12 @@ def manual_print():
     print('  -a: cpu number for sorting. Default: 1')
     print('  -t: keep tmpdir[y|n]. Default: n')
     print('  -T: tmpdir for sort command. Default: ./tmp/')
-    print('  -s: separator between taxa and sequence id. Default is |.')
+
 
 argv = sys.argv
 # recommand parameter:
 args = {'-i': '', '-c': .5, '-y': 0, '-n': 'no',
-        '-t': 'n', '-a': '4', '-T': './tmp/', '-s': '|'}
+        '-t': 'n', '-a': '4', '-T': './tmp/'}
 
 N = len(argv)
 for i in range(1, N):
@@ -63,8 +63,8 @@ if args['-i'] == '':
     raise SystemExit()
 
 try:
-    qry, coverage, identity, norm, tmpdir, cpu, tmpsrt, sep = args[
-        '-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a']), args['-T'], args['-s']
+    qry, coverage, identity, norm, tmpdir, cpu, tmpsrt = args[
+        '-i'], float(args['-c']), float(args['-y']), args['-n'], args['-t'], int(args['-a']), args['-T']
 except:
     manual_print()
     raise SystemExit()
@@ -87,7 +87,7 @@ qry = qry + '_tmp/' + fn
 # remove the duplicated pairs or qid-sid
 
 
-def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}, sep=sep):
+def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}):
     output = {}
     #len_dict = {}
     flag = None
@@ -96,9 +96,7 @@ def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}, sep=sep):
     for i in f:
         j = i[: -1].split('\t')
         qid, sid = j[:2]
-        #qtx, stx = qid.split('|')[0], sid.split('|')[0]
-        qtx, stx = qid.split(sep)[0], sid.split(sep)[0]
-
+        qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
         idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = list(
             map(float, j[2:12]))
@@ -155,7 +153,7 @@ def blastparse0(f, coverage=.5, identity=0., norm='no', len_dict={}, sep=sep):
 
 
 # parse blast -m8 format (12 cols) or swiftOrtho -sc format (16 cols)
-def blastparse(f, coverage=.5, identity=0., norm='no', sep=sep):
+def blastparse(f, coverage=.5, identity=0., norm='no'):
     output = {}
     len_dict = {}
     flag = None
@@ -168,10 +166,7 @@ def blastparse(f, coverage=.5, identity=0., norm='no', sep=sep):
         #    continue
 
         qid, sid = j[:2]
-        #qtx, stx = qid.split('|')[0], sid.split('|')[0]
-        assert sep in qid and sep in sid
-        qtx, stx = qid.split(sep)[0], sid.split(sep)[0]
-
+        qtx, stx = qid.split('|')[0], sid.split('|')[0]
         key = sid
         try:
             idy, aln, mis, gop, qst, qed, sst, sed, evalue, score = list(
@@ -236,18 +231,15 @@ def blastparse(f, coverage=.5, identity=0., norm='no', sep=sep):
 
 # distinguish IP and O
 # return the IP and O
-def get_IPO0(hits, l2n={}, sep=sep):
+def get_IPO0(hits, l2n={}):
     # get max of each species
     sco_max = Counter()
     out_max = 0
     for hit in hits:
         qid, sid, sco = hit
         sco = float(sco)
-        #qtx = qid.split('|')[0]
-        #stx = sid.split('|')[0]
-        qtx = qid.split(sep)[0]
-        stx = sid.split(sep)[0]
-
+        qtx = qid.split('|')[0]
+        stx = sid.split('|')[0]
         sco_max[stx] = max(sco_max[stx], sco)
         if qtx != stx:
             out_max = max(out_max, sco)
@@ -264,12 +256,8 @@ def get_IPO0(hits, l2n={}, sep=sep):
             continue
         else:
             visit.add(sid)
-
-        #qtx = qid.split('|')[0]
-        #stx = sid.split('|')[0]
-        qtx = qid.split(sep)[0]
-        stx = sid.split(sep)[0]
- 
+        qtx = qid.split('|')[0]
+        stx = sid.split('|')[0]
         #out = [qid, sid, sco]
         out = [x, y, sco]
         if qtx == stx:
@@ -295,18 +283,15 @@ def get_IPO0(hits, l2n={}, sep=sep):
 # get qIP, qOT and qCO
 
 
-def get_qIPO(hits, sep=sep):
+def get_qIPO(hits):
     # get max of each species
     sco_max = Counter()
     out_max = 0
     for hit in hits:
         qid, sid, sco = hit
         sco = float(sco)
-        #qtx = qid.split('|')[0]
-        #stx = sid.split('|')[0]
-        qtx = qid.split(sep)[0]
-        stx = sid.split(sep)[0]
- 
+        qtx = qid.split('|')[0]
+        stx = sid.split('|')[0]
         sco_max[stx] = max(sco_max[stx], sco)
         if qtx != stx:
             out_max = max(out_max, sco)
@@ -320,12 +305,8 @@ def get_qIPO(hits, sep=sep):
             continue
         else:
             visit.add(sid)
-
-        #qtx = qid.split('|')[0]
-        #stx = sid.split('|')[0]
-        qtx = qid.split(sep)[0]
-        stx = sid.split(sep)[0]
-
+        qtx = qid.split('|')[0]
+        stx = sid.split('|')[0]
         qid, sid = qid < sid and [qid, sid] or [sid, qid]
         out = [qid, sid, sco]
         out = '\t'.join([qid, sid, str(sco)]) + '\n'
@@ -348,6 +329,8 @@ def get_qIPO(hits, sep=sep):
     return ips, ots, cos
 
 # get IP and OT
+
+
 def get_IPO(f):
     flag = None
     output = []
@@ -400,6 +383,8 @@ _oqots.close()
 _oqcos.close()
 
 # correct search results
+
+
 def correct(s, m, l=None, r=None, sep=b'\n'):
     # sep=sep.encode()
     if not l and not r:
@@ -512,9 +497,7 @@ for qid, sid, sco, lab in get_IPO(f):
     if lab == 1:
         out = '\t'.join([qid, sid, str(sco)]) + '\n'
         _oips.write(out)
-        #qtx = qid.split('|')[0]
-        qtx = qid.split(sep)[0]
-
+        qtx = qid.split('|')[0]
         if qid < sid:
             if qid in inots or sid in inots:
                 try:
@@ -623,9 +606,7 @@ for i in f:
     qid, sid, score = i[:-1].split('\t')
     if qid >= sid:
         continue
-    #tax = qid.split('|')[0]
-    tax = qid.split(sep)[0]
-
+    tax = qid.split('|')[0]
     avg = IPqA[tax]
     score = float(score)
     try:
@@ -653,9 +634,7 @@ def get_sam_tax0(f, n2l):
             continue
 
         qid, sid = n2l[x], n2l[y]
-        #qtx = qid.split('|')[0]
-        qtx = qid.split(sep)[0]
-
+        qtx = qid.split('|')[0]
         sco = float(sco)
         if qtx != flag:
             if out:
@@ -676,9 +655,7 @@ def get_sam_tax(f):
     visit = set()
     for i in f:
         qid, sid, sco = i[:-1].split('\t')
-        #qtx = qid.split('|')[0]
-        qtx = qid.split(sep)[0]
-
+        qtx = qid.split('|')[0]
         sco = float(sco)
         if qtx != flag:
             if out:
@@ -699,9 +676,7 @@ def get_sam_tax(f):
 def n_co_ot(out):
     avgs = {}
     for qid, sid, sco in out:
-        #stx = sid.split('|')[0]
-        stx = sid.split(sep)[0]
-
+        stx = sid.split('|')[0]
         try:
             avgs[stx][0] += sco
             avgs[stx][1] += 1.
@@ -712,9 +687,7 @@ def n_co_ot(out):
         avgs[k] = a / b
 
     for qid, sid, sco in out:
-        #stx = sid.split('|')[0]
-        stx = sid.split(sep)[0]
-
+        stx = sid.split('|')[0]
         avg = avgs[stx]
         yield [qid, sid, sco / avg]
 
@@ -723,9 +696,7 @@ def n_co_ot(out):
 def n_co_ot(out):
     avgs = {}
     for qid, sid, sco in out:
-        #stx = sid.split('|')[0]
-        stx = sid.split(sep)[0]
-
+        stx = sid.split('|')[0]
         try:
             avgs[stx][0] += sco
             avgs[stx][1] += 1.
@@ -736,9 +707,7 @@ def n_co_ot(out):
         avgs[k] = a / b
 
     for qid, sid, sco in out:
-        #stx = sid.split('|')[0]
-        stx = sid.split(sep)[0]
-
+        stx = sid.split('|')[0]
         avg = avgs[stx]
         yield [qid, sid, sco / avg]
 
