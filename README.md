@@ -8,7 +8,7 @@ SwiftOrtho is orthology analysis tool which identifies orthologs, paralogs and c
 
 Make sure that you have the following installed
 
-1. Python 2.7 or 3.7 (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ) or [PyPy2.7](http://pypy.org/download.html "http://pypy.org/download.html") (v5.10 or greater).
+1. Python 3.7 or later (Recommend [Anaconda](https://www.continuum.io/downloads#linux "https://www.continuum.io/downloads#linux" ) ).
 
 2. The GNU Compiler Collection [GCC](https://gcc.gnu.org/) 6.0 or above.
 

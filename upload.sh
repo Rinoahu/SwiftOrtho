@@ -18,7 +18,7 @@ git config --global user.name Rinoahu
 git remote rm origin
 
 git add -A .
-git commit -m 'fixed a bug on redhat linux system'
+git commit -m 'remove Python 2.7 support'
 git remote add origin https://github.com/Rinoahu/SwiftOrtho
 
 git pull origin master
