@@ -2,7 +2,8 @@
 
 # install python packages
 #python -mpip install -U pip numpy==1.16.4 scipy==1.3.0 networkx==2.3 cffi==1.12.3 biopython==1.73 
-conda install -y networkx=2.3 cffi=1.12.3 biopython=1.73 numpy=1.16.4 scipy=1.3.0
+#conda install -y networkx=2.3 cffi=1.12.3 biopython=1.73 numpy=1.16.4 scipy=1.3.0
+conda install -y networkx cffi biopython numpy scipy
 
 rm -rf ./pypy
 # 1. download portable pypy
