@@ -6,7 +6,8 @@ conda install -y networkx=2.3 cffi=1.12.3 biopython=1.73 numpy=1.16.4 scipy=1.3.
 
 rm -rf ./pypy
 # 1. download portable pypy
-wget -c https://bitbucket.org/squeaky/portable-pypy/downloads/pypy-7.1.0-linux_x86_64-portable.tar.bz2
+#wget -c https://bitbucket.org/squeaky/portable-pypy/downloads/pypy-7.1.0-linux_x86_64-portable.tar.bz2
+wget -c https://bitbucket-archive.softwareheritage.org/static/14/140b7b14-aa94-424e-b191-9cd3438381f7/attachments/pypy-7.1.1-linux_x86_64-portable.tar.bz2
 
 # 2. unzip the compressed file
 tar xvf pypy-7.1.0-linux_x86_64-portable.tar.bz2
