@@ -13,11 +13,11 @@ wget -c https://bitbucket-archive.softwareheritage.org/static/14/140b7b14-aa94-4
 tar xvf pypy-7.1.1-linux_x86_64-portable.tar.bz2
 
 # 3. remove the compressed file
-rm pypy-7.1.0-linux_x86_64-portable.tar.bz2
+rm pypy-7.1.1-linux_x86_64-portable.tar.bz2
 
 # 4. install pypy
 
-mv ./pypy-7.1.0-linux_x86_64-portable/ ./pypy
+mv ./pypy-7.1.1-linux_x86_64-portable/ ./pypy
 cd pypy
 mkdir install_dir
 ./bin/virtualenv-pypy -p ./bin/pypy ./install_dir
@@ -27,9 +27,3 @@ mkdir install_dir
 #pypy/bin/pypy ./bin/find_hit.py &> /dev/null
 #./install_dir/bin/pypy ../bin/find_hit.py &> /dev/null
 ./install_dir/bin/pypy ../bin/find_hit.py
-
-
-
-
-
-
