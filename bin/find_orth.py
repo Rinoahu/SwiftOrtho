@@ -161,7 +161,7 @@ def blastparse(f, coverage=.5, identity=0., norm='no', sep=sep):
     flag = None
     # max bit score
     #mbsc = -1
-    mbs_dict = {}
+    mbsc_dict = {}
     for i in f:
         j = i[: -1].split('\t')
         # if len(j) != 12 or len(j) != 16:
