@@ -16,7 +16,7 @@ f = open(qry, 'r')
 for i in f:
     j = i[:-1].split('\t')
     qds, rds = j[-2:]
-    for qd in qs.split(' ;;;')
+    for qd in qs.split(' ;;;'):
         for rd in rs.split(' ;;;'):
             q = qd.split(' ')[0]
             r = rd.split(' ')[0]
