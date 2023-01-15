@@ -40,8 +40,9 @@ for hits in blastparse(f):
                     outs[q].append(out)
                 except:
                     outs[q] = [out]
-    for out in outs.values():
-        print(out)
+    for vals in outs.values():
+        for out in vals:
+            print(out)
 f.close()
 
 
