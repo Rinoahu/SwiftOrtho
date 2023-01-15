@@ -108,7 +108,7 @@ start = time()
 cmd0 = 'nohup %s %s/nr_flt.py %s > %s_nr.fsa' % (pyc, here, fas, fas)
 cmd1 = 'nohup %s %s/../bin/find_hit.py -p blastp -i %s_nr.fsa -d %s_nr.fsa -o %s_results/%s_nr.fsa.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log' % (
     pyc, here, fas, fas, fas, sfx, seed, np, fas)
-cmd2 = 'nohup %s %s/nr2full.py %s_results/%s_nr.fsa.sc > %s_results/%s' % (pyc, here, fas, sfx, fas, sfx)
+cmd2 = 'nohup %s %s/nr2full.py %s_results/%s_nr.fsa.sc > %s_results/%s.sc' % (pyc, here, fas, sfx, fas, sfx)
 
 map(os.system, [cmd0, cmd1, cmd2])
 
