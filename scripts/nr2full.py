@@ -45,7 +45,7 @@ for hits in blastparse(f):
             print(out)
 f.close()
 
-
+sys.exit()
 
 f = open(qry, 'r')
 for i in f:
