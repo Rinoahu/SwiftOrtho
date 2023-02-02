@@ -33,8 +33,10 @@ for i, j in zip(pan_res, f):
     grp, typ = i
     if typ.lower() == 'core':
         #core_genes.extend(j[:-1].split('\t'))
-        core_genes.extend(j[:-1].split('\t')[:1])
-
+        #core_genes.extend(j[:-1].split('\t')[:1])
+        tmp = j[:-1].split('\t')
+        tmp.sort()
+        core_genes.extend(tmp[:1])
 f.close()
 core_genes = set(core_genes)
 
