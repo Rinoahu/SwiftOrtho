@@ -37,6 +37,7 @@ for i, j in zip(pan_res, f):
         tmp = j[:-1].split('\t')
         tmp.sort()
         core_genes.extend(tmp[:1])
+
 f.close()
 core_genes = set(core_genes)
 
