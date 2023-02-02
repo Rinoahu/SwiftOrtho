@@ -18,8 +18,11 @@ for i in f:
     if i.startswith('#'):
         continue
     j = i[:-1].split('\t', 3)
-    grp, typ = j[:2]
-    pan_res.append([grp, typ])
+    try:
+        grp, typ = j[:2]
+        pan_res.append([grp, typ])
+    except:
+        continue
 
 f.close()
 
@@ -29,7 +32,8 @@ core_genes = []
 for i, j in zip(pan_res, f):
     grp, typ = i
     if typ.lower() == 'core':
-        core_genes.extend(j[:-1].split('\t'))
+        #core_genes.extend(j[:-1].split('\t'))
+        core_genes.extend(j[:-1].split('\t')[:1])
 
 f.close()
 core_genes = set(core_genes)
