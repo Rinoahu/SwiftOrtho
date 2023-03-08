@@ -35,7 +35,7 @@ def manual_print():
     print('Optional parameters for all-vs-all homologous search:')
     print(' -s: spaced seed in format: 1111,11110,1001111 parameter')
     print(' -a: number of processors to use')
-    print(' -v: number of hits to show')
+    print(' -v: number of hits to show. Default is 1000')
     print('')
 
     print('Optional parameters for orthology inference:')
