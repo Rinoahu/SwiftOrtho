@@ -35,7 +35,6 @@ def manual_print():
     print('Optional parameters for all-vs-all homologous search:')
     print(' -s: spaced seed in format: 1111,11110,1001111 parameter')
     print(' -a: number of processors to use')
-    print(' -v: number of hits to show')
     print('')
 
     print('Optional parameters for orthology inference:')
@@ -62,7 +61,7 @@ def manual_print():
 argv = sys.argv
 # recommand parameter:
 args = {'-i': '', '-r': '', '-p': '', '-s': '1111111', '-c': '.5', '-y': '50',
-        '-n': 'no', '-l': '.05', '-u': '.95', '-a': '1', '-A': 'apc', '-I': '1.5', '-v': '1000'}
+        '-n': 'no', '-l': '.05', '-u': '.95', '-a': '1', '-A': 'apc', '-I': '1.5'}
 
 N = len(argv)
 for i in range(1, N):
@@ -86,8 +85,10 @@ except:
     manual_print()
     raise SystemExit()
 
+
 here = os.path.dirname(os.path.abspath(__file__))
 sfx = fas.split(os.sep)[-1]
+
 
 pyc = sys.executable
 # mkdir to store the results
@@ -99,11 +100,8 @@ os.system('mkdir -p %s_results' % fas)
 start = time()
 
 #cmd = 'nohup %s %s/../bin/fast_search.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log'%(pyc, here, fas, fas, fas, sfx, seed, np, fas)
-#cmd = 'nohup %s %s/../bin/find_hit.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log' % (
-#    pyc, here, fas, fas, fas, sfx, seed, np, fas)
-cmd = 'nohup %s %s/../bin/find_hit.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v %s > %s_results/log' % (
-    pyc, here, fas, fas, fas, sfx, seed, np, hts, fas)
-
+cmd = 'nohup %s %s/../bin/find_hit.py -p blastp -i %s -d %s -o %s_results/%s.sc -e 1e-5 -s %s -m 5e-2 -a %s -v 100000 > %s_results/log' % (
+    pyc, here, fas, fas, fas, sfx, seed, np, fas)
 os.system(cmd)
 
 print('all to all homologous searching time:', time() - start)
